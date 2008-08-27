@@ -1,5 +1,4 @@
 <?xml version="1.0"?>
-<?xpl-require href="../XPL/Namespace.xhtml"?>
 <?xpl-require href="../Javascript-1.6/Javascript.xhtml"?>
 <?xpl-require href="../dom.xhtml"?>
 <?xpl-require href="../net.xhtml"?>
@@ -29,13 +28,13 @@ XBL_SCRIPT_URL = (function() {
 	return node.src;
 })();
 
-
-Meeko.Namespace.enhance(Meeko['Javascript 1.6'], window);
-Meeko.Namespace.enhance(Meeko.dom, window);
+var enhance = Meeko.xpl.Namespace.enhance;
+enhance(Meeko['Javascript 1.6'], window);
+enhance(Meeko.dom, window);
 
 Meeko.stuff.createGlobal("XMLHttpRequest");
 XMLHttpRequest = Meeko.xml.XMLHttpRequest;
-Meeko.Namespace.enhance(Meeko.xml, window);
+enhance(Meeko.xml, window);
 
 if (!window.document.parentWindow) window.document.parentWindow = window;
 
