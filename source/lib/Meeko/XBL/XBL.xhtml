@@ -4,7 +4,7 @@
 <?xpl-require href="../DOM/DOM.xhtml"?>
 <?xpl-require href="../net.xhtml"?>
 <?xpl-require href="../DOM/CSS.xhtml"?>
-<?xpl-require href="../DOM/XML.xhtml"?>
+<?xpl-require href="../xml.xhtml"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <script type="text/javascript">
@@ -34,8 +34,8 @@ Meeko.Namespace.enhance(Meeko['Javascript 1.6'], window);
 Meeko.Namespace.enhance(Meeko.DOM, window);
 
 Meeko.stuff.createGlobal("XMLHttpRequest");
-XMLHttpRequest = Meeko.XML.XMLHttpRequest;
-Meeko.Namespace.enhance(Meeko.XML, window);
+XMLHttpRequest = Meeko.xml.XMLHttpRequest;
+Meeko.Namespace.enhance(Meeko.xml, window);
 
 if (!window.document.parentWindow) window.document.parentWindow = window;
 
