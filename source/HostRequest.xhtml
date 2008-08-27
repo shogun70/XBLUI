@@ -1,21 +1,15 @@
 <?xml version="1.0"?>
-<?xpl-require href="lib/Meeko/DOM/URI.xhtml"?>
+<?xpl-require href="lib/Meeko/net.xhtml"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <script type="text/javascript">
 <![CDATA[
 
-Meeko.XML.HttpRequest.hosts['lib.meekostuff.net'] = (function() {
+Meeko.XML.HttpRequest.hosts['dist.meekostuff.net'] = (function() { // FIXME host shouldn't be hard-wired
 
 var HostRequest = function(host) {
 	this.readyState = 0;
 	this.host = host;
-	this.methodScripts = {
-		GET_getResponse: "/get.php",
-		POST_getId: "/get_id.php",
-		POST_sendRequest: "/send_request.php",
-		POST_getResponse: "/get_response.php"
-	};
 };
 
 
@@ -37,7 +31,7 @@ HostRequest.prototype._send = function(data) {
 	var head = document.documentElement.getElementsByTagName("head")[0];
 	var script = document.createElement("script");
 	script.type = "text/javascript";
-	script.src = "http://" + this.host + this.methodScripts['GET_getResponse'] + "?" + this._path + "&callback=Meeko.XML.HttpRequest.hosts['" + this.host + "'].callback";
+	script.src = "http://" + this.host + this._path + ".js";
 	script._httpRequest = this;
 	head.insertBefore(script, head.firstChild);
 }

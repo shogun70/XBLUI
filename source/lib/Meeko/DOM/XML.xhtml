@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<?xpl-require href="../DOM/URI.xhtml"?>
+<?xpl-require href="../net.xhtml"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <script type="text/javascript">
@@ -9,7 +9,7 @@ if (!this.Meeko) this.Meeko = {};
 
 Meeko.XML = (function() {
 
-var URIParser = Meeko.DOM.URIParser;
+var URIParser = Meeko.net.URIParser;
 
 var DOMParser = this.DOMParser || (function() {
 
@@ -161,29 +161,7 @@ XMLHttpRequest.prototype.send = function(data) {
 		this._xhr.send(data);
 	}
 	catch (err) { this._useXHR = false; }
-	if (!this._useXHR) try {
-		this._hr.send(data);
-	}
-	catch (err) {
-		var uri = URIParser.parseUri(this._url);
-		
-		if ("xml" == uri.protocol) { // FIXME handle other schemes
-			var doc = document; // FIXME document needs to be XMLHttpRequest object specific
-			var m = this._url.match(/^([^:\/?#]+:(.*)$)/);
-			var anchor = (m.length > 2) ? m[2] : "";
-			var xml = doc.getElementById(anchor);
-			if (!xml || "xml" != xml.tagName.toLowerCase()) throw "Data island specified by xml: scheme doesn't exist";
-			// else SUCCESS
-			this.readyState = 4;
-			this.status = "200";
-			this.statusText = "OK";
-			this.responseXML = xml;
-			this.responseText = xml.innerHTML;
-			if (this.onreadystatechange) this.onreadystatechange({ type: "readystatechange" }); // FIXME
-			return;
-		}
-		else throw err;
-	}
+	if (!this._useXHR) this._hr.send(data);
 	if (!this._async) { // NOTE We do this in case onreadystatechange doesn't work for sync requests. eg Firefox-3beta
 		if (this._useXHR) this._xhrReadyStateChange();
 		else this._hrReadyStateChange();

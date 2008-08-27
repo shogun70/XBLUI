@@ -2,7 +2,7 @@
 <?xpl-require href="../XPL/Namespace.xhtml"?>
 <?xpl-require href="../Javascript-1.6/Javascript.xhtml"?>
 <?xpl-require href="../DOM/DOM.xhtml"?>
-<?xpl-require href="../DOM/URI.xhtml"?>
+<?xpl-require href="../net.xhtml"?>
 <?xpl-require href="../DOM/CSS.xhtml"?>
 <?xpl-require href="../DOM/XML.xhtml"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -443,7 +443,7 @@ var requestFile = function(uri, callback) {
 
 
 var parseUri = function(uri, baseURI) { // TODO XBLLocation interface
-	var location = Meeko.DOM.URIParser.parseUri(uri, baseURI);
+	var location = Meeko.net.URIParser.parseUri(uri, baseURI);
 	return location;
 }
 
@@ -1086,13 +1086,10 @@ XBLBinding.prototype.filterEventByModifiers = function(event, modifiers) {
 
 /*
 	XBL document & element wrappers
-	TODO: complete XBLHandlerELement
-	TODO: use childNodes rather than getElementsByTagName
+	TODO: better reporting of invalid content
 	TODO: namespaces
-	TODO: how do we handle XBL & non-XBL documents?
 	TODO: clean up the process of adding xblDocument property to XBLBindingElements
 	TODO: tight binding of wrappers??
-	TODO: XBLDocument.eval or some-such
 */
 
 function getTextContent(element) {
