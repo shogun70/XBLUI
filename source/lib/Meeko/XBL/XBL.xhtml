@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xpl-require href="../XPL/Namespace.xhtml"?>
 <?xpl-require href="../Javascript-1.6/Javascript.xhtml"?>
-<?xpl-require href="../DOM/DOM.xhtml"?>
+<?xpl-require href="../dom.xhtml"?>
 <?xpl-require href="../net.xhtml"?>
 <?xpl-require href="../DOM/CSS.xhtml"?>
 <?xpl-require href="../xml.xhtml"?>
@@ -31,7 +31,7 @@ XBL_SCRIPT_URL = (function() {
 
 
 Meeko.Namespace.enhance(Meeko['Javascript 1.6'], window);
-Meeko.Namespace.enhance(Meeko.DOM, window);
+Meeko.Namespace.enhance(Meeko.dom, window);
 
 Meeko.stuff.createGlobal("XMLHttpRequest");
 XMLHttpRequest = Meeko.xml.XMLHttpRequest;
