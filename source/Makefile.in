@@ -1,0 +1,100 @@
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+PKGNAME = @PKGNAME@
+PKGVERSION = @PKGVERSION@
+
+include @top_srcdir@/mk/gnu.bsdvars.mk
+
+# FIXME we need these first four because pkglibdir, etc
+# aren't expanded by configure
+basedir ?= @basedir@
+prefix ?= @prefix@
+pkgreldir ?= ${PKGNAME}/${PKGVERSION}
+destdir ?= @destdir@
+toolsdir ?= @top_srcdir@/tools
+
+pkglibdir ?= @pkglibdir@
+pkgdefaultlibdir ?= @pkgdefaultlibdir@
+pkglibexecdir ?= @pkglibexecdir@
+pkgdemodir ?= @pkgdemodir@
+destpkglibdir ?= @destpkglibdir@
+destpkglibexecdir ?= @destpkglibexecdir@
+destpkgdemodir ?= @destpkgdemodir@
+
+.SUFFIXES :
+.SUFFIXES : .html .xhtml .js .xml .xpl .xbl .xbl_xpl 
+
+UI_TARGETS = WF2.xml UI.xml UI.js WF2.js
+TARGETS = ${UI_TARGETS} XBL.js XBLUI.js
+INSTALL_FILES = ${UI_TARGETS} XBL.js XBLUI.js
+
+XSLTPROC = /usr/bin/xsltproc
+HTML2XHTML = ${XSLTPROC} --novalid --html ${srcdir}/lib/Meeko/XPL/xhtml2xhtml.xsl 
+XHTML2JS = ${toolsdir}/bin/brash ${srcdir}/lib/Meeko/XPL/xhtml2js.js
+EXBL2XBL = ${XSLTPROC} --novalid ${srcdir}/lib/Meeko/XBL/exbl2xbl.xsl 
+XBLPP = ${XSLTPROC} --novalid ${srcdir}/lib/Meeko/XBL/xblpp.xsl 
+XPLPP = ${XSLTPROC} --novalid ${srcdir}/lib/Meeko/XBL/xplpp.xsl 
+XPL = ${toolsdir}/bin/xpl
+URLINSTALL = ${toolsdir}/bin/urlinstall
+CURL = /usr/bin/curl --netrc --ftp-create-dirs
+SVN = /usr/local/bin/svn
+
+CACHE_CONFIG := ${foreach fname,${UI_TARGETS},--disk-cache ${pkglibexecdir}/${fname} ${.CURDIR}/${fname}}
+
+PARAMS_CONFIG += --param pkglibdir ${pkglibdir}
+PARAMS_CONFIG += --param pkgdefaultlibdir ${pkgdefaultlibdir}
+
+# Rules
+all : build
+
+depend : .depend
+
+.depend :
+	# FIXME
+	# ${XPL} --make-depend ${CACHE_CONFIG} ${PARAMS_CONFIG} XBL.xhtml > .depend
+	# ${XPL} --make-depend ${CACHE_CONFIG} ${PARAMS_CONFIG} XBLUI.xhtml > .depend
+	
+build : ${TARGETS}
+
+install: build
+	for FILE in ${INSTALL_FILES}; do \
+		${URLINSTALL} $${FILE} ${destpkglibexecdir}/$${FILE}; \
+		gzip -c $${FILE} | ${URLINSTALL} - ${destpkglibexecdir}/$${FILE}.gz; \
+	done;
+
+clean : 
+	-rm ${TARGETS}
+
+UI.xml : UI.xbl_xpl
+
+#WF2.xml : WF2.xbl_xpl
+WF2.xml : WF2.xbl WF2.js
+
+UI.js : UI.xpl
+
+WF2.js : WF2.xpl
+
+XBLUI.js : XBLUI.xhtml ${srcdir}/lib/Meeko/XBL/XBL.xhtml ${UI_TARGETS}
+	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} > ${.TARGET}
+
+XBL.js : XBL.xhtml lib/Meeko/XBL/XBL.xhtml
+	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} > ${.TARGET}
+
+.html.xhtml : 
+	${HTML2XHTML} ${.IMPSRC} > ${.TARGET}
+
+.xhtml.js : 
+	${XHTML2JS} ${.IMPSRC} > ${.TARGET}
+
+.xbl.xml :
+	cp ${.IMPSRC} ${.TARGET}
+
+.xbl_xpl.xml :
+	${XBLPP} ${.IMPSRC} > ${.TARGET}
+
+.exbl.xml :
+	${EXBL2XBL} ${.IMPSRC} > ${.TARGET}
+
+.xpl.js :
+	${XPLPP} ${.IMPSRC} > ${.TARGET}

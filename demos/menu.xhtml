@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+		"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!--
+XBL2 Menu Demo
+Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>Meeko XBL Menu Demo</title>
+	<xbl xmlns="http://www.w3.org/ns/xbl">
+		<binding element="*" extends="{pkgdefaultlibdir}/UI.xml#HTMLElement"/>
+		<binding element="#menu > div > ul > li" extends="{pkgdefaultlibdir}/UI.xml#treeitem">
+			<handlers>
+				<handler event="mouseover">
+this.boundElement.setOpenState(true);
+				</handler>
+				<handler event="mouseout">
+this.boundElement.setOpenState(false);
+				</handler>
+			</handlers>
+		</binding>
+	</xbl>
+	<style>
+html { border: none; padding: 0; margin: 0; } 
+body { width: 480px; height: 100%; }
+#menu {
+	margin: 0px;
+	padding: 0px;
+	background-color: #ffffff;
+}
+/* Reset CSS */
+.menu { margin: 0px; padding: 0px; background-color: #dddddd; }
+.menu ul, .menu li { list-style: none outside; margin: 0px; padding: 0px; display: inline; }
+.menu li { position: relative; top: 0px; left: 0px; }
+.menu li button { border: none; background-color: #dddddd; padding: 0.1em 0.5em; margin: 0; }
+.menu li ul { display: block; position: absolute; top: 1em; left: 0; width: auto; _width: 0; }
+.menu li.closed ul { visibility: hidden; }
+.menu li li { display: block; white-space: nowrap; padding: 0.1em 0.5em; }
+.menu { border: 1px outset #dddddd; }
+.menu li.open button, .menu li li:hover { background-color: #0033cc; color: #dddddd; }
+.menu li ul {
+	list-style-type: none;
+	background-color: #dddddd;
+	border-style: outset;
+	border-color: #dddddd;
+	border-width: 1px;
+}
+
+#edit { background-color: #ffffff; margin: 0px; padding: 1em; }
+	</style>
+</head>
+
+<body id="menu">
+	<div class="menu">
+		<ul>
+			<li class="closed"><button type="button">File</button>
+				<ul>
+					<li>New</li>
+					<li>Open</li>
+					<li>Save</li>
+					<li>Save As</li>
+					<li>Close</li>
+				</ul>
+			</li>
+			<li class="closed"><button type="button">Edit</button>
+				<ul>
+					<li>Undo</li>
+					<li>Redo</li>
+					<li>Cut</li>
+					<li>Copy</li>
+					<li>Paste</li>
+					<li>Delete</li>
+				</ul>			
+			</li>
+			<li class="closed"><button type="button">View</button>
+				<ul>
+					<li>Normal</li>
+					<li>Outline</li>
+					<li>Source</li>
+				</ul>
+			</li>
+			<li class="closed"><button type="button">Help</button>
+				<ul>
+					<li>Online Help</li>
+					<li>About</li>
+				</ul>
+			</li>
+		</ul>
+	</div>
+	<div id="edit">
+		<p>The application menu bar is merely a list of lists.</p>
+		<p>
+Sub-menus (nested lists) are normally hidden, but are displayed under the appropriate conditions -
+in this case when the mouse is over the menu label or the menu.
+		</p>
+		<p>CSS does the rest.</p>
+	</div>
+</body>
+</html>

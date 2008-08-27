@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Meeko.Namespace</title>
+	<script type="text/javascript">
+<![CDATA[
+if (!this.Meeko) this.Meeko = {};
+Meeko.Namespace = function() {};
+Meeko.Namespace.enhance = function(src, dest) {
+	for (var className in src) {
+		var srcClass = src[className];
+		var destClass = dest[className];
+		if (destClass) {
+			for (var propName in srcClass) {
+				if ("prototype" == propName) continue;
+				if (destClass[propName]) continue;
+				else destClass[propName] = srcClass[propName];
+			}
+			if (srcClass.prototype && null == destClass.prototype) destClass.prototype = {}; // NOTE fixes DOMException on Opera and Safari2
+			for (var propName in srcClass.prototype) {
+				if (destClass.prototype[propName]) continue;
+				else destClass.prototype[propName] = srcClass.prototype[propName];
+			}
+		}
+		else dest[className] = srcClass;
+	}
+}
+]]>
+	</script>
+</head>
+<body>
+</body>
+</html>

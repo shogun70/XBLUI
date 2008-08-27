@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+		"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!--
+XBL2 Tree demo
+Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>Meeko XBL Tree Demo</title>
+	<xbl xmlns="http://www.w3.org/ns/xbl">
+		<binding element="*" extends="{pkgdefaultlibdir}/UI.xml#HTMLElement"/>
+		<binding element="#tree .nav" extends="{pkgdefaultlibdir}/UI.xml#tree"/>
+		<binding element="#tree .nav li" extends="{pkgdefaultlibdir}/UI.xml#treeitem">
+			<handlers>
+				<handler event="click" phase="target">
+var treeitem = this.boundElement;
+var isOpen = treeitem.getOpenState();
+treeitem.setOpenState(!isOpen);
+				</handler>
+			</handlers>
+		</binding>
+	</xbl>
+	<style>
+html { border: none; }
+body { width: 480px; height: 100%; }
+#tree, #tree .nav {
+	margin: 0px;
+	padding: 0px;
+	background-color: #ffffff;
+}
+#tree .nav label { display: block; background-color: #dddddd; border: 1px outset #dddddd; }
+#tree ul, #tree li { list-style: none outside; margin-left: 0px; padding-left: 0px; }
+#tree li.closed ul { display: none; }
+/* pseudo list-style-image */
+#tree li { padding-left: 15px; }
+#tree li.closed { background: url(arrow-rit.gif) no-repeat; }
+#tree li.open { background: url(arrow-dn.gif) no-repeat; }
+	</style>
+</head>
+
+<body id="tree">
+	<div class="nav">
+		<label>Plants</label>
+<ul>
+	<li class="closed"><a>Green algae</a>
+		<ul>
+			<li><a>Chlorophyta</a></li>
+			<li><a>Charophyta</a></li>
+		</ul>
+	</li>
+	<li class="closed"><a>Land plants (embryophytes)</a>
+		<ul>
+			<li class="closed"><a>Non-vascular land plants (bryophytes)</a>
+				<ul>
+					<li><a>Marchantiophyta - liverworts</a></li>
+					<li><a>Anthocerotophyta - hornworts</a></li>
+					<li><a>Bryophyta - mosses</a></li>
+					<li><a>Horneophytopsida</a></li>
+				</ul>
+			</li>
+			<li class="closed"><a>Vascular plants (tracheophytes)</a>
+				<ul>
+					<li><a>Rhyniophyta - rhyniophytes</a></li>
+					<li><a>Zosterophyllophyta - zosterophylls</a></li>
+					<li><a>Lycopodiophyta - clubmosses</a></li>
+					<li><a>Trimerophytophyta - trimerophytes</a></li>
+					<li><a>Pteridophyta - ferns and horsetails</a></li>
+					<li><a>Progymnospermophyta</a></li>
+					<li class="closed"><a>Seed plants (spermatophytes)</a>
+						<ul>
+							<li><a>Pteridospermatophyta - seed ferns</a></li>
+							<li><a>Pinophyta - conifers</a></li>
+							<li><a>Cycadophyta - cycads</a></li>
+							<li><a>Ginkgophyta - ginkgo</a></li>
+							<li><a>Gnetophyta - gnetae</a></li>
+							<li><a>Magnoliophyta - flowering plants</a></li>
+						</ul>
+					</li>
+				</ul>
+			</li>
+		</ul>
+	</li>
+	<li><a>Nematophytes</a></li>
+</ul>
+	</div>
+
+</body>
+</html>

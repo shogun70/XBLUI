@@ -1,0 +1,119 @@
+<?xml version="1.0"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<script>
+<![CDATA[
+if (!this.Meeko) this.Meeko = {};
+
+Meeko['Javascript 1.6'] = (function() {
+
+var Array = function() {}
+Array.prototype = new this.Array();
+
+Array.indexOf = function(array, val, start) {
+	var n = array.length;
+	if (start == null) start = 0;
+	for (var i=start; i<n; i++) {
+		if (val == array[i]) return i;
+	}
+	return -1;
+}
+
+Array.lastIndexOf = function(array, val, start) {
+	var n = array.length;
+	if (start == null) start = n-1;
+	for (var i=start; i>=0; i--) {
+		if (val == array[i]) return i;
+	}
+	return -1;
+}
+
+Array.filter = function(array, callback, context) {
+	var out = [];
+	var n = array.length;
+	for (var i=0; i<n; i++) {
+		var rc = callback.call(context, array[i], i, array);
+		if (rc) out.push(array[i]);
+	}
+	return out;
+}
+
+Array.every = function(array, callback, context) {
+	var n = array.length;
+	for (var i=0; i<n; i++) {
+		var rc = callback.call(context, array[i], i, array);
+		if (!rc) return false;
+	}
+	return true;
+}
+
+Array.forEach = function(array, callback, context) {
+	var n = array.length;
+	for (var i=0; i<n; i++) {
+		callback.call(context, array[i], i, array);
+	}
+}
+
+
+Array.map = function(array, callback, context) {
+	var out = [];
+	var n = array.length;
+	for (var i=0; i<n; i++) {
+		var rc = callback.call(context, array[i], i, array);
+		out[i] = rc;
+	}
+	return out;
+}
+
+Array.some = function(array, callback, context) {
+	var n = array.length;
+	for (var i=0; i<n; i++) {
+		var rc = callback.call(context, array[i], i, array);
+		if (rc) return true;
+	}
+	return false;
+}
+
+
+Array.prototype.indexOf = function(val, start) { return Array.indexOf(this, val, start); }
+Array.prototype.lastIndexOf = function(val, start) { return Array.lastIndexOf(this, val, start); }
+Array.prototype.every = function(callback, context) { return Array.every(this, callback, context); }
+Array.prototype.filter = function(callback, context) { return Array.filter(this, callback, context); }
+Array.prototype.forEach = function(callback, context) { return Array.forEach(this, callback, context); }
+Array.prototype.map = function(callback, context) { return Array.map(this, callback, context); }
+Array.prototype.some = function(callback, context) { return Array.some(this, callback, context); }
+
+var Object = function() {}
+Object.prototype = new this.Object();
+
+Object.forEach = function(object, callback, context) {
+	for (var key in object) {
+		var val = object[key];
+		if (typeof val != "function") callback.call(context, val, key, object);
+	}
+}
+
+var forEach = function(object, callback, context) {
+	if (object.forEach instanceof Function) {
+		object.forEach(callback, context);
+	}
+	else if (null != object.length) {
+		Array.forEach(object, callback, context);
+	}
+	else {
+		Object.forEach(object, callback, context);
+	}
+}
+
+return {
+	Array: Array,
+	Object: Object,
+	forEach: forEach
+}
+
+})();
+]]>
+</script>
+</head>
+</html>

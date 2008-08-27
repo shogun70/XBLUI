@@ -1,0 +1,104 @@
+** XBL Specific **
+
+- test binding removal
+
+- filtering on event-handlers
+	- key events
+	- text events
+	
+- mapping from standard events to real-world events
+	- textInput -> keypress (and paste events)
+	- DOMAttrModified -> propertychange
+	- click[clickCount=2] -> dblclick
+
+- code in a binding document must be executed in the context of that binding document
+
+- scripts in binding documents
+
+- templates
+	- simple ( no content element)
+	- standard
+
+- styles in binding documents
+
+- delay window.onload until all bindings applied
+
+- check XBL feature strings
+
+- application of binding elements is based on document order not CSS specificity
+
+
+** XBL Extensions **
+
+- System bindings
+
+- Localized bindings (which act as if they are within the boundDocument)
+
+
+** Generic **
+
+- Test & Demos
+
+- Initialization options
+
+- redo SAC parser (or replace)
+
+- Modularize
+	- Javascript enhancements
+	- DOM compat
+
+- getters and setters
+
+
+** Browser specific **
+
+* Internet Explorer *
+
+- DOM compatibility
+	- EventTarget, especially dispatchEvent
+	
+- Event Handling
+	- DOMAttrModified -> propertychange.  Need to store prevValue
+	- target -> srcElement
+	- currentTarget -> ?? (this.boundElement)
+	- stopPropagation -> cancelBubble (or just rely on <handler propagate="stop">)
+	- preventDefault -> returnValue (or just rely on <handler default-action="prevent">)
+	- event capturing
+		- currently ignored
+		
+* Safari / Webkit *
+
+- setAttribute / removeAttribute don't trigger DOMAttrModified
+
+- textContent for XML elements in Safari2
+
+
+** XBL Specification Queries **
+
+- Processing Instructions in HTML (as opposed to XML) aren't detected in many browsers.
+How about <link rel="bindings" type="text/xml" href="binding.xml" /> ?
+
+- It should be possible for methods from XBL bindings to override native methods of bound elements.
+
+- Shouldn't xblBindingAttached be executed when the sub-tree is ready?  Or maybe there should be an xblSubtreeReady method?
+
+- It seems illogical to have an xblBindingAttached, but not xblBindingDetached.
+
+- Is the global script scope and the Window object for a binding document the same as that of the bound document?
+Apart from location, history and cookie properties.  
+Especially: are functions, classes, etc declared in scripts in a binding document available in the bound document context?
+
+- Does ElementXBL.addBinding(url) add the binding if it is already present?
+
+- Shouldn't there be a ElementXBL.getBinding(url)?
+
+- Shouldn't @extends be @base-binding? Confusion with ES4 class model.
+
+- What does 'Anything else ("modifier")' mean?
+
+- In the XBL2 Scripting Model (section 8.2.2) is the Window object and global script scope of the binding document the same as that for the bound document?
+Does anything in a <script> element propagate back to the bound documents script context?
+
+- The relationship between external and internal objects and the implementation prototype seems wrong.
+
+- binding methods starting with xbl shouldn't be on the public object or available from the bound-element.

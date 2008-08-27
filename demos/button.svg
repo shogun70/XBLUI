@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20001102//EN" 
+ "http://www.w3.org/TR/2000/CR-SVG-20001102/DTD/svg-20001102.dtd"> 
+
+<svg xmlns="http://www.w3.org/2000/svg"
+	width="100" height="100" >
+   <defs>
+      <rect x="0" y="0" width="100%" height="100%" fill="transparent"/>
+      <linearGradient id="red"
+	  	x1="40" y1="40" x2="0" y2="0"
+         gradientUnits="userSpaceOnUse"> 
+         <stop stop-color="#cc9999" offset="0%"/>
+         <stop stop-color="#880000" offset="100%"/>
+      </linearGradient> 
+   
+      <linearGradient id="green"
+	  	x1="0" y1="40" x2="40" y2="0"
+         gradientUnits="userSpaceOnUse"> 
+         <stop stop-color="#99aa99" offset="0%"/>
+         <stop stop-color="#004400" offset="100%"/>
+      </linearGradient> 
+
+      <linearGradient id="blue"
+	  	x1="40" y1="0" x2="0" y2="40"
+         gradientUnits="userSpaceOnUse"> 
+         <stop stop-color="#000099" offset="0%"/>
+         <stop stop-color="#000088" offset="100%"/>
+      </linearGradient> 
+   
+      <linearGradient id="blue2"
+	  	x1="40" y1="0" x2="0" y2="40"
+         gradientUnits="userSpaceOnUse"> 
+         <stop stop-color="#bbbbff" offset="0%"/>
+         <stop stop-color="#4444cc" offset="40%"/>
+         <stop stop-color="#111199" offset="60%"/>
+         <stop stop-color="#000088" offset="100%"/>
+      </linearGradient> 
+   
+      <linearGradient id="yellow"
+	  	x1="0" y1="0" x2="40" y2="40"
+         gradientUnits="userSpaceOnUse"> 
+         <stop stop-color="#ffff00" offset="0%"/>
+         <stop stop-color="#e0d000" offset="100%"/>
+      </linearGradient> 
+
+      <linearGradient id="yellow2"
+	  	x1="0" y1="0" x2="40" y2="40"
+         gradientUnits="userSpaceOnUse"> 
+         <stop stop-color="#ffffff" offset="0%"/>
+         <stop stop-color="#e8e077" offset="40%"/>
+         <stop stop-color="#e0d833" offset="60%"/>
+         <stop stop-color="#e0d000" offset="100%"/>
+      </linearGradient> 
+   </defs>
+   
+   <g transform="translate(0,0)">
+     <path
+        d="M0,49 L0,5 a10,10 0 0,1 5,-5 L94,0 a10,10 0 0,1 5,5 L99,49"
+        stroke="#bbbbbb"
+        stroke-width="1"
+        fill="#dddddd"/>
+	</g>
+	<g transform="translate(0,50)">
+     <path
+        d="M0,49 L0,5 a10,10 0 0,1 5,-5 L94,0 a10,10 0 0,1 5,5 L99,49"
+        stroke="#bbbbbb"
+        stroke-width="1"
+        fill="#ffffff"/>
+   </g>
+   
+
+</svg>

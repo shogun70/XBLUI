@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<?access-control allow="*"?>
+<!--
+XBL2 UI stuff
+Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<xbl xmlns="http://www.w3.org/ns/xbl">
+
+<script src="UI.js"/>
+
+<binding id="HTMLElement" element="*">
+	<implementation>(HTMLElement.prototype)</implementation>
+</binding>
+
+<binding id="ElementUI" element="*">
+	<implementation>(ElementUI.prototype)</implementation>
+</binding>
+
+<binding id="tree">
+	<implementation>(tree.prototype)</implementation>
+</binding>
+
+<binding id="treeitem">
+	<implementation>(treeitem.prototype)</implementation>
+</binding>
+
+<binding id="navlist">
+	<implementation>(navlist.prototype)</implementation>
+</binding>
+
+<binding id="navlistitem">
+	<implementation>(navlistitem.prototype)</implementation>
+	<handlers>
+		<handler event="click" default-action="cancel">
+		var element = this.boundElement;
+		for (var ancestor=element.parentNode; ancestor; ancestor=ancestor.parentNode) {
+			if (ancestor.selectItem) {
+				ancestor.selectItem(element);
+				break;
+			}
+		}
+		</handler>
+	</handlers>
+</binding>
+
+<binding id="navlink">
+	<handlers>
+		<handler event="click" default-action="cancel">
+		</handler>
+	</handlers>
+</binding>
+
+<binding id="scrollBox">
+	<implementation>(scrollBox.prototype)</implementation>
+</binding>
+	
+<binding id="scrollBoxWithResize">
+	<implementation>(scrollBoxWithResize.prototype)</implementation>
+</binding>
+	
+<binding id="switchBox">
+	<implementation>(switchBox.prototype)</implementation>
+</binding>
+
+</xbl>
+	

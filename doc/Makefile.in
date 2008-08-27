@@ -1,0 +1,56 @@
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+
+PKGNAME = @PKGNAME@
+PKGVERSION = @PKGVERSION@
+
+include @top_srcdir@/mk/gnu.bsdvars.mk
+
+pkglibdir = @pkglibdir@
+pkgdefaultlibdir = @pkgdefaultlibdir@
+pkglibexecdir = @pkglibexecdir@
+pkgdocdir = @pkgdocdir@
+destpkglibdir = @destpkglibdir@
+destpkglibexecdir = @destpkglibexecdir@
+destpkgdocdir = @destpkgdocdir@
+
+toolsdir = @top_srcdir@/tools
+
+.SUFFIXES: .xhtml .html .xml .css
+DOCS = index guide reference examples debug status
+SRCS += ${foreach DOC,${DOCS},${DOC}.xhtml}
+TARGETS += ${foreach DOC,${DOCS},${DOC}.html}
+RESOURCES = documentation.css
+
+XSLTPROC = /usr/bin/xsltproc --novalid 
+TIDY = /usr/bin/tidy -q
+URLINSTALL = ${toolsdir}/bin/urlinstall
+
+
+PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/XBLUI.js
+PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
+
+all: build
+
+build: ${TARGETS}
+
+clean:
+	-rm ${TARGETS}
+
+install: ${TARGETS} ${RESOURCES}
+	for FILE in ${TARGETS}; do \
+		${URLINSTALL} $${FILE} ${destpkgdocdir}/$${FILE}; \
+		gzip -c $${FILE} | ${URLINSTALL} - ${destpkgdocdir}/$${FILE}.gz; \
+	done;
+	for FILE in ${RESOURCES}; do \
+		${URLINSTALL} ${srcdir}/$${FILE} ${destpkgdocdir}/$${FILE}; \
+		gzip -c ${srcdir}/$${FILE} | ${URLINSTALL} - ${destpkgdocdir}/$${FILE}.gz; \
+	done;
+
+.xhtml.html :
+	cat ${.IMPSRC} |\
+	${XSLTPROC} --path ${srcdir} ${PARAMS} ${srcdir}/pp.xsl - |\
+	${XSLTPROC} ${PARAMS} ${top_srcdir}/demos/xhtml2xhtml_standalone.xsl - |\
+	${XSLTPROC} ${PARAMS} ${top_srcdir}/demos/xhtml2html.xsl - > ${.TARGET}
+

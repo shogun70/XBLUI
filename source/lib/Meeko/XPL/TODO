@@ -1,0 +1,22 @@
+- Keep an internal version of index.xml
+- Sandboxing, etc
+- XML Stylesheets
+- Templates
+	- tree transform
+	- style selector transform
+- Behavior and Style switching
+- Implementation objects / accessors
+	- xplBrowser
+	- xplView
+- Browser Location & XMLHttpRequest
+- Fix binding create / attach /init
+- XPLHandler.removeHandler & other clean-up
+- improve cache settings
+- decide on Event capture, etc
+- add handlers from bindings in the inheritance chain
+- Type checking, etc
+- Safari / Opera / IE
+- Rewrite XPL classes in XPL
+
+
+- check this TODO list
