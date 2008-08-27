@@ -97,7 +97,7 @@ Meeko.stuff.trace = {};
 Meeko.stuff.trace.log = function(data) {
 	if (data.boundDocumentURI == Meeko.stuff.xplSystem.documentURI) return;
 	var console = document.getElementById("console");
-	console.log(data);
+	console.log(data); // FIXME console object is available before console system is loaded
 }
 	
 	]]>

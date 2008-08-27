@@ -44,7 +44,7 @@ if (!window.document.importNode) window.document.importNode = Document.prototype
 /*
 	document.documentURI for a range of browsers
 */
-var _documentURI = document.documentURI | document.baseURI || document.URL || document.url || document.location;
+var _documentURI = document.documentURI || document.baseURI || document.URL || document.url || document.location;
 if (!document.documentURI) document.documentURI = _documentURI;
 
 /*
@@ -147,7 +147,9 @@ DomWalker.prototype.forEach = function(fn, context) {
 // TODO document .onprogress & .onload
 
 
-if (!this.Meeko) this.Meeko = {};
+if (!this.Meeko) this.Meeko = {
+	stuff: {}
+};
 
 Meeko.stuff.xblSystem = (function() {	
 
@@ -1093,6 +1095,17 @@ XBLBinding.prototype.filterEventByModifiers = function(event, modifiers) {
 	TODO: XBLDocument.eval or some-such
 */
 
+function getTextContent(element) {
+	var text = "";
+	if (null != element.textContent) text = element.textContent; // W3C
+	else if (null != element.text) text = element.text; // IE
+	else for (var textNode=element.firstChild; null!=textNode; textNode=textNode.nextSibling) { // Safari2
+		if (Node.TEXT_NODE == textNode.nodeType || Node.CDATA_SECTION_NODE == textNode.nodeType)
+			text += textNode.nodeValue;
+	}
+	return text;
+}
+
 function getChildByTagName(element, tagName) {
 	for (var node=element.firstChild; node; node=node.nextSibling) {
 		if (node.tagName == tagName) return node;
@@ -1113,15 +1126,16 @@ var XBLDocument = function(_document, documentURI) { // TODO documentURI is avai
 
 	this._target = _document;
 	this.defaultView = window; // FIXME _document.parentWindow, etc
-	
+
 //	this.documentURI = _document.documentURI || _document.baseURI || _document.URL || documentURI;
 	this.documentURI = documentURI;
-	
+
 	this.styleSheets = [];
 	this.xblElements = [];
 	this.bindings = [];
 	this.namedBindings = {};
 	this.readyState = "uninitialized";
+	
 }
 
 XBLDocument.prototype.init = function(callback) {
@@ -1138,7 +1152,7 @@ XBLDocument.prototype.init = function(callback) {
 			var xml = (new DOMParser).parseFromString(text, "application/xml"); // TODO catch errors
 			xblDoc.styleSheets.push(xml);
 			xblDoc._xblTrees.push(xml.documentElement);
-		})
+		});
 	}
 	else {
 		forEach(_document.getElementsByTagName("xbl"), function(node) {
@@ -1186,6 +1200,7 @@ var XBLXblElement = function(_element, _document) {
 	this._target = _element;
 	this.xblDocument = _document;
 	this.bindings = [];
+	
 }
 
 XBLXblElement.prototype.init = function(callback) {
@@ -1211,26 +1226,27 @@ XBLXblElement.prototype._init = function() {
 				var uri = parseUri(src, _document.documentURI);
 				requestFile(uri, function(rq) { // TODO deal with failed requests
 					jsText = rq.responseText;
-					var sandbox = _document.defaultView;
-					sandbox.Meeko.stuff.execScript(jsText);
-					xblElement._init(); // and get back in the loop;
+					Meeko.stuff.execScript(jsText, function(state) {
+						if (state != "complete") logger.warn("Error in script");
+						xblElement._init();  // and get back in the loop;
+					});
 				});
 				return; // leave the loop until the requestFile callback
 			}
-			else {
-				if (null != node.textContent) jsText = node.textContent; // W3C
-				else if (null != node.text) jsText = node.text; // IE. TODO this probably won't work with namespaced tags
-				else for (var textNode=node.firstChild; null!=textNode; textNode=textNode.nextSibling) { // Safari2
-					if (Node.TEXT_NODE == textNode.nodeType || Node.CDATA_SECTION_NODE == textNode.nodeType)
-						jsText += textNode.nodeValue;
-				}
-				var sandbox = _document.defaultView;
-				sandbox.Meeko.stuff.execScript(jsText)
+			else { // TODO refactor this duplication of execScript
+				jsText = getTextContent(node);	
+				Meeko.stuff.execScript(jsText, function(state) {
+					if (state != "complete") logger.warn("Error in script");
+					xblElement._init();
+				}); // back in the loop
+				return;
 			}			
 
 		}
 		if ("binding" == node.tagName.toLowerCase()) {
-			this.bindings.push(XBLBindingElement(node, this.xblDocument));
+			var binding = XBLBindingElement(node, this.xblDocument);
+			this.bindings.push(binding);
+			binding.init();
 		}
 	}
 
@@ -1244,47 +1260,101 @@ var XBLBindingElement = function(_element, _document) {
 	if ("binding" != _element.tagName.toLowerCase()) throw 'XBLBindingElement interface only valid for "binding" elements';
 	this._target = _element;
 	this.xblDocument = _document;
+}
 
+XBLBindingElement.prototype.init = function() {
+	var binding = this;
+	var _element = this._target;
+	var _document = this.xblDocument;
 	this.id = _element.getAttribute("id");
 	this.element = _element.getAttribute("element");
 	this.elementSelectorList = (this.element) ? cssParser.parseSelectors(this.element) : null;
 	this.baseBindingURI = _element.getAttribute("extends");
 	
-	var implementationElt = _element.getElementsByTagName("implementation")[0];
-	var jsText = "";
-	var prototype = {};
-	if (implementationElt) {
-		if (null != implementationElt.textContent) jsText = implementationElt.textContent; // W3C
-		else if (null != implementationElt.text) jsText = implementationElt.text; // IE
-		else for (var textNode=implementationElt.firstChild; null!=textNode; textNode=textNode.nextSibling) { // Safari2
-			jsText += textNode.nodeValue;
-		}
-		try {
-			var sandbox = this.xblDocument.defaultView;
-			sandbox.Meeko.stuff.execScript("var _prototype = " + jsText);
-			if (sandbox._prototype) {
-				prototype = sandbox._prototype;
+	this.implementation = function() {};
+	this.handlers = [];
+	this.resources = [];
+	this.template = null;
+	
+	var XBLHandlers = function(_element) {
+		for (var node=_element.firstChild; node; node=node.nextSibling) {
+			if (Node.ELEMENT_NODE != node.nodeType) continue;
+			var tagName = node.tagName.toLowerCase();
+			switch (tagName) {
+				case "handler":
+					var handler = XBLHandlerElement(node, _document);
+					binding.handlers.push(handler);
+					handler.init();
+					break;
+				
+				default:
+					logger.warn("Ignoring " + tagName + " element: invalid child of xbl:handlers");
+					break;				
 			}
-			else {
-				console.log("Prototype eval failed for "+ _element.id);
-				prototype = {};
-			}
-			// delete sandbox._prototype;
-			sandbox._prototype = null;
-		}
-		catch (error) {
-			prototype = {};
 		}
 	}
-	this.implementation = function() {};
-	this.implementation.prototype = prototype;
 
-	this.handlers = [];
-	var handlersElt = _element.getElementsByTagName("handlers")[0];
-	if (handlersElt) {
-		forEach (handlersElt.getElementsByTagName("handler"), function(element) {
-			this.handlers.push(XBLHandlerElement(element, _document));
-		}, this);
+	// TODO refactor child element parsing
+	var implementationElts = [];
+	var handlersElts = [];
+	var resourcesElts = [];
+	var templateElts = [];
+
+	for (var node=_element.firstChild; node; node=node.nextSibling) {
+		if (Node.ELEMENT_NODE != node.nodeType) continue;
+		var tagName = node.tagName.toLowerCase();
+		switch (tagName) {
+			case "implementation":
+				implementationElts.push(node);
+				if (implementationElts.length <= 1) {
+					var jsText = getTextContent(node);
+					try {
+						this.implementation.prototype = Meeko.stuff.evalScript.call(window, jsText);
+					}
+					catch (error) {
+						logger.warn("Error in xbl:implementation script"); // FIXME more specific message
+					}
+				}
+				else {
+					logger.warn("Ignoring xbl:implementation element: only first instance is valid");
+				}
+				break;
+			
+			case "template":
+				implementationElts.push(node);
+				if (templateElts.length <= 1) {
+					logger.warn("Ignoring xbl:template element: feature not implemented");
+					this.template = node;
+				}
+				else {
+					logger.warn("Ignoring xbl:template element: only first instance is valid");
+				}
+				break;
+			
+			case "handlers":
+				handlersElts.push(node);
+				if (handlersElts.length <= 1) {
+					XBLHandlers(node);
+				}
+				else {
+					logger.warn("Ignoring xbl:handlers element: only first instance is valid");
+				}
+				break;
+			
+			case "resources":
+				resourcesElts.push(node);
+				if (resourcesElts.length <= 1) {
+					logger.warn("Ignoring xbl:resources element: feature not implemented");
+				}
+				else {
+					logger.warn("Ignoring xbl:resources element: only first instance is valid");
+				}
+				break;
+			
+			default:
+				logger.warn("Ignoring " + tagName + " element: invalid child of xbl:binding");
+				break;
+		}
 	}
 
 	return this;
@@ -1296,39 +1366,41 @@ XBLHandlerElement = function(_element, _document) {
 	if ("handler" != _element.tagName.toLowerCase()) throw 'XBLHandlerElement interface only valid for "handler" elements';
 	this._target = _element;
 	this.xblDocument = _document;
-	
-	var jsText = "";
-	if (null != _element.textContent) jsText = _element.textContent; // W3C
-	else if (null != _element.text) jsText = _element.text; // IE
-	else for (var textNode=_element.firstChild; null!=textNode; textNode=textNode.nextSibling) { // Safari2
-		jsText += textNode.nodeValue;
-	}
-	if (jsText) { // FIXME try {} catch {}
-		var sandbox = this.xblDocument.defaultView;
-		Meeko.stuff.execScript("var _action = function(event) {" + jsText + "}");
-		this.action = sandbox._action;
-		// delete sandbox._action;
-		sandbox._action = null;
-	}
-	this.event = _element.getAttribute("event");
-	switch (_element.getAttribute("phase")) {
-		case "capture":
-			this.phase = Event.CAPTURING_PHASE;
-			break;
-		case "target":
-			this.phase = Event.AT_TARGET;
-			break;
-		case "default-action":
-			this.phase = 2019716164;
-			break;
-		default:
-			this.phase = Event.BUBBLING_PHASE;
-			break;
-	}
-	this.defaultPrevented = ("cancel" == _element.getAttribute("default-action")) ? true : false;
-	this.propagationStopped = ("stop" == _element.getAttribute("propagate")) ? true : false;
-	
+}
 
+XBLHandlerElement.prototype.init = function() {
+	var _element = this._target;
+	var _document = this._document;
+	this.event = _element.getAttribute("event");
+	if (null == this.event) logger.warn("Invalid handler: empty event attribute");
+
+	function lookupValue(attrName, lookup) {
+		var attrValue = _element.getAttribute(attrName);
+		var result;
+		if (attrValue) {
+			result = lookup[attrValue];
+			if (null == result) logger.info("Ignoring invalid @" + attrName + ": " + attrValue);
+		}
+		return result;
+	}
+
+	this.phase = lookupValue("phase", {
+		"capture": Event.CAPTURING_PHASE,
+		"target": Event.AT_TARGET,
+		"bubble": Event.BUBBLING_PHASE,
+		"default-action": 2019716164
+	}) || Event.BUBBLING_PHASE;
+
+	this.defaultPrevented = lookupValue("default-action", {
+		"cancel" : true,
+		"perform" : false
+	}) || false;
+
+	this.propagationStopped = lookupValue("propagate", {
+		"stop": true,
+		"continue": false
+	}) || false;
+	
 	function attrText_to_numArray(attr) {				
 		var attrText = _element.getAttribute(attr);
 		if (!attrText) return null;
@@ -1347,7 +1419,6 @@ XBLHandlerElement = function(_element, _document) {
 	this.button = attrText_to_numArray("button");
 	this.clickCount = attrText_to_numArray("click-count");
 	
-	
 	// keyboard
 	this.key = _element.getAttribute("key");
 	this.keyLocation = [];
@@ -1362,7 +1433,6 @@ XBLHandlerElement = function(_element, _document) {
 		}
 	}, this);
 
-	
 	// text
 	this.text = _element.getAttribute("text");
 	
@@ -1405,6 +1475,15 @@ XBLHandlerElement = function(_element, _document) {
 	}
 	else this.modifiers = null;
 
+	var jsText = getTextContent(_element);
+	if (jsText) {
+		try {
+			this.action = Function("event", jsText);
+		}
+		catch (error) {
+			logger.warn("Parse error in handler"); // FIXME more specific message
+		}
+	}
 	return this;
 }
 

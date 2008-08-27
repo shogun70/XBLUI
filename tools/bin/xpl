@@ -322,10 +322,67 @@ XPLSystem.prototype.createContext = function(ref) {
 	return xplContext;
 }
 
+
+var Script = function() {
+	this.readyState = "initialized";
+}
+
+Script.runList = [];
+
+Script.prototype.run = function(text) {
+	function setText(_elt, _text) {
+		_elt.text = _text;
+		if (!_elt.innerHTML) _elt.appendChild(document.createTextNode(_text));
+	}
+	var scriptElt = document.createElement("script");
+	scriptElt.type = "text/javascript";
+
+	this.scriptElement = scriptElt;
+	this.scriptIndex = Script.runList.length;
+	Script.runList.push(this);
+
+	this.readyState = "loaded";
+	setText(scriptElt, 
+		'try {\n' +
+		text + '\n' +
+		' Meeko.xpl.Script.runList[' + this.scriptIndex + '].readyState = "complete";\n' +
+		'}\n' +
+		'catch (__xplError__) {\n' +
+		' Meeko.xpl.Script.runList[' + this.scriptIndex + '].readyState = "error";\n' +
+		'}\n'
+	);
+	
+	var callbackElt = document.createElement("script");
+	callbackElt.type = "text/javascript";
+	
+	this.callbackElement = callbackElt;
+	setText(callbackElt,
+		'setTimeout(function() { Meeko.xpl.Script.runList[' + this.scriptIndex + '].callback(); }, 0);'
+	);
+
+	var head = document.getElementsByTagName("head")[0];
+	head.appendChild(scriptElt);
+	head.appendChild(callbackElt);
+}
+
+Script.prototype.callback = function() {
+	var head = this.scriptElement.parentNode;
+	head.removeChild(this.scriptElement);
+	head.removeChild(this.callbackElement);
+	if (this.readyState == "error") {
+	}
+	else if (this.readyState == "loaded") {
+		this.readyState = "syntax-error";
+	}
+	if (this.onreadystatechange) this.onreadystatechange();
+}
+
+
 return {
 	Namespace: Namespace,
 	XPLContext: XPLContext,
-	XPLSystem: XPLSystem
+	XPLSystem: XPLSystem,
+	Script: Script
 }
 
 })();
@@ -354,15 +411,20 @@ if (!Meeko.stuff.xplSystem.trace) {
 	}
 }
 
-Meeko.stuff.execScript = function(text) {
-	var script = document.createElement("script");
-	script.type = "text/javascript";
-	script.text = text;
-	if (!script.innerHTML) script.appendChild(document.createTextNode(text));
-	document.getElementsByTagName("head")[0].appendChild(script);
+Meeko.stuff.execScript = function(text, callback) {
+	var script = new Meeko.xpl.Script;
+	if (callback) script.onreadystatechange = function() { callback(script.readyState); };
+	script.run(text);
+}
+
+Meeko.stuff.evalScript = function() {
+	return eval(arguments[0]);
 }
 
 Meeko.stuff.createGlobal = function(name) {
 	Meeko.stuff.execScript("var " + name + ";");
 }
 
+// NOTE cross-browser error catch-all
+if (window.addEventListener) window.addEventListener("error", function(event) { event.preventDefault(); }, false);
+else window.onerror = function(event) { return true; }
