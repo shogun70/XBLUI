@@ -421,7 +421,7 @@ var requestXBLSystem = function(uri, callback) {
 
 
 var cache = {};
-var requestFile = function(uri, callback) {
+var requestFile = function(uri, callback) { // TODO error-handling
 	var prefetched = cache[uri];
 	if (prefetched) {
 		if ("function" == typeof callback) callback(prefetched);
@@ -432,7 +432,6 @@ var requestFile = function(uri, callback) {
 	rq.open("GET", uri, true);
 	rq.onreadystatechange = function() {
 		if (rq.readyState != 4) return null;
-		if (rq.status != 200) throw "requestFile: Error in retrieving " + uri;
 		cache[uri] = rq;
 		if ("function" == typeof callback) callback(rq);
 	}
@@ -441,7 +440,7 @@ var requestFile = function(uri, callback) {
 }
 
 
-var parseUri = function(uri, baseURI) { // TODO XBLLocation interface
+var parseUri = function(uri, baseURI) {
 	var location = Meeko.net.URIParser.parseUri(uri, baseURI);
 	return location;
 }
@@ -478,7 +477,13 @@ xblInternalSystem.assign = function(uri) {
 	bindingDocumentURIs[0] = uri;
 	delete xblSystems[oldUri];
 	requestFile(uri, function(rq) {
-		xblSystem._init(rq.responseXML, uri);
+		if (rq.responseXML) {
+			xblSystem._init(rq.responseXML, uri);
+		}
+		else {
+			logger.error("Failed request for: " + uri);
+			xblSystem._setReadyState("error"); // FIXME handle failure in xblSystem
+		}
 	})
 }
 
@@ -1085,10 +1090,11 @@ XBLBinding.prototype.filterEventByModifiers = function(event, modifiers) {
 
 /*
 	XBL document & element wrappers
+	TODO: abstract element-handling in xbl-tree-parsing
 	TODO: better reporting of invalid content
 	TODO: namespaces
 	TODO: clean up the process of adding xblDocument property to XBLBindingElements
-	TODO: tight binding of wrappers??
+	TODO: tight binding of wrappers?? Won't work in IE
 */
 
 function getTextContent(element) {
@@ -1100,21 +1106,6 @@ function getTextContent(element) {
 			text += textNode.nodeValue;
 	}
 	return text;
-}
-
-function getChildByTagName(element, tagName) {
-	for (var node=element.firstChild; node; node=node.nextSibling) {
-		if (node.tagName == tagName) return node;
-	}
-	return null;
-}
-
-function getChildrenByTagName(element, tagName) {
-	var children = [];
-	for (var node = element.firstChild; node; node=node.nextSibling) {
-		if (tagName == node.tagName) children.push(node);
-	}
-	return children;
 }
 
 var XBLDocument = function(_document, documentURI) { // TODO documentURI is available via _document, except in IE
@@ -1141,7 +1132,7 @@ XBLDocument.prototype.init = function(callback) {
 
 	var xblDoc = this;	
 	if (_document == document) {
-		var styleElts = _document.getElementsByTagName("style");
+		var styleElts = _document.getElementsByTagName("style"); // TODO only allow children of head??
 		forEach(styleElts, function(elt) {
 			switch (elt.type) { case "application/xml": case "text/xml": break; default: return; };
 			var text = elt.textContent || elt.innerHTML;
@@ -1151,7 +1142,7 @@ XBLDocument.prototype.init = function(callback) {
 		});
 	}
 	else {
-		forEach(_document.getElementsByTagName("xbl"), function(node) {
+		forEach(_document.getElementsByTagName("xbl"), function(node) { // TODO only allow children of head??
 			xblDoc._xblTrees.push(node);
 		})
 	}
@@ -1221,11 +1212,17 @@ XBLXblElement.prototype._init = function() {
 			if (src) {
 				var uri = parseUri(src, _document.documentURI);
 				requestFile(uri, function(rq) { // TODO deal with failed requests
-					jsText = rq.responseText;
-					Meeko.stuff.execScript(jsText, function(state) {
-						if (state != "complete") logger.warn("Error in script");
-						xblElement._init();  // and get back in the loop;
-					});
+					if (rq.responseText) {
+						jsText = rq.responseText;
+						Meeko.stuff.execScript(jsText, function(state) {
+							if (state != "complete") logger.warn("Error in script");
+							xblElement._init();  // and get back in the loop;
+						});
+					}
+					else {
+						logger.error("Error loading script: " + uri);
+						xblElement._init();
+					}
 				});
 				return; // leave the loop until the requestFile callback
 			}
