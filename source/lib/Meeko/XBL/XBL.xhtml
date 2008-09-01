@@ -325,7 +325,6 @@ var testElement = function(element) {
 	
 	var _elementXBL = element._elementXBL;
 	if (!_elementXBL) _elementXBL = new _ElementXBL(element, this);
-	var hasBindings = false;
 	forEach (bindingDocumentURIs, function(uri, docIndex) {
 		var sys = xblSystems[uri];
 		forEach (sys.getBindings(), function(bindingSpec, bindingIndex) {
@@ -340,7 +339,6 @@ var testElement = function(element) {
 			}
 			if (rc) {
 				_elementXBL.configurationAddBinding(bindingSpec, new Meeko.CSS.Specificity(docIndex, bindingIndex, 0) ); // TODO abstract the precedence test
-				hasBindings = true;
 			}
 		});
 	});
@@ -481,7 +479,8 @@ xblInternalSystem.assign = function(uri) {
 			xblSystem._init(rq.responseXML, uri);
 		}
 		else {
-			logger.error("Failed request for: " + uri);
+			if (rq.responseText) logger.error("XBL document error: " + uri + " is not a valid XML document");
+			else logger.error("Failed request for: " + uri);
 			xblSystem._setReadyState("error"); // FIXME handle failure in xblSystem
 		}
 	})

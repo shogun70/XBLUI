@@ -73,6 +73,11 @@ xblEnteredDocument: function() {
   <handlers>
    <handler event="mouseover">
 var element = this.boundElement;
+var label = element.getElementsByTagName("label")[0];
+if (event.target != label) return;
+var popup = element.getElementsByTagName("small")[0];
+if (!popup) return;
+
 var document = element.ownerDocument;
 var row = element.parentNode;
 var offsetLeft = 0, offsetTop = 0;
@@ -80,15 +85,18 @@ for (var elt=row; elt!=document.body; elt=elt.offsetParent) {
   offsetLeft += elt.offsetLeft;
   offsetTop += elt.offsetTop;
 }
-var popup = element.getElementsByTagName("small")[0];
 popup.style.width = "" + row.offsetWidth + "px";
 popup.style.top = "" + (offsetTop + row.offsetHeight) + "px";
 popup.style.left = "" + offsetLeft + "px";
    </handler>
    <handler event="mouseout">
 var element = this.boundElement;
-var row = element.parentNode;
+var label = element.getElementsByTagName("label")[0];
+if (event.target != label) return;
 var popup = element.getElementsByTagName("small")[0];
+if (!popup) return;
+
+var row = element.parentNode;
 popup.style.left = "-1000px";
    </handler>
   </handlers>
