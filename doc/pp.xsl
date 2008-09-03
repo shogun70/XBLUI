@@ -25,6 +25,8 @@
 	</xsl:for-each>
 </xsl:template>
 
+<xsl:template match="html:link[@rel='viewer']"/>
+
 <xsl:template match="@*|node()" mode="viewer">
 	<xsl:copy>
 		<xsl:apply-templates select="@*|node()" mode="viewer"/>

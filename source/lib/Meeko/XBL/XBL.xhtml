@@ -205,8 +205,6 @@ var _init = function() {
 
 var view;
 var domWalker;
-var uninitializedElements = [];
-var uninitializedBindings = [];
 var __init = function() {
 	switch (readyState) { // NOTE all these cases fall-thru except for branches that return
 	case "uninitialized":
@@ -252,31 +250,6 @@ var __init = function() {
 		readyState = "attached";
 		logger.info("XBL is initialising attached bindings");
 	case "attached":
-		var _elementXBL;
-		while (_elementXBL = uninitializedElements.shift()) { // TODO configuration options
-			_elementXBL.bindingChains.forEach(function(bindingChain, i) {
-				bindingChain.forEach(function(binding, j) {
-					if (binding.internal.xblBindingAttached) {
-						try {
-							binding.internal.xblBindingAttached();
-						}
-						catch (err) {
-							alert("xblBindingAttached "+err+":\n\t"+binding.internal.boundElement.tagName.toLowerCase()+"#"+binding.internal.boundElement.id);
-						}
-					}
-					if (binding.internal.xblEnteredDocument) uninitializedBindings.push(binding);
-				});
-			});
-		}
-		var binding;
-		while (binding = uninitializedBindings.shift()) {
-			try {
-				binding.internal.xblEnteredDocument();
-			}
-			catch (err) {
-				alert("xblEnteredDocument "+err+":\n\t"+binding.internal.boundElement.tagName.toLowerCase()+"#"+binding.internal.boundElement.id);
-			}
-		}
 		// Turn display ON.  FIXME configuration option
 		// this.boundDocument.documentElement.style.display = "";
 		readyState = "complete";
@@ -342,7 +315,6 @@ var testElement = function(element) {
 			}
 		});
 	});
-	uninitializedElements.push(_elementXBL);
 }
 
 
@@ -743,6 +715,23 @@ _ElementXBL.prototype.insertBindingChain = function(chain, index) {
 			}
 		}
 		
+		if (binding.internal.xblBindingAttached) {
+			try {
+				binding.internal.xblBindingAttached();
+			}
+			catch (error) {
+				logger.error("Error in xblBindingAttached for "+binding.internal.boundElement.tagName.toLowerCase()+"#"+binding.internal.boundElement.id + ": " + error.message);
+			}
+		}
+		if (binding.internal.xblEnteredDocument) {
+			try {
+				binding.internal.xblEnteredDocument();
+			}
+			catch (error) {
+				logger.error("Error in xblEnteredDocument for "+binding.internal.boundElement.tagName.toLowerCase()+"#"+binding.internal.boundElement.id + ": " + error.message);
+			}
+		}
+
 		forEach (binding.handlers, function(handler) {
 			// FIXME hack for textInput -> keypress
 			var eventType = handler.event;

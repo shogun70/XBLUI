@@ -63,21 +63,30 @@ td.level1, td.level2, td.level3 { white-space: nowrap; }
  <binding element="td.part, td.almost, td.yes">
   <implementation>
 ({
-xblEnteredDocument: function() {
+initialize: function() {
+  if (this.popup) return;
   var element = this.boundElement;
   var popup = element.getElementsByTagName("small")[0];
   if (popup) popup.className = "popup";
+  this.popup = popup;
+  var label = element.getElementsByTagName("label")[0];
+  this.label = label;
+},
+
+xblEnteredDocument: function() {
+  this.initialize();
 }
 })
   </implementation>
   <handlers>
+   <handler attachto="document" event="progress">
+this.initialize();
+   </handler>
    <handler event="mouseover">
-var element = this.boundElement;
-var label = element.getElementsByTagName("label")[0];
-if (event.target != label) return;
-var popup = element.getElementsByTagName("small")[0];
-if (!popup) return;
+if (event.target != this.label) return;
+if (!this.popup) return;
 
+var element = this.boundElement;
 var document = element.ownerDocument;
 var row = element.parentNode;
 var offsetLeft = 0, offsetTop = 0;
@@ -85,18 +94,18 @@ for (var elt=row; elt!=document.body; elt=elt.offsetParent) {
   offsetLeft += elt.offsetLeft;
   offsetTop += elt.offsetTop;
 }
+var popup = this.popup;
 popup.style.width = "" + row.offsetWidth + "px";
 popup.style.top = "" + (offsetTop + row.offsetHeight) + "px";
 popup.style.left = "" + offsetLeft + "px";
    </handler>
    <handler event="mouseout">
-var element = this.boundElement;
-var label = element.getElementsByTagName("label")[0];
-if (event.target != label) return;
-var popup = element.getElementsByTagName("small")[0];
-if (!popup) return;
+if (event.target != this.label) return;
+if (!this.popup) return;
 
+var element = this.boundElement;
 var row = element.parentNode;
+var popup = this.popup;
 popup.style.left = "-1000px";
    </handler>
   </handlers>
