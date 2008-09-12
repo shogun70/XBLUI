@@ -1,0 +1,249 @@
+<?xml version="1.0"?>
+<?xpl-require href="../Javascript-1.6/Javascript.xhtml"?>
+<?xpl-require href="../dom.xhtml"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<script type="text/javascript">
+<![CDATA[
+
+if (!this.Meeko) this.Meeko = {};
+
+Meeko.events = (function() {
+
+var Event = function() {};
+Event.CAPTURING_PHASE = 1;
+Event.AT_TARGET = 2;
+Event.BUBBLING_PHASE = 3;
+
+var KeyboardEvent = function() {};
+KeyboardEvent.DOM_KEY_LOCATION_STANDARD = 0x00;
+KeyboardEvent.DOM_KEY_LOCATION_LEFT = 0x01;
+KeyboardEvent.DOM_KEY_LOCATION_RIGHT = 0x02;
+KeyboardEvent.DOM_KEY_LOCATION_NUMPAD = 0x03;
+	
+var MutationEvent = function() {};
+MutationEvent.MODIFICATION = 1;
+MutationEvent.ADDITION = 2;
+MutationEvent.REMOVAL = 3;
+
+var DocumentEvent = function() {}
+if (document.createEventObject) {
+	
+DocumentEvent.prototype.createEvent = function(module) {
+	var event = document.createEventObject();
+	event.initEvent = function(type, bubbles, cancelable) {
+		this.type = type;
+		this.bubbles = bubbles;
+		this.cancelable = cancelable;
+	};
+	event.preventDefault = function() { this.returnValue = false; }
+	event.stopPropagation = function() { this.cancelBubble = true; }
+	return event;
+}
+
+}
+
+var documentEvent = new DocumentEvent();
+
+var eventSystem = {};
+eventSystem.registeredEvents = {};
+eventSystem.eventTable = {
+	"DOMActivate": { bubbles: true, cancelable: true, module: "UIEvent" },
+	"DOMFocusIn": { bubbles: true, cancelable: false, module: "UIEvent" },
+	"DOMFocusOut": { bubbles: true, cancelable: false, module: "UIEvent" },
+	"focus": { bubbles: false, cancelable: false, module: "UIEvent" },
+	"blur": { bubbles: false, cancelable: false, module: "UIEvent" },
+	"textInput": { bubbles: true, cancelable: true, module: "TextEvent" },
+	"click": { bubbles: true, cancelable: true, module: "MouseEvent" },
+	"dblclick": { bubbles: true, cancelable: true, module: "MouseEvent" },
+	"mousedown": { bubbles: true, cancelable: true, module: "MouseEvent" },
+	"mouseup": { bubbles: true, cancelable: true, module: "MouseEvent" },
+	"mouseover": { bubbles: true, cancelable: true, module: "MouseEvent" },
+	"mousemove": { bubbles: true, cancelable: true, module: "MouseEvent" },
+	"mouseout": { bubbles: true, cancelable: true, module: "MouseEvent" },
+	"keydown": { bubbles: true, cancelable: true, module: "KeyboardEvent" },
+	"keyup": { bubbles: true, cancelable: true, module: "KeyboardEvent" },
+	"mousemultiwheel": { bubbles: true, cancelable: true, module: "MouseMultiWheelEvent" },
+	"mousewheel": { bubbles: true, cancelable: true, module: "MouseWheelEvent" },
+	"DOMSubtreeModified": { bubbles: true, cancelable: false, module: "MutationEvent" },
+	"DOMNodeInserted": { bubbles: true, cancelable: false, module: "MutationEvent" },
+	"DOMNodeRemoved": { bubbles: true, cancelable: false, module: "MutationEvent" },
+	"DOMNodeRemovedFromDocument": { bubbles: false, cancelable: false, module: "MutationEvent" },
+	"DOMNodeInsertedIntoDocument": { bubbles: false, cancelable: false, module: "MutationEvent" },
+	"DOMAttrModified": { bubbles: true, cancelable: false, module: "MutationEvent" },
+	"DOMCharacterDataModified": { bubbles: true, cancelable: false, module: "MutationEvent" },
+	"DOMElementNameChanged": { bubbles: true, cancelable: false, module: "MutationNameEvent" },
+	"DOMAttributeNameChanged": { bubbles: true, cancelable: false, module: "MutationNameEvent" },
+	"load": { bubbles: false, cancelable: false, module: "Event" },
+	"unload": { bubbles: false, cancelable: false, module: "Event" },
+	"abort": { bubbles: true, cancelable: false, module: "Event" },
+	"error": { bubbles: true, cancelable: false, module: "Event" },
+	"select": { bubbles: true, cancelable: false, module: "Event" },
+	"change": { bubbles: true, cancelable: false, module: "Event" },
+	"submit": { bubbles: true, cancelable: true, module: "Event" },
+	"reset": { bubbles: true, cancelable: true, module: "Event" },
+	"resize": { bubbles: true, cancelable: false, module: "UIEvent" },
+	"scroll": { bubbles: true, cancelable: false, module: "UIEvent" }
+};
+
+
+eventSystem.registerEvent = function(type) {
+	if (this.registeredEvents[type]) return;
+	var system = this;
+	var systemListener = function(srcEvent) {
+		system.dispatchEvent(srcEvent.srcElement, srcEvent);
+	}
+
+	var ieLookup = { // FIXME ensure all standard event properties are copied / created
+		"DOMAttrModified": { type: "propertychange", bubbles: false, cancelable: false },
+		"DOMActivate": { type: "activate", bubbles: true, cancelable: true },
+		"DOMFocusIn": { type: "focusin", bubbles: true, cancelable: false },
+		"DOMFocusOut": { type: "focusout", bubbles: true, cancelable: false },
+		"textInput": function() {
+			window.attachEvent("onkeypress", function(srcEvent) {
+				var event = document.createEvent("UIEvents");
+				event.initEvent("textInput", true, true);
+				event.data = String.fromCharCode(srcEvent.keyCode);
+				srcEvent.returnValue = system.dispatchEvent(srcEvent.srcElement, event);
+			});
+		},
+		"focus": function() {
+			window.attachEvent("onfocusin", function(srcEvent) {
+				var event = document.createEvent("UIEvents");
+				event.initEvent("focus", false, false);
+				srcEvent.returnValue = system.dispatchEvent(srcEvent.srcElement, event);
+			});
+		},
+		"blur": function() {
+			window.attachEvent("onfocusout", function(srcEvent) {
+				var event = document.createEvent("UIEvents");
+				event.initEvent("blur", false, false);
+				srcEvent.returnValue = system.dispatchEvent(srcEvent.srcElement, event);
+			});
+		},
+		"click": function() {
+			document.attachEvent("onclick", function(srcEvent) {
+				var event = document.createEvent("UIEvents");
+				event.initEvent("click", true, true);
+				event.button = ([ null, 0, 2, null, 1 ])[srcEvent.button];
+				event.detail = 1;
+				srcEvent.returnValue = system.dispatchEvent(srcEvent.srcElement, event);
+			});
+		},
+		"dblclick": function() {
+			document.attachEvent("ondblclick", function(srcEvent) {
+				var event = document.createEvent("UIEvents");
+				event.initEvent("dblclick", true, true);
+				event.button = ([ null, 0, 2, null, 1 ])[srcEvent.button];
+				event.detail = 2;
+				srcEvent.returnValue = system.dispatchEvent(srcEvent.srcElement, event);
+			});
+		}
+	}
+
+	var rego = ieLookup[type] || { type: type, bubbles: true, cancelable: true};
+
+	if (typeof rego == "function") rego();
+	else document.attachEvent("on"+rego.type, systemListener);
+	this.registeredEvents[type] = true;
+}
+
+eventSystem.dispatchEvent = function(target, event) {
+	event.target = target;
+	var path = [];
+	var current = target;
+	if (target != window) {
+		for (current=target; current!=document; current=current.parentNode) { // FIXME will fail for document fragments, etc
+			path.push(current);
+		}
+		path.push(document);
+	}
+	path.push(window);
+
+	event.eventPhase = Event.CAPTURING_PHASE;
+	for (var n=path.length, i=n-1; i>0; i--) {
+		current = path[i];
+		event.currentTarget = current;
+		if (current._eventTarget) current._eventTarget.handleEvent(event);
+		if (event.cancelBubble) return event.returnValue; 
+	}
+
+	current = path[0];
+	event.eventPhase = Event.AT_TARGET;
+	event.currentTarget = current;
+	if (current._eventTarget) current._eventTarget.handleEvent(event);
+
+	if (!event.bubbles) return event.returnValue;
+	if (event.cancelBubble) return event.returnValue;
+
+	event.eventPhase = Event.BUBBLING_PHASE;
+	for (var n=path.length, i=1; i<n; i++) {
+		current = path[i];
+		event.currentTarget = current;
+		if (current._eventTarget) current._eventTarget.handleEvent(event);
+		if (event.cancelBubble) return event.returnValue; 
+	}
+	
+	return event.returnValue;	
+}
+
+var EventTarget = function(element) { // FIXME interface removal on window.onunload
+	// TODO Meeko.Namespace.enhance(_eventTarget, element);
+	element._eventTarget = this;
+	for (var slot in this) {
+		if ("function" == typeof this[slot]) (function(iface, method) {
+			element[method] = function() { iface[method].apply(iface, arguments); };
+		})(this, slot);
+	}
+	this.boundElement = element;
+	this.listenerTable = {}; // lookup by this.listenerTable[type][Boolean(capture)][index]
+	this.handleEvent = function(event) {
+		var capture = (event.eventPhase == Event.CAPTURING_PHASE) ? 1 : 0;
+		var table = this.listenerTable[event.type];
+		if (!table) return;
+		var listeners = table[capture];
+		for (var n=listeners.length, i=0; i<n; i++) {
+			var listener = listeners[i];
+			if (listener.handleEvent) listener.handleEvent(event);
+			else listener(event);
+		}
+	}
+}
+
+EventTarget.prototype.addEventListener = function(type, listener, useCapture) {
+	if (!this.listenerTable[type]) this.listenerTable[type] = [ [], [] ];
+	var capture = (useCapture) ? 1 : 0;
+	this.listenerTable[type][capture].push(listener);
+	eventSystem.registerEvent(type);
+}
+
+EventTarget.prototype.removeEventListener = function(type, listener, useCapture) {
+	var capture = (useCapture) ? 1 : 0;
+	var listeners = this.listenerTable[type][capture];
+	for (var i=listeners.length-1; i>=0; i--) {
+		if (listeners[i] == listener) {
+			listeners.splice(i, 1);
+			break;
+		}
+	}
+	// TODO throw on not found??
+}
+
+EventTarget.prototype.dispatchEvent = function(event) {
+	var element = this.boundElement;
+	try { return element.fireEvent("on" + event.type, event); }
+	catch (error) { return eventSystem.dispatchEvent(element, event); }
+}		
+
+return {
+	Event: Event,
+	EventTarget: EventTarget,
+	DocumentEvent: DocumentEvent,
+	document: documentEvent
+}
+
+})();
+]]>
+</script>
+</head>
+</html>
