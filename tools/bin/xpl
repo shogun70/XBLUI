@@ -427,5 +427,5 @@ Meeko.stuff.createGlobal = function(name) {
 
 // NOTE cross-browser error catch-all
 if (window.addEventListener) window.addEventListener("error", function(event) { event.preventDefault(); }, false);
-else window.onerror = function(event) { return true; };
+else window.onerror = function(event) { return true; }; // FIXME
 
