@@ -87,6 +87,24 @@ Array.prototype.some = function(callback, context) { return Array.some(this, cal
 var Object = function() {}
 Object.prototype = new this.Object();
 
+Object.toLoggerString = function(object) { // NOTE most of the complexity here is to get things working under Safari-2
+	var string = "";
+	for (var field in object) {
+		var slot = object[field];
+		var t = typeof slot;
+		var sz;
+		try { if (t == "object" && slot.length) t = "array"; }
+		catch (error) { }
+		try { var sz = "" + slot; }
+		catch (error) { t = "null"; }
+		if (t == "function") string += field + ": " + "function() {}" + "\n";
+		else if (t == "array") string += field + ": " + "[ " + slot + " ]" + "\n";
+		else if (t == "null") string += field + ": " + "null" + "\n";
+		else string += field + ": " + slot + "\n";
+	}
+	return string;
+}
+
 Object.forEach = function(object, callback, context) {
 	for (var key in object) {
 		var val = object[key];
