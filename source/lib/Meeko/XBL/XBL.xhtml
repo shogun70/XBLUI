@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <?xpl-require href="../Javascript-1.6/Javascript.xhtml"?>
 <?xpl-require href="../dom.xhtml"?>
+<?xpl-require href="../DOM/Events.xhtml"?>
 <?xpl-require href="../net.xhtml"?>
 <?xpl-require href="../DOM/CSS.xhtml"?>
 <?xpl-require href="../xml.xhtml"?>
@@ -31,6 +32,7 @@ XBL_SCRIPT_URL = (function() {
 var enhance = Meeko.xpl.Namespace.enhance;
 enhance(Meeko['Javascript 1.6'], window);
 enhance(Meeko.dom, window);
+enhance(Meeko.events, window);
 
 Meeko.stuff.createGlobal("XMLHttpRequest");
 XMLHttpRequest = Meeko.xml.XMLHttpRequest;
@@ -205,6 +207,7 @@ var _init = function() {
 
 var view;
 var domWalker;
+var onProgressBindings = [];
 var __init = function() {
 	switch (readyState) { // NOTE all these cases fall-thru except for branches that return
 	case "uninitialized":
@@ -240,6 +243,7 @@ var __init = function() {
 		logger.info("XBL is traversing the DOM for matched elements");
 	case "interactive":
 		domWalker.forEach(testElement);
+		// FIXME if document.readyState is updated while this thread is running then there could be a failure here.
 		if ("complete" == document.readyState) readyState = "loaded";
 		else return;
 		logger.info("XBL is waiting for bindings to load");
@@ -257,43 +261,10 @@ var __init = function() {
 	}
 }
 
-// TODO refactor this EventTarget for IE stuff
-if (!document.createEvent && document.createEventObject) document.createEvent = function(eventType) {
-	var event = document.createEventObject();
-	event.initEvent = function(type, bubbles, cancelable) {
-		this.type = type;
-		this.bubbles = bubbles;
-		this.cancelable = cancelable;
-	}
-	return event;
-}
-
-var EventTarget = function(element) {
-	this.boundElement = element;
-}
-
-EventTarget.prototype.dispatchEvent = function(event) {
-	var element = this.boundElement;
-	var returnValue;
-	try { returnValue = element.fireEvent("on" + event.type, event); }
-	catch (error) {
-		logger.warn("fireEvent failed: " + event.type);
-		returnValue = element._elementXBL.handleEvent(event);
-	}
-	return returnValue;	
-}
-
 var testElement = function(element) {
-	// TODO refactor
-	if (!(element._eventTarget || element.dispatchEvent)) {
-		var _eventTarget = new EventTarget(element);
-		element._eventTarget = _eventTarget;
-		// Meeko.Namespace.enhance(_eventTarget, element);
-		for (var slot in _eventTarget) {
-			if ("function" == typeof _eventTarget[slot]) (function(name) {
-				element[name] = function() { _eventTarget[name].apply(_eventTarget, arguments); };
-			})(slot);
-		}
+	// FIXME remove eventTarget interface at window.onunload
+	if (!element.addEventListener) {
+		new EventTarget(element); // FIXME ugly
 	}
 	
 	var _elementXBL = element._elementXBL;
@@ -418,16 +389,16 @@ var parseUri = function(uri, baseURI) {
 
 var xblInternalSystem = (function() {
 
-var sys = new function() {
+var system = new function() {
 	this.xblDocument = null;
 	this.readyState = "uninitialized";
 }
 
 var uri = document.documentURI;
-xblSystems[uri] = sys;
+xblSystems[uri] = system;
 bindingDocumentURIs[0] = uri;
 
-return sys;
+return system;
 
 })();
 
@@ -576,6 +547,13 @@ XBLExternalSystem.prototype.getBindingById = function(id) {
 	}
 */
 
+function getEventPhaseMask(eventPhase) { // TODO rename to Event.getPhaseMask()
+	if (eventPhase < 0) return 0x0; // TODO warning
+	if (eventPhase == 0) return 0x6; // target or bubble
+	if (eventPhase == 0x78626C44) return 0x8000;
+	return 0x01 << (eventPhase - 1);
+}
+
 var _ElementXBL = function(element) {
 	element._elementXBL = this;
 	this.boundElement = element;
@@ -585,7 +563,7 @@ var _ElementXBL = function(element) {
 	this.methods = {};
 
 	this.eventListener = function(event) { _elementXBL.handleEvent(event); }
-	this.events = {};
+	this.registeredEvents = {};
 }
 
 _ElementXBL.prototype.DESTROY = function() {
@@ -601,8 +579,7 @@ _ElementXBL.prototype.DESTROY = function() {
 		element[methodName] = null;
 	}
 	for (var evType in this.events) {
-		if (element.removeEventListener) element.removeEventListener(evType, this.eventListener, false); // W3C
-		if (element.detachEvent) element.detachEvent(evType, this.eventListener); // IE
+		element.removeEventListener(evType, this.eventListener, false);
 	}
 	
 	// delete element._elementXBL;
@@ -610,7 +587,7 @@ _ElementXBL.prototype.DESTROY = function() {
 	this.boundElement = null;
 }
 
-
+_ElementXBL.pending = [];  // FIXME start using 
 _ElementXBL.prototype.configurationAddBinding = function(bindingSpec, specificity) {
 	// NOTE in case a required XBLDocument is not loaded, this function requests the document
 	// and adds a callback which just starts the function from scratch
@@ -668,7 +645,7 @@ _ElementXBL.prototype.deleteBindingChain = function(chain) {
 	var binding = null;
 	while (binding = chain.shift()) { // FIXME
 		binding.setBaseBinding(null);
-		this.detachBinding(binding);
+		binding.detach();
 		binding.DESTROY();
 	}
 }
@@ -723,6 +700,20 @@ _ElementXBL.prototype.insertBindingChain = function(chain, index) {
 				logger.error("Error in xblBindingAttached for "+binding.internal.boundElement.tagName.toLowerCase()+"#"+binding.internal.boundElement.id + ": " + error.message);
 			}
 		}
+
+		forEach (binding.handlers, function(handler) { // FIXME hack for textInput -> keypress
+			var eventType = handler.event;
+			var eventPhase = handler.phase;
+			var capture = (eventPhase == Event.CAPTURING_PHASE);
+			var phaseMask = getEventPhaseMask(eventPhase);
+			var oldPhases = this.registeredEvents[eventType] || 0x00;
+			var newPhases = oldPhases | phaseMask;
+			if (oldPhases != newPhases) {
+				element.addEventListener(eventType, this.eventListener, capture); // FIXME need this.eventListener for Safari2
+				this.registeredEvents[eventType] = newPhases;
+			}
+		}, _elementXBL);
+
 		if (binding.internal.xblEnteredDocument) {
 			try {
 				binding.internal.xblEnteredDocument();
@@ -731,72 +722,17 @@ _ElementXBL.prototype.insertBindingChain = function(chain, index) {
 				logger.error("Error in xblEnteredDocument for "+binding.internal.boundElement.tagName.toLowerCase()+"#"+binding.internal.boundElement.id + ": " + error.message);
 			}
 		}
-
-		forEach (binding.handlers, function(handler) {
-			// FIXME hack for textInput -> keypress
-			var eventType = handler.event;
-			if ("textInput" == eventType) eventType = "keypress";
-			if (!this.events[eventType]) { // TODO what to do about handler.phase??
-				if (element.addEventListener) element.addEventListener(eventType, this.eventListener, false); // W3C
-				else element.attachEvent("on"+eventType, this.eventListener); // IE
-				this.events[eventType] = true;
-			}
-		}, _elementXBL);
 	
 	}, this);
 
 	return chain;
 }
 
-_ElementXBL.prototype.attachBinding = function(binding) {
-	var _elementXBL = this;
-	var element = this.boundElement;
-	binding.attach(element);
-	
-	for (var key in binding.implementation.prototype) {
-		if (binding.implementation.prototype[key] instanceof Function) (function(methodName) {
-			if (/^_/.test(methodName)) return; // functions starting with underscore (_) are private
-			if (element[methodName]) return; // don't over-ride existing properties or methods. TODO configuration option
-			element[methodName] = function() { return _elementXBL.doMethod(methodName, arguments); };
-			_elementXBL.methods[methodName] = true;
-		})(key);
-	}
-	
-	forEach (binding.handlers, function(handler) {
-		// FIXME hack for textInput -> keypress
-		var eventType = handler.event;
-		if ("textInput" == eventType) eventType = "keypress";
-		if (!this.events[eventType]) { // TODO what to do about handler.phase??
-			if (element.addEventListener) element.addEventListener(eventType, this.eventListener, false); // W3C
-			else element.attachEvent("on"+eventType, this.eventListener); // IE
-			this.events[eventType] = true;
-		}
-	}, _elementXBL);
-
-	if (binding.internal.xblEnteredDocument || binding.internal.xblBindingAttached) // TODO this should be in a callback
-		uninitialisedBindings.push(binding);
-	
-}
-
-_ElementXBL.prototype.detachBinding = function(binding) {
-	binding.detach();
-}
-
-_ElementXBL.prototype.doMethod = function(methodName, argList) {
-	var nChains = this.bindingChains.length;
-	for (var i=nChains-1; i>=0; i--) {
-		var chain = this.bindingChains[i];
-		var nBindings = chain.length;
-		for (var j=nBindings-1; j>=0; j--) {
-			var binding = chain[j];
-			var object = binding.internal;
-			if (object[methodName]) return object[methodName].apply(object, argList);
-		}
-	}
-	throw methodName + " is not a function";
-}
 
 _ElementXBL.prototype.handleEvent = function(event) {
+	var type = event.type;
+	var phaseMask = getEventPhaseMask(event.eventPhase);
+	if (!(this.registeredEvents[type] & phaseMask)) return;
 	var nChains = this.bindingChains.length;
 	for (var i=nChains-1; i>=0; i--) {
 		var chain = this.bindingChains[i];
@@ -816,7 +752,6 @@ var XBLBinding = function(spec) {
 	internal.external = external;
 	var prototype = implementation.prototype;
 	for (var key in prototype) {
-		if (/^_/.test(key)) continue; // functions starting with underscore (_) are internal / private
 		if (prototype.__defineGetter__) { // TODO better getter setter tester
 			var getter = prototype.__lookupGetter__(key);
 			if (getter) (function(name, method, object) {
@@ -876,57 +811,27 @@ XBLBinding.prototype.handleEvent = function(event) {
 		// Event Filtering:
 
 		// type
-		var xblEvents = { click: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true,
+		var xblEvents = { click: true, dblclick: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true,
 			keydown: true, keyup: true, textInput: true, DOMAttrModified: true,
 			load: true, unload: true, abort: true, error: true, select: true, change: true, submit: true, reset: true, resize: true, scroll: true };
-		var xblClickEvents = { click: true };
-		var xblMouseEvents = { mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true };
+		var xblMouseEvents = { click: true, dblclick: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true };
 		var xblKeyboardEvents = { keydown: true, keyup: true };
 		var xblTextEvents = { textInput: true };
-		var xblMutationEvents = { DOMAttrModified: true };
+		var xblMutationEvents = { DOMAttrModified: true }; // TODO
 		var xblHTMLEvents = { load: true, unload: true, abort: true, error: true, select: true, change: true, submit: true, reset: true, resize: true, scroll: true };
 
-		var clickEvents = { dblclick: true, click: true };
-		var mouseEvents = { mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true };
-		var keyboardEvents = { keydown: true, keyup: true };
-		var textEvents = { textInput: true, keypress: true };
-		var mutationEvents = { DOMAttrModified: true, propertychange: true };
-		var htmlEvents = { load: true, unload: true, abort: true, error: true, select: true, change: true, submit: true, reset: true, resize: true, scroll: true };
+		if (event.type != handler.event) return;
 
-		// no handler.event is an error
-		if (!handler.event) return;
-
-		// phase.  In this implementation bubbling phase incorporates target phase.  TODO check with spec
-		if (event.eventPhase) { // W3C
-			if (event.eventPhase != handler.phase) {
-				if (Event.BUBBLING_PHASE != handler.phase) return;
-				if (Event.AT_TARGET != event.eventPhase) return;
-			}
-		}
-		else { // IE
-			if (Event.CAPTURING_PHASE == handler.phase) return; // capture not supported in IE
-			if (Event.AT_TARGET == handler.phase && event.srcElement != object.boundElement) return;
+		// phase
+		if (handler.phase && event.eventPhase != handler.phase) return;
+		else {
+			if (Event.BUBBLING_PHASE != event.eventPhase && Event.AT_TARGET != event.eventPhase) return;
 		}
 
-		// MouseEvents		
-		if (handler.event in xblMouseEvents) { // FIXME check the filtering logic, esp handler.event == event.type
-			if (event.type != handler.event) return;
-			if (handler.modifiers) {
-				if (!this.filterEventByModifiers(event, handler.modifiers)) return;
-			}
-		}
-		
-		// ClickEvents
-		if (handler.event in xblClickEvents) {
-			if (!(event.type in clickEvents)) return;
+		// MouseEvents
+		if (handler.event in xblMouseEvents) { // FIXME probably wrong here
 			if (handler.button && handler.button.length) { // TODO fix for Safari2
-				var button = 0;
-				if (event.target) button = event.button; // W3C
-				else /* if (event.srcElement) */ { // IE
-					button = ([ null, 0, 2, null, 1 ])[event.button];
-					// TODO what do higher handler.button values represent??
-				}
-				if (handler.button.indexOf(button) == -1) return;
+				if (handler.button.indexOf(event.button) == -1) return;
 			}
 			if (handler.clickCount && handler.clickCount.length) { // TODO cross-platform testing, esp dblclick
 				var count = 1;
@@ -934,7 +839,6 @@ XBLBinding.prototype.handleEvent = function(event) {
 				if ("click" == event.type) count = (event.detail) ? event.detail : 1;
 				if (handler.clickCount.indexOf(count) == -1) return;
 			}
-			
 			if (handler.modifiers) {
 				if (!this.filterEventByModifiers(event, handler.modifiers)) return;
 			}
@@ -944,11 +848,11 @@ XBLBinding.prototype.handleEvent = function(event) {
 		// TODO more flexible, comprehensive key-map
 		// NOTE some of these are non-standard
 		var keyIdentifiers = {
-			Backspace: 8, Delete: 46, Down: 40, End: 35, Enter: 13, Escape: 27, Home: 36, Insert: 45, Left: 37, PageUp: 33, PageDown: 34, Right: 39, Space: 32, Tab: 9, Up: 38,
+			Backspace: 8, Delete: 46, Down: 40, End: 35, Enter: 13, Escape: 27, Home: 36, Insert: 45,
+			Left: 37, PageUp: 33, PageDown: 34, Right: 39, Space: 32, Tab: 9, Up: 38,
 			F1: 112, F2: 113, F3: 114, F4: 115, F5: 116, F6: 117, F7: 118, F8: 119, F9: 120, F10: 121, F11: 122, F12: 123
 		}
 		if (handler.event in xblKeyboardEvents) {
-			if (event.type != handler.event) return;
 			if (handler.key) {
 				var keyId = keyIdentifiers[handler.key];
 				if (event.keyCode != keyId) return;
@@ -960,22 +864,14 @@ XBLBinding.prototype.handleEvent = function(event) {
 				if (!this.filterEventByModifiers(event, handler.modifiers || [ "none" ])) return;
 			}
 		}
-		
+
 		// TextEvents
-		if (handler.event in xblTextEvents) { // FIXME keypress events don't have the textInput data property
-			if (!(event.type in textEvents)) return;
-			if (handler.text) {
-				if ("textEvent" == event.type && handler.text != event.data) return;
-				if ("keypress" == event.type) {
-					var charCode = event.charCode || event.keyCode;
-					if (handler.text != String.fromCharCode(charCode)) return;
-				}
-			}
+		if (handler.event in xblTextEvents) {
+			if (handler.text && handler.text != event.data) return;
 		}
-		
+
 		// MutationEvents
-		if (handler.event in xblMutationEvents) { // FIXME onpropertychange for IE
-			if (!(event.type in mutationEvents)) return;
+		if (handler.event in xblMutationEvents) {
 			if (handler.attrName) {
 				// mutation attribute name
 				if (handler.attrName != event.attrName) return;
@@ -991,31 +887,21 @@ XBLBinding.prototype.handleEvent = function(event) {
 		}
 			
 		// HTML events
-		if (handler.event in xblHTMLEvents) {
-			if (!(event.type == handler.event)) return;
-		}
+		if (handler.event in xblHTMLEvents) { }
 		
 		// user-defined events.  TODO should these be optionally allowed / prevented??
-		if (!(handler.event in xblEvents)) {
-			if (!(event.type == handler.event)) return;
-		}
+		if (!(handler.event in xblEvents)) { }
 
 		// execute handler code
 		if (handler.action) try {
 			handler.action.call(object, event);
 		}
 		catch(err) {
+			logger.error("Failure in XBL handler"); // TODO more useful error message
 		}
 		
-		// 
-		if (handler.defaultPrevented) {
-			if (event.preventDefault) event.preventDefault(); // W3C
-			else event.returnValue = false; // IE
-		}
-		if (handler.propagationStopped) {
-			if (event.stopPropagation) event.stopPropagation(); // W3C
-			else event.cancelBubble = true; // IE
-		}
+		if (handler.defaultPrevented) event.preventDefault();
+		if (handler.propagationStopped) event.stopPropagation();
 	}, this);
 
 }
@@ -1369,8 +1255,8 @@ XBLHandlerElement.prototype.init = function() {
 		"capture": Event.CAPTURING_PHASE,
 		"target": Event.AT_TARGET,
 		"bubble": Event.BUBBLING_PHASE,
-		"default-action": 2019716164
-	}) || Event.BUBBLING_PHASE;
+		"default-action": 0x78626C44 
+	}) || 0;
 
 	this.defaultPrevented = lookupValue("default-action", {
 		"cancel" : true,
