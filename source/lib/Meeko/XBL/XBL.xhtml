@@ -245,7 +245,7 @@ var __init = function() {
 		domWalker.forEach(testElement);
 		// FIXME if document.readyState is updated while this thread is running then there could be a failure here.
 		if ("complete" == document.readyState) readyState = "loaded";
-		else return;
+		else break;
 		logger.info("XBL is waiting for bindings to load");
 	case "loaded":
 		for (var uri in xblSystems) {
@@ -258,6 +258,15 @@ var __init = function() {
 		// this.boundDocument.documentElement.style.display = "";
 		readyState = "complete";
 		logger.info("XBL is complete");
+	}
+	// NOTE it is an error if we don't get to this point
+	var event = document.createEvent("UIEvents");
+	event.initEvent("progress", true, true);
+	Meeko.stuff.eventSystem.windowEventTarget.handleEvent(event);
+	if (readyState == "complete") {
+		var event = document.createEvent("UIEvents");
+		event.initEvent("load", true, true);
+		Meeko.stuff.eventSystem.windowEventTarget.handleEvent(event);		
 	}
 }
 
@@ -845,17 +854,19 @@ XBLBinding.prototype.handleEvent = function(event) {
 		}
 
 		// KeyboardEvents
-		// TODO more flexible, comprehensive key-map
 		// NOTE some of these are non-standard
-		var keyIdentifiers = {
-			Backspace: 8, Delete: 46, Down: 40, End: 35, Enter: 13, Escape: 27, Home: 36, Insert: 45,
-			Left: 37, PageUp: 33, PageDown: 34, Right: 39, Space: 32, Tab: 9, Up: 38,
-			F1: 112, F2: 113, F3: 114, F4: 115, F5: 116, F6: 117, F7: 118, F8: 119, F9: 120, F10: 121, F11: 122, F12: 123
+		var ourKeyIdentifiers = {
+			Backspace: "U+0008", Delete: "U+007F", Escape: "U+001B", Space: "U+0020", Tab: "U+0009"
 		}
+
 		if (handler.event in xblKeyboardEvents) {
 			if (handler.key) {
-				var keyId = keyIdentifiers[handler.key];
-				if (event.keyCode != keyId) return;
+				var success = false;
+				var keyId = event.keyIdentifier;
+				if (/^U\+00....$/.test(keyId)) { // TODO it would be great if this test could be done in eventSystem
+					keyId = keyId.replace(/^U\+00/, "U+");
+				}
+				if (handler.key != keyId && ourKeyIdentifiers[handler.key] != keyId) return;
 			}
 
 			// TODO key, key-location
