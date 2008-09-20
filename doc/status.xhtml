@@ -74,14 +74,17 @@ initialize: function() {
 },
 
 xblEnteredDocument: function() {
+  this._init = (function(binding) { return function(event) { binding.initialize(); } })(this);
+  this.boundElement.ownerDocument.parentWindow.addEventListener("load", this._init, false);
   this.initialize();
+},
+
+xblLeftDocument: function() {
+  this.boundElement.ownerDocument.parentWindow.removeEventListener("load", this._init, false);
 }
 })
   </implementation>
   <handlers>
-   <handler attachto="document" event="progress">
-this.initialize();
-   </handler>
    <handler event="mouseover">
 if (event.target != this.label) return;
 if (!this.popup) return;
