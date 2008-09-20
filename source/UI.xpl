@@ -157,23 +157,9 @@ this._classList = ({
 	
 	var bVal = Boolean(value);
 	this._dynamic[state] = bVal;
-	try {
-		if (document.createEvent) {
-			event = document.createEvent("UIEvents");
-			event.initUIEvent(evType, false, true, null, bVal);
-			var rc = this.boundElement.dispatchEvent(event);
-		}
-		else {
-			event = document.createEventObject();
-			event.detail = bVal;
-			var rc = this.boundElement.fireEvent(evType, event);
-		}
-	}
-	catch (error) {
-		event.type = evType;
-		event.detail = bVal;
-		this.boundElement._elementXBL.handleEvent(event);
-	}
+	event = document.createEvent("UIEvents");
+	event.initUIEvent(evType, false, true, null, bVal);
+	return this.boundElement.dispatchEvent(event);
 		</body>
 	</method>
 	<method name="getDynamicState">
@@ -290,25 +276,12 @@ this._classList = ({
 	var element = this.boundElement;
 	var document = element.ownerDocument;
 	var event;
-	try {
-		if (document.createEvent) {
-			event = document.createEvent("HTMLEvents");
-			event.initEvent("change", false, true);
-			var rc = this.boundElement.dispatchEvent(event);
-		}
-		else {
-			event = document.createEventObject();
-			var rc = this.boundElement.fireEvent("onchange", event);
-		}
-	}
-	catch (error) {
-		event.type = "change";
-		this.boundElement._elementXBL.handleEvent(event);
-	}
-	return;
+	event = document.createEvent("HTMLEvents");
+	event.initEvent("change", false, true);
+	return this.boundElement.dispatchEvent(event);
 		</body>
 	</method>
-	<method name="xblEnteredDocument">
+	<method name="ondocumentready">
 		<body>
 	var item = this.getSelectedItem();
 	if (item) {
@@ -317,7 +290,16 @@ this._classList = ({
 	else {
 		item = this.getItems()[0];
 		this.selectItem(item);
+	}	
+		</body>
+	</method>
+	<method name="xblEnteredDocument">
+		<body>
+	var binding = this;
+	this._init = function() {
+		binding.ondocumentready();
 	}
+	this.boundElement.ownerDocument.parentWindow.addEventListener("load", this._init, false);
 		</body>
 	</method>
 </class>
@@ -488,26 +470,12 @@ this._classList = ({
 	var element = this.boundElement;
 	var document = element.ownerDocument;
 	var event;
-	try {
-		if (document.createEvent) {
-			event = document.createEvent("HTMLEvents");
-			event.initEvent("change", false, true);
-			var rc = element.dispatchEvent(event);
-		}
-		else {
-			event = document.createEventObject();
-			var rc = element.fireEvent("onchange", event);
-		}
-	}
-	catch (error) {
-		event.type = "change";
-		element._elementXBL.handleEvent(event);
-	}
-
-	return;
+	event = document.createEvent("HTMLEvents");
+	event.initEvent("change", false, true);
+	return element.dispatchEvent(event);
 		</body>
 	</method>
-	<method name="xblEnteredDocument">
+	<method name="ondocumentready">
 		<body>
 	var item = this.getSelectedItem();
 	if (item) {
@@ -517,6 +485,15 @@ this._classList = ({
 		var item = this.getItems()[0];
 		this.selectItem(item);
 	}
+		</body>
+	</method>
+	<method name="xblEnteredDocument">
+		<body>
+	var binding = this;
+	this._init = function() {
+		binding.ondocumentready();
+	}
+	this.boundElement.ownerDocument.parentWindow.addEventListener("load", this._init, false);
 		</body>
 	</method>
 </class>
