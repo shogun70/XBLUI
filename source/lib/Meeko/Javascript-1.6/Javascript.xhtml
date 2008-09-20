@@ -87,7 +87,7 @@ Array.prototype.some = function(callback, context) { return Array.some(this, cal
 var Object = function() {}
 Object.prototype = new this.Object();
 
-Object.toLoggerString = function(object) { // NOTE most of the complexity here is to get things working under Safari-2
+Object.toLoggerString = function(object) { // NOTE the complexity here is work-arounds for Safari-2
 	var string = "";
 	for (var field in object) {
 		var slot = object[field];
