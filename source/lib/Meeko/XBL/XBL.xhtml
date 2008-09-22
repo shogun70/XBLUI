@@ -38,6 +38,10 @@ Meeko.stuff.createGlobal("XMLHttpRequest");
 XMLHttpRequest = Meeko.xml.XMLHttpRequest;
 enhance(Meeko.xml, window);
 
+// Internet Explorer 
+document.createElement("abbr");
+document.createElement("output");
+
 if (!window.document.parentWindow) window.document.parentWindow = window;
 
 if (!window.document.importNode) window.document.importNode = Document.prototype.importNode;
