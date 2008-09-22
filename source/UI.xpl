@@ -278,7 +278,7 @@ this._classList = ({
 	var event;
 	event = document.createEvent("HTMLEvents");
 	event.initEvent("change", false, true);
-	return this.boundElement.dispatchEvent(event);
+	return element.dispatchEvent(event);
 		</body>
 	</method>
 	<method name="ondocumentready">
