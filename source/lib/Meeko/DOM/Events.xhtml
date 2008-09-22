@@ -7,6 +7,7 @@
 <![CDATA[
 
 // FIXME refactor - this package has its fingers in everywhere and has back-doors for everything. Seriously yukky.
+// TODO implement event modules: Keyboard, Text, Mouse, UI, etc
 
 if (!this.Meeko) this.Meeko = {};
 
@@ -78,7 +79,8 @@ var w3cEventsTable = [
 	{ type: "reset", bubbles: true, cancelable: true, module: "Event" },
 	{ type: "resize", bubbles: true, cancelable: false, module: "UIEvent" },
 	{ type: "scroll", bubbles: true, cancelable: false, module: "UIEvent" },
-	{ type: "keypress", bubbles: true, cancelable: true, module: "KeyboardEvent" } // non-standard
+	{ type: "keypress", bubbles: true, cancelable: true, module: "KeyboardEvent" }, // non-standard
+	{ type: "DOMContentLoaded", bubbles: true, cancelable: false, module: "Event" }
 ];
 
 var eventsByType = {};
@@ -119,7 +121,14 @@ if (/AppleWebKit/.test(navigator.userAgent) && Number(navigator.userAgent.match(
 	delete safari2bouncyKeys["U+0008"];	
 }
 
-var WindowEventTarget = function() {};
+var EventState = function() {}
+// These states are set by the EventSystem, so won't be valid for general use
+EventState.DEFAULT_PREVENTED = 0x01; 
+EventState.PROPAGATION_STOPPED = 0x02;
+EventState.FAKE_EVENT = 0x04;
+EventState.COMPATIBILITY_EVENT = 0x08;
+
+var WindowEventTarget = function() {}; // TODO implement by extending EventTarget
 
 WindowEventTarget.prototype.xblBindingAttached = function() {
 	this.listenerTable = {}; // lookup by this.listenerTable[type][Boolean(capture)][index]
@@ -144,7 +153,9 @@ WindowEventTarget.prototype.addEventListener = function(type, listener, useCaptu
 
 WindowEventTarget.prototype.removeEventListener = function(type, listener, useCapture) {
 	var capture = (useCapture) ? 1 : 0;
-	var listeners = this.listenerTable[type][capture];
+	var listeners;
+	if (this.listenerTable[type]) listeners = this.listenerTable[type][capture];
+	else return; // TODO logger.warn
 	for (var i=listeners.length-1; i>=0; i--) {
 		if (listeners[i] == listener) {
 			listeners.splice(i, 1);
@@ -165,10 +176,20 @@ var EventSystem = function() {
 	this.eventListener = function(event) {
 		eventSystem.handleEvent(event);
 	}
+	if (window.addEventListener) {
+		for (var type in eventsByType) {
+			window.addEventListener(type, this.eventListener, true);
+		}
+	}
 
-	this.handleEvent = function(event) { // TODO refactor
-		var keyEventFields = [ "type", "keyCode", "charCode", "keyIdentifier" ];
-		if ("keydown" == event.type) {
+	this.windowEventTarget = addBinding(window, WindowEventTarget);
+}
+
+
+EventSystem.prototype.handleEvent = function(event) { // TODO refactor
+	var keyEventFields = [ "type", "keyCode", "charCode", "keyIdentifier" ];
+	var eventHandlersByType = {
+		"keydown": function(event) {
 			var keyId;
 			if (event.keyIdentifier) keyId = event.keyIdentifier;
 			else {
@@ -183,16 +204,17 @@ var EventSystem = function() {
 			if (safari2bouncyKeys && keyId in safari2bouncyKeys) delta = 0.5;
 			if (prev && prev.type == "keydown") repeat = prev.repeat + delta;
 			else if (prev && prev.type == "keypress") repeat = prev.repeat + delta;
+			event.repeat = repeat;
 			hist.push(copy({ type: "keydown", repeat: repeat }, event, keyEventFields));
-			if (event.defaultPrevented) event.preventDefault(); // signal from keypress
+			if (event.eventStatus & EventState.DEFAULT_PREVENTED) event.preventDefault(); // signal from keypress
 			if (repeat % 1) { // ignore bouncy key registrations
 				event.stopPropagation();
 			}
 			else {
 				this.windowEventTarget.handleEvent(event);
-			}
-		}
-		else if ("keypress" == event.type) {
+			}		
+		},
+		"keypress": function(event) {
 			var keyId;
 			if (event.keyIdentifier) keyId = event.keyIdentifier;
 			else {
@@ -211,9 +233,14 @@ var EventSystem = function() {
 			if (!(prev && prev.type == "keydown")) {
 				event.stopPropagation();
 				var newEvent;
-				try {
+				try { // FIXME does this work on all platforms?? In any case, it should be moved into document.createEvent, etc
 					newEvent = document.createEvent("KeyboardEvent");
-					newEvent.initKeyboardEvent("keydown", true, true, window, keyId, 0, "");
+					if (newEvent.initKeyboardEvent) {
+						newEvent.initKeyboardEvent("keydown", true, true, window, keyId, 0, "");						
+					}
+					else if (newEvent.initKeyEvent) {
+						newEvent.initKeyEvent("keydown", true, true, window, false, false, false, false, event.keyCode, event.charCode);
+					}
 				}
 				catch (error) {
 					newEvent = document.createEvent("UIEvents");
@@ -221,7 +248,7 @@ var EventSystem = function() {
 					newEvent.keyIdentifier = keyId;
 					newEvent.keyCode = event.keyCode;
 				}
-				newEvent.defaultPrevented = true; // signal to handler to prevent default
+				newEvent.eventStatus = 0x01 | 0x08; // signal to handler to prevent default
 				event.target.dispatchEvent(newEvent);
 			}
 			if (keyId in w3cKeyIdentifiers) {
@@ -233,18 +260,18 @@ var EventSystem = function() {
 				newEvent.initTextEvent("textInput", true, true, window, String.fromCharCode(event.keyCode));
 				event.target.dispatchEvent(newEvent);
 			}
-			hist.push(copy({ type: "keypress", repeat: repeat }, event, keyEventFields));
-		}
-		else if ("textInput" == event.type) {
+			hist.push(copy({ type: "keypress", repeat: repeat }, event, keyEventFields));			
+		},
+		"textInput": function(event) {
 			var hist = this.keyEventHistory;
 			var n = hist.length;
 			var prev = (n) ? hist[n-1] : null;
 			if (prev.type == "keydown") {
 				this.windowEventTarget.handleEvent(event);
 				hist.push(copy({ type: "textInput" }, event, keyEventFields));
-			}
-		}
-		else if ("keyup" == event.type) {
+			}			
+		},
+		"keyup": function(event) {
 			var keyId;
 			if (event.keyIdentifier) keyId = event.keyIdentifier;
 			else {
@@ -257,20 +284,11 @@ var EventSystem = function() {
 			if (prev.type != "keyup" || prev.keyIdentifier != keyId) {
 				hist.push(copy({ type: "keyup" }, event, keyEventFields));
 				this.windowEventTarget.handleEvent(event);
-			}
-		}
-		else { // FIXME
-		}
-		
-	}
-
-	if (window.addEventListener) {
-		for (var type in eventsByType) {
-			window.addEventListener(type, this.eventListener, true);
+			}			
 		}
 	}
-
-	this.windowEventTarget = addBinding(window, WindowEventTarget);
+	var handler = eventHandlersByType[event.type];
+	if (handler) handler.call(this, event);
 }
 
 EventSystem.prototype.registerEvent = function(type) {
