@@ -7,15 +7,16 @@
 <![CDATA[
 
 // FIXME refactor - this package has its fingers in everywhere and has back-doors for everything. Seriously yukky.
-// TODO implement event modules: Keyboard, Text, Mouse, UI, etc
 
 if (!this.Meeko) this.Meeko = {};
 
 Meeko.events = (function() {
 
-function copy(dst, src, fields, over) { // TODO maybe this should be a method on Object
+var privateKey = Math.random();
+
+function copy(dst, src, fields, override) { // TODO maybe this should be a method on Object
 	function _copy(name) {
-		if (over || !dst.hasOwnProperty(name)) dst[name] = src[name];
+		if (override || (dst.hasOwnProperty && !dst.hasOwnProperty(name)) || dst[name] == null) dst[name] = src[name]; // TODO is this correct?
 	}
 	if (fields && fields.length) {
 		for (var n=fields.length, i=0; i<n; i++) {
@@ -80,7 +81,7 @@ var w3cEventsTable = [
 	{ type: "resize", bubbles: true, cancelable: false, module: "UIEvent" },
 	{ type: "scroll", bubbles: true, cancelable: false, module: "UIEvent" },
 	{ type: "keypress", bubbles: true, cancelable: true, module: "KeyboardEvent" }, // non-standard
-	{ type: "DOMContentLoaded", bubbles: true, cancelable: false, module: "Event" }
+	{ type: "DOMContentLoaded", bubbles: true, cancelable: false, module: "Event" } // mozilla
 ];
 
 var eventsByType = {};
@@ -89,6 +90,16 @@ for (var i=0, n=w3cEventsTable.length; i<n; i++) {
 	var type = row["type"];
 	eventsByType[type] = row;
 }
+
+var eventsByModule = {};
+for (var i=0, n=w3cEventsTable.length; i<n; i++) {
+	var row = w3cEventsTable[i];
+	var type = row["type"];
+	var module = row["module"];
+	if (!eventsByModule[module]) eventsByModule[module] = {};
+	eventsByModule[module][type] = row;
+}
+
 
 var w3cKeyIdentifiers = {
 	"U+007F": 46, // Delete
@@ -201,7 +212,10 @@ EventSystem.prototype.handleEvent = function(event) { // TODO refactor
 			var prev = (n) ? hist[n-1] : null;
 			var repeat = 0;
 			var delta = 1;
-			if (safari2bouncyKeys && keyId in safari2bouncyKeys) delta = 0.5;
+			if (safari2bouncyKeys && keyId in safari2bouncyKeys) { // TODO refactor
+				repeat = -0.5;
+				delta = 0.5;
+			}
 			if (prev && prev.type == "keydown") repeat = prev.repeat + delta;
 			else if (prev && prev.type == "keypress") repeat = prev.repeat + delta;
 			event.repeat = repeat;
@@ -226,7 +240,10 @@ EventSystem.prototype.handleEvent = function(event) { // TODO refactor
 			var prev = (n) ? hist[n-1] : null;
 			var repeat = 0;
 			var delta = 1;
-			if (safari2bouncyKeys && keyId in safari2bouncyKeys) delta = 0.5;
+			if (safari2bouncyKeys && keyId in safari2bouncyKeys) { // TODO refactor
+				repeat = -0.5;
+				delta = 0.5;
+			}
 			if (prev && prev.type == "keydown") repeat = prev.repeat;
 			else if (prev && prev.type == "keypress") repeat = prev.repeat + delta;
 			
@@ -303,6 +320,26 @@ EventSystem.prototype.registerEvent = function(type) {
 		"DOMActivate": { type: "activate", bubbles: true, cancelable: true },
 		"DOMFocusIn": { type: "focusin", bubbles: true, cancelable: false },
 		"DOMFocusOut": { type: "focusout", bubbles: true, cancelable: false },
+		"keydown": function() {
+			document.attachEvent("onkeydown", function(srcEvent) {
+				var event = document.createEvent("UIEvents");
+				event.initEvent("keydown", true, true);
+				event.keyCode = srcEvent.keyCode;
+				event.keyIdentifier = keyIdentifiersByCode[srcEvent.keyCode];
+				event.returnValue = system.dispatchEvent(srcEvent.srcElement, event);
+				return event.returnValue;
+			});
+		},
+		"keyup": function() {
+			document.attachEvent("onkeyup", function(srcEvent) {
+				var event = document.createEvent("UIEvents");
+				event.initEvent("keyup", true, true);
+				event.keyCode = srcEvent.keyCode;
+				event.keyIdentifier = keyIdentifiersByCode[srcEvent.keyCode];
+				event.returnValue = system.dispatchEvent(srcEvent.srcElement, event);
+				return event.returnValue;
+			});
+		},
 		"textInput": function() {
 			window.attachEvent("onkeypress", function(srcEvent) {
 				var event = document.createEvent("UIEvents");
@@ -393,32 +430,142 @@ EventSystem.prototype.dispatchEvent = function(target, event) {
 
 var eventSystem = addBinding(window, EventSystem);
 
-var Event = function() {};
+var Event = function(key) {
+	if (key != privateKey) throw "Event is not a constructor";
+};
 Event.CAPTURING_PHASE = 1;
 Event.AT_TARGET = 2;
 Event.BUBBLING_PHASE = 3;
+Event.prototype.initEvent = function(type, bubbles, cancelable) {
+	this.type = type;
+	this.bubbles = Boolean(bubbles);
+	this.cancelable = Boolean(cancelable);
+	this.eventStatus = 0;
+	this.timeStamp = Number(new Date);
+}
 
-var KeyboardEvent = function() {};
+Event.prototype.preventDefault = function() { this.eventStatus |= EventState.DEFAULT_PREVENTED; }
+Event.prototype.stopPropagation = function() { this.eventStatus |= EventState.PROPAGATION_STOPPED; }
+
+
+var CustomEvent = function(key) {
+	if (key != privateKey) throw "CustomEvent is not a constructor";
+};
+CustomEvent.prototype = new Event(privateKey);
+CustomEvent.prototype.initCustomEvent = function(type, bubbles, cancelable, detail) {
+	this.type = type;
+	this.bubbles = Boolean(bubbles);
+	this.cancelable = Boolean(cancelable);
+	this.detail = detail;
+	this.eventStatus = 0;
+	this.timeStamp = Number(new Date);
+}
+
+var UIEvent = function(key) {
+	if (key != privateKey) throw "UIEvent is not a constructor";
+};
+UIEvent.prototype = new Event(privateKey);
+UIEvent.prototype.initUIEvent = function(type, bubbles, cancelable, view, detail) {
+	this.type = type;
+	this.bubbles = Boolean(bubbles);
+	this.cancelable = Boolean(cancelable);
+	this.view = view;
+	this.detail = detail;
+	this.eventStatus = 0;
+	this.timeStamp = Number(new Date);
+}
+
+var KeyboardEvent = function(key) {
+	if (key != privateKey) throw "KeyboardEvent is not a constructor";
+};
+KeyboardEvent.prototype = new UIEvent(privateKey);
 KeyboardEvent.DOM_KEY_LOCATION_STANDARD = 0x00;
 KeyboardEvent.DOM_KEY_LOCATION_LEFT = 0x01;
 KeyboardEvent.DOM_KEY_LOCATION_RIGHT = 0x02;
 KeyboardEvent.DOM_KEY_LOCATION_NUMPAD = 0x03;
-	
-var MutationEvent = function() {};
+KeyboardEvent.prototype.initKeyboardEvent = function(type, bubbles, cancelable, view, keyIdentifier, keyLocation, modifierList) {
+	this.type = type;
+	this.bubbles = Boolean(bubbles);
+	this.cancelable = Boolean(cancelable);
+	this.view = view;
+	this.keyIdentifier = keyIdentifier;
+	this.keyLocation = keyLocation;
+	var modifiers = modifierList.split(" ");
+	for (var n=modifiers.length, i=0; i<n; i++) { // TODO other modifiers
+		switch (modifiers[i]) {
+			case "Alt": this.altKey = true; break;
+			case "Control": this.ctrlKey = true; break;
+			case "Meta": this.metaKey = true; break;
+			case "Shift": this.shiftKey = true; break;
+		}
+	}
+	// TODO getModifierState()
+	this.eventStatus = 0;
+	this.timeStamp = Number(new Date);
+}
+
+var MouseEvent = function(key) {
+	if (key != privateKey) throw "MouseEvent is not a constructor";
+};
+MouseEvent.prototype = new UIEvent(privateKey);
+MouseEvent.prototype.initMouseEvent = function() {
+	var xplParams = [ "type", "bubbles", "cancelable", "view", "detail", "screenX", "screenY", "clientX", "clientY", "ctrlKey", "altKey", "shiftKey", "metaKey", "button", "relatedTarget" ]
+	var n = xplParams.length;
+	if (arguments.length < n) throw "Improper argument list in call to initMouseEvent"; // FIXME
+	for (var n=xplParams.length, i=0; i<n; i++) {
+		var name = xplParams[i];
+		this[name] = arguments[i];
+	}
+	this.timeStamp = Number(new Date);
+}
+
+
+
+var MutationEvent = function(key) {
+	if (key != privateKey) throw "MouseEvent is not a constructor";
+};
 MutationEvent.MODIFICATION = 1;
 MutationEvent.ADDITION = 2;
 MutationEvent.REMOVAL = 3;
+MutationEvent.prototype = new Event(privateKey);
+MutationEvent.prototype.initMutationEvent = function() {
+	var xplParams = [ "type", "bubbles", "cancelable", "relatedNode", "prevValue", "newValue", "attrName", "attrChange" ]
+	var n = xplParams.length;
+	if (arguments.length < n) throw "Improper argument list in call to initMutationEvent"; // FIXME
+	for (var n=xplParams.length, i=0; i<n; i++) {
+		var name = xplParams[i];
+		this[name] = arguments[i];
+	}
+	this.eventStatus = 0;
+	this.timeStamp = Number(new Date);
+}
+
+
+var eventModuleMap = {
+	"HTMLEvents": "Event",
+	"UIEvents": "UIEvent",
+	"MouseEvents": "MouseEvent",
+	"MutationEvents": "MutationEvent"
+}
+
 
 var DocumentEvent = function() {}
 if (document.createEventObject) {
-	
+
+var eventTemplates = {
+	Event: new Event(privateKey),
+	CustomEvent: new CustomEvent(privateKey),
+	UIEvent: new UIEvent(privateKey),
+	KeyboardEvent: new KeyboardEvent(privateKey),
+	MouseEvent: new MouseEvent(privateKey),
+	MutationEvent: new MutationEvent(privateKey)	
+}
+
 DocumentEvent.prototype.createEvent = function(module) {
+	var dom3Module = eventModuleMap[module] || module;
 	var event = document.createEventObject();
-	event.initEvent = function(type, bubbles, cancelable) {
-		this.type = type;
-		this.bubbles = bubbles;
-		this.cancelable = cancelable;
-	};
+	var tmp = eventTemplates[dom3Module];
+	copy(event, tmp);
 	event.preventDefault = function() { this.returnValue = false; }
 	event.stopPropagation = function() { this.cancelBubble = true; }
 	return event;
