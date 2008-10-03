@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <?xpl-require href="../Javascript-1.6/Javascript.xhtml"?>
-<?xpl-require href="../dom.xhtml"?>
+<?xpl-require href="../DOM/Core.xhtml"?>
 <?xpl-require href="../DOM/Events.xhtml"?>
 <?xpl-require href="../net.xhtml"?>
 <?xpl-require href="../DOM/CSS.xhtml"?>
@@ -30,13 +30,13 @@ XBL_SCRIPT_URL = (function() {
 })();
 
 var enhance = Meeko.xpl.Namespace.enhance;
-enhance(Meeko['Javascript 1.6'], window);
-enhance(Meeko.dom, window);
-enhance(Meeko.events, window);
+enhance(window, Meeko['Javascript 1.6']);
+enhance(window, Meeko.DOM.Core);
+enhance(window, Meeko.DOM.Events);
 
 Meeko.stuff.createGlobal("XMLHttpRequest");
 XMLHttpRequest = Meeko.xml.XMLHttpRequest;
-enhance(Meeko.xml, window);
+enhance(window, Meeko.xml);
 
 // Internet Explorer 
 document.createElement("abbr");
@@ -59,11 +59,11 @@ if (!document.readyState) {
 	document.readyState = "loading";
 	var loadListener = function(event) {
 		document.removeEventListener("DOMContentLoaded", loadListener, false);
-		window.removeEventListener("load", loadListener, false);
+//		window.removeEventListener("load", loadListener, false);
 		document.readyState = "complete";
 	}
 	document.addEventListener("DOMContentLoaded", loadListener, false);
-	window.addEventListener("load", loadListener, false);
+//	window.addEventListener("load", loadListener, false);
 }
 
 var XBLException = function(code, message) {
@@ -211,7 +211,6 @@ var _init = function() {
 
 var view;
 var domWalker;
-var onProgressBindings = [];
 var __init = function() {
 	switch (readyState) { // NOTE all these cases fall-thru except for branches that return
 	case "uninitialized":
@@ -255,9 +254,6 @@ var __init = function() {
 		for (var uri in xblSystems) {
 			if (xblSystems[uri].getReadyState() != "complete") return;
 		}
-		readyState = "attached";
-		logger.info("XBL is initialising attached bindings");
-	case "attached":
 		// Turn display ON.  FIXME configuration option
 		// this.boundDocument.documentElement.style.display = "";
 		readyState = "complete";
@@ -266,11 +262,11 @@ var __init = function() {
 	// NOTE it is an error if we don't get to this point
 	var event = document.createEvent("UIEvents");
 	event.initEvent("progress", true, true);
-	Meeko.stuff.eventSystem.windowEventTarget.handleEvent(event);
+	Meeko.stuff.eventSystem.windowEventTarget.dispatchEvent(event);
 	if (readyState == "complete") {
 		var event = document.createEvent("UIEvents");
 		event.initEvent("load", true, true);
-		Meeko.stuff.eventSystem.windowEventTarget.handleEvent(event);		
+		Meeko.stuff.eventSystem.windowEventTarget.dispatchEvent(event);		
 	}
 }
 
@@ -714,7 +710,7 @@ _ElementXBL.prototype.insertBindingChain = function(chain, index) {
 			}
 		}
 
-		forEach (binding.handlers, function(handler) { // FIXME hack for textInput -> keypress
+		forEach (binding.handlers, function(handler) {
 			var eventType = handler.event;
 			var eventPhase = handler.phase;
 			var capture = (eventPhase == Event.CAPTURING_PHASE);
@@ -911,8 +907,8 @@ XBLBinding.prototype.handleEvent = function(event) {
 		if (handler.action) try {
 			handler.action.call(object, event);
 		}
-		catch(err) {
-			logger.error("Failure in XBL handler"); // TODO more useful error message
+		catch(error) {
+			logger.error("Failure in XBL handler: " + error); // TODO more useful error message
 		}
 		
 		if (handler.defaultPrevented) event.preventDefault();

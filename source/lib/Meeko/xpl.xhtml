@@ -6,7 +6,7 @@
     <title>Meeko.xpl</title>
 	<script type="text/javascript">
 <![CDATA[
-if (!this.Meeko) this.Meeko = {};
+if (!Meeko) window.Meeko = {};
 if (!Meeko.xpl) Meeko.xpl = (function() {
 
 var Namespace = function() {};
@@ -46,11 +46,11 @@ Logger.prototype.warn = function() { this._log({ level: Logger.WARN, message: ar
 Logger.prototype.error = function() { this._log({ level: Logger.ERROR, message: arguments }); }
 
 Logger.prototype._log = function(data) {
+	data.date = new Date;
 	data.ref = this.ref;
+	data.message = Array.prototype.join.call(data.message, " ");
 	if (this._trace) this._trace.log(data);
 }
-
-var XPLTrace = function() {}
 
 var XPLContext = function(ref) {
 	this.params = {};
@@ -60,7 +60,8 @@ var XPLContext = function(ref) {
 var XPLSystem = function() {
 	this.prefetch = {};
 	this.contexts = {};
-	this.trace = new XPLTrace();	
+	this.documentURI = document.documentURI || document.baseURI || document.URL;
+	this.boundDocumentURI = this.documentURI; // FIXME orthogonality
 }
 
 XPLSystem.prototype.createContext = function(ref) {
@@ -71,25 +72,113 @@ XPLSystem.prototype.createContext = function(ref) {
 	return xplContext;
 }
 
+
+var Script = function() {
+	this.readyState = "initialized";
+}
+
+Script.runList = [];
+
+Script.prototype.run = function(text) {
+	function setText(_elt, _text) {
+		_elt.text = _text;
+		if (!_elt.innerHTML) _elt.appendChild(document.createTextNode(_text));
+	}
+	var scriptElt = document.createElement("script");
+	scriptElt.type = "text/javascript";
+
+	this.scriptElement = scriptElt;
+	this.scriptIndex = Script.runList.length;
+	Script.runList.push(this);
+
+	this.readyState = "loaded";
+	setText(scriptElt, 
+		'try {\n' +
+		text + '\n' +
+		' Meeko.xpl.Script.runList[' + this.scriptIndex + '].readyState = "complete";\n' +
+		'}\n' +
+		'catch (__xplError__) {\n' +
+		' Meeko.xpl.Script.runList[' + this.scriptIndex + '].readyState = "error";\n' +
+		'}\n'
+	);
+	
+	var callbackElt = document.createElement("script");
+	callbackElt.type = "text/javascript";
+	
+	this.callbackElement = callbackElt;
+	setText(callbackElt,
+		'setTimeout(function() { Meeko.xpl.Script.runList[' + this.scriptIndex + '].callback(); }, 0);'
+	);
+
+	var head = document.getElementsByTagName("head")[0];
+	head.appendChild(scriptElt);
+	head.appendChild(callbackElt);
+}
+
+Script.prototype.callback = function() {
+	var head = this.scriptElement.parentNode;
+	head.removeChild(this.scriptElement);
+	head.removeChild(this.callbackElement);
+	if (this.readyState == "error") {
+	}
+	else if (this.readyState == "loaded") {
+		this.readyState = "syntax-error";
+	}
+	if (this.onreadystatechange) this.onreadystatechange();
+}
+
+
 return {
 	Namespace: Namespace,
 	XPLContext: XPLContext,
-	XPLSystem: XPLSystem
+	XPLSystem: XPLSystem,
+	Script: Script
 }
 
 })();
 
 Meeko.stuff = {};
-if (parent && parent.Meeko && parent.Meeko.stuff && parent.Meeko.stuff.trace)
-	Meeko.stuff.trace = parent.Meeko.stuff.trace;
-else {
-	Meeko.stuff.trace = {
-		_stack: [],
-		log: function(data) { this._stack.push(data); }
+Meeko.stuff.xplSystem = new Meeko.xpl.XPLSystem();
+var traceWindow = this;
+do {
+	if (traceWindow && traceWindow.Meeko && traceWindow.Meeko.stuff && traceWindow.Meeko.stuff.trace) {
+		Meeko.stuff.xplSystem.trace = {
+			_log: traceWindow.Meeko.stuff.trace.log,
+			log: function(data) {
+				data.url = Meeko.stuff.xplSystem.documentURI; 
+				data.boundDocumentURI = Meeko.stuff.xplSystem.boundDocumentURI; // FIXME orthogonality
+				this._log(data);
+			}
+		}
+		break;
+	}
+	if (traceWindow == top) break; // need to break at top because top.parent == top
+} while (traceWindow = traceWindow.parent);
+
+if (!Meeko.stuff.xplSystem.trace) {
+	Meeko.stuff.xplSystem.trace = {
+		log: function(data) {}
 	}
 }
-Meeko.stuff.xplSystem = new Meeko.xpl.XPLSystem();
-Meeko.stuff.xplSystem.trace = Meeko.stuff.trace;
+
+Meeko.stuff.execScript = function(text, callback) {
+	var script = new Meeko.xpl.Script;
+	if (callback) script.onreadystatechange = function() { callback(script.readyState); };
+	script.run(text);
+}
+
+Meeko.stuff.evalScript = function() {
+	return eval(arguments[0]);
+}
+
+Meeko.stuff.createGlobal = function(name) {
+	Meeko.stuff.execScript("var " + name + ";");
+}
+
+// NOTE cross-browser error catch-all
+//if (window.addEventListener) window.addEventListener("error", function(event) { event.preventDefault(); }, false);
+//else window.onerror = function(event) { return true; }; // FIXME
+
 ]]>
 	</script>
 </head>
