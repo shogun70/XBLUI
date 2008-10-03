@@ -260,7 +260,7 @@ if (!Meeko) window.Meeko = {};
 if (!Meeko.xpl) Meeko.xpl = (function() {
 
 var Namespace = function() {};
-Namespace.enhance = function(src, dest) {
+Namespace.enhance = function(dest, src) {
 	for (var className in src) {
 		var srcClass = src[className];
 		var destClass = dest[className];
@@ -426,6 +426,6 @@ Meeko.stuff.createGlobal = function(name) {
 }
 
 // NOTE cross-browser error catch-all
-if (window.addEventListener) window.addEventListener("error", function(event) { event.preventDefault(); }, false);
-else window.onerror = function(event) { return true; }; // FIXME
+//if (window.addEventListener) window.addEventListener("error", function(event) { event.preventDefault(); }, false);
+//else window.onerror = function(event) { return true; }; // FIXME
 
