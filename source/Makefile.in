@@ -26,8 +26,8 @@ destpkgdemodir ?= @destpkgdemodir@
 .SUFFIXES : .html .xhtml .js .xml .xpl .xbl .xbl_xpl 
 
 UI_TARGETS = WF2.xml UI.xml UI.js WF2.js
-TARGETS = ${UI_TARGETS} XBL.js XBLUI.js
-INSTALL_FILES = ${UI_TARGETS} XBL.js XBLUI.js
+TARGETS = ${UI_TARGETS} XBL.js XBLUI.js DOM.js
+INSTALL_FILES = ${UI_TARGETS} XBL.js XBLUI.js DOM.js
 
 XSLTPROC = /usr/bin/xsltproc
 HTML2XHTML = ${XSLTPROC} --novalid --html ${srcdir}/lib/Meeko/XPL/xhtml2xhtml.xsl 
@@ -79,6 +79,9 @@ XBLUI.js : XBLUI.xhtml ${srcdir}/lib/Meeko/XBL/XBL.xhtml ${UI_TARGETS}
 	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} > ${.TARGET}
 
 XBL.js : XBL.xhtml lib/Meeko/XBL/XBL.xhtml
+	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} > ${.TARGET}
+
+DOM.js : DOM.xhtml lib/Meeko/dom.xhtml
 	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} > ${.TARGET}
 
 .html.xhtml : 

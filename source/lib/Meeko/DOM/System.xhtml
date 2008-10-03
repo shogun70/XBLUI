@@ -1,0 +1,120 @@
+<?xml version="1.0"?>
+<?xpl-require href="../Javascript-1.6/Javascript.xhtml"?>
+<?xpl-require href="../DOM/Core.xhtml"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<script type="text/javascript">
+<![CDATA[
+
+if (!this.Meeko) this.Meeko = {};
+
+Meeko.prototypes = (function() {
+
+
+/*
+elementBinding = function() {}
+	prototype: {},
+	implementation: function() {},
+		prototype: {},
+	handlers: []
+*/
+
+
+var privateKey = Math.random();
+
+function copy(dst, src, fields, override) { // TODO maybe this should be a method on Object
+	function _copy(name) {
+		if (override || (dst.hasOwnProperty && !dst.hasOwnProperty(name)) || dst[name] == null) dst[name] = src[name]; // TODO is this correct?
+	}
+	if (fields && fields.length) {
+		for (var n=fields.length, i=0; i<n; i++) {
+			var name = fields[i];
+			_copy(name);
+		}
+	}
+	else {
+		for (var name in src) _copy(name);
+	}
+	return dst;
+}
+
+function addBindingImplementation(target, bindingImplementation) {
+	var binding = new bindingImplementation(element);
+	for (var key in binding) {
+		if (/^xbl/.test(key)) continue; // filter out xbl* methods
+		(function(field) {
+			if ("function" == typeof target[field]) target[field] = function() { return binding[field].apply(binding, arguments); }
+			else if (target.__defineGetter__) target.__defineGetter__(field, function() { return binding[field]; });
+			else target[field] = binding[field];
+		})(key);
+	}
+	binding.boundElement = target;
+	if (binding.xblBindingAttached) binding.xblBindingAttached();
+	return binding;
+}
+
+
+// make visible window["[[DOMDocument]]"], etc in Safari-2
+document.createElement("select").options;
+document.createTextNode("text");
+document.createAttribute("attribute");
+
+var safari2Prototypes = {
+	Document: "[[DOMDocument.prototype]]",
+	HTMLDocument: "[[DOMDocument.prototype]]",
+	Element: "[[DOMElement.prototype]]",
+	HTMLElement: "[[DOMElement.prototype]]"
+}
+
+for (var name in safari2Prototypes) {
+	var proto = safari2Prototypes[name];
+	if (!window[name]) {
+		if (window[proto]) {
+			window[name] = function() {};
+			window[name].prototype = window[proto];
+		}
+	}	
+}
+
+var systemBindings = {
+	Document: function() {},
+	HTMLDocument: function() {},
+	Element: function() {},
+	HTMLElement: function() {}
+}
+
+var implementation = function() {
+	for (var n=this.interfaces.length, i=0; i<n; i++) {
+		var iface = this.interfaces[i];
+		iface.implementation.apply(this, arguments);
+	}
+}
+
+for (var ifName in systemBindings) {
+	systemBindings[ifName].interfaces = [];
+	systemBindings[ifName].implementation = implementation;
+	if (window[ifName]) systemBindings[ifName].prototype = window[ifName];
+	else window[ifName] = systemBindings[ifName];
+}
+
+function applySystemBinding(element, ifName) {
+	var spec = systemBindings[ifName];
+	if (spec == window[ifName]) copy(element, spec.prototype);
+	spec.apply(element);
+	addBinding(element, spec.implementation);
+}
+
+function addInterface(bindingSpec, ifName) {
+	var sysBinding = systemBindings[ifName];
+	sysBinding.interfaces.push(bindingSpec);
+	copy(sysBinding.prototype, bindingSpec.prototype);
+	copy(sysBinding.implementation.prototype, bindingSpec.implementation.prototype);
+	return function(element) { return element["_"+ifName]; }
+}
+
+})();
+
+]]>
+</script>
+</head>
+</html>
