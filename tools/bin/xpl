@@ -256,6 +256,7 @@ if ($xplBuilder->{makeDepend}) { $xplBuilder->makeDependencies($href); }
 else { $xplBuilder->build($href); }
 
 __DATA__
+
 if (!Meeko) window.Meeko = {};
 if (!Meeko.xpl) Meeko.xpl = (function() {
 
@@ -388,6 +389,25 @@ return {
 })();
 
 Meeko.stuff = {};
+Meeko.stuff.SCRIPT_URL = (function() {
+	/*
+	 NOTE this grabs the uri of the script by assuming that
+	 the script is the last element in the tree when the script is run
+	*/
+	var node = document;
+	var next = node.lastChild;
+	while (next && next.nodeType == 1 /* Node.ELEMENT_NODE */) {
+		node = next;
+		next = node.lastChild;
+	}
+	if (node.tagName.toLowerCase() != "script") {
+		logger.warn("Last element in document isn't a script");
+		return null;
+	}
+	return node.src;
+})();
+
+
 Meeko.stuff.xplSystem = new Meeko.xpl.XPLSystem();
 var traceWindow = this;
 do {
