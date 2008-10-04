@@ -11,32 +11,6 @@
 <![CDATA[
 
 // TODO arguable everything in this first <script /> should be in it's own package
-XBL_SCRIPT_URL = (function() {
-	/*
-	 NOTE this grabs the uri of the script by assuming that
-	 the script is the last element in the tree when the script is run
-	*/
-	var node = document;
-	var next = node.lastChild;
-	while (next && next.nodeType == 1 /* Node.ELEMENT_NODE */) {
-		node = next;
-		next = node.lastChild;
-	}
-	if (node.tagName.toLowerCase() != "script") {
-		logger.warn("Last element in document isn't a script");
-		return null;
-	}
-	return node.src;
-})();
-
-var enhance = Meeko.xpl.Namespace.enhance;
-enhance(window, Meeko['Javascript 1.6']);
-enhance(window, Meeko.DOM.Core);
-enhance(window, Meeko.DOM.Events);
-
-Meeko.stuff.createGlobal("XMLHttpRequest");
-XMLHttpRequest = Meeko.xml.XMLHttpRequest;
-enhance(window, Meeko.xml);
 
 // Internet Explorer 
 document.createElement("abbr");
@@ -492,7 +466,7 @@ XBLExternalSystem.prototype.assign = function(href) {
 	var htmlText = "";
 	htmlText += "<html><head>";
 	htmlText += "<link rel='xblDocument' type='application/xml' href='" + href + "' />";
-	htmlText += "<script src='"+ XBL_SCRIPT_URL +"'><\/script>";
+	htmlText += "<script src='"+ Meeko.stuff.SCRIPT_URL +"'><\/script>";
 	htmlText += "<\/head><body><\/body><\/html>";
 	doc.open();
 	doc.write(htmlText);
