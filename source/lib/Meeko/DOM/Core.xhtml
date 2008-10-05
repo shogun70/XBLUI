@@ -44,6 +44,80 @@ DOMException.INVALID_ACCESS_ERR = 15;
 DOMException.VALIDATION_ERR = 16;
 DOMException.TYPE_MISMATCH_ERR = 17;
 
+var XPLError = function(code, message) {
+	if (!code) code = DOMException.NOT_SUPPORTED_ERR;
+	if (!message) arguments.callee.getMessage(code);
+	var instance = Error(message);
+	instance.name = "DOMException";
+	instance.code = code;
+	return instance;
+}
+
+XPLError.getMessage = function(code) {
+	if (!this.messageTable) {
+		this.messageTable = [];
+		for (var key in DOMException) {
+			var val = DOMException[key];
+			if (key.match(/_ERR$/)) this.messageTable[val] = key;
+		}
+	}
+	return this.messageTable[code];
+}
+
+
+
+/*
+	DOMWalker supports the forEach method which walks the DOM (depth first)
+	starting at the given element and calling the given function for every element.
+*/
+DOMWalker = function(element) {
+	this.root = element || document.documentElement;
+	this.current = null;
+	this.index = 0;
+}
+
+DOMWalker.forEach = function(element, fn, context) { // TODO redo as per DOMWalker.prototype.forEach
+	var node = element;
+	var next = element;
+	var index = 0; // or should this be an xpath like expression?
+	do {
+		index++;
+		if (Node.ELEMENT_NODE == node.nodeType) fn.call(context, node, index, element);
+		next = node.firstChild || node.nextSibling;
+		while (!next) {
+			node = node.parentNode;
+			if (element == node) break;
+			next = node.nextSibling;
+		}
+		if (next) node = next;
+	} while (node != element);
+}
+
+
+DOMWalker.prototype.forEach = function(fn, context) {
+	if (!this.current) {
+		this.current = this.root;
+		this.index++;
+		fn.call(context, this.current, this.index, this.root); // assumes root is an element
+	}
+
+	OUTER: for (;;) {
+		var next = this.current.firstChild;
+		while (next && (Node.ELEMENT_NODE != next.nodeType || "xml" == next.tagName.toLowerCase())) next = next.nextSibling;
+		var up = this.current;
+		INNER: while (!next) {
+			if (this.root == up) break OUTER;
+			next = up.nextSibling;
+			while (next && (Node.ELEMENT_NODE != next.nodeType || "xml" == next.tagName.toLowerCase())) next = next.nextSibling;
+			up = up.parentNode;
+		}
+		this.current = next;
+		this.index++;
+		if (Node.ELEMENT_NODE == this.current.nodeType) fn.call(context, this.current, this.index, this.root);
+	}
+	
+	return this.current;
+}
 
 var Document = function() {};
 
@@ -128,7 +202,9 @@ DOMTokenList.prototype._getTokens = function() {
 return {
 	Node: Node,
 	DOMException: DOMException,
+	XPLError: XPLError,
 	DOMTokenList: DOMTokenList,
+	DOMWalker: DOMWalker,
 	Document: Document
 };
 
