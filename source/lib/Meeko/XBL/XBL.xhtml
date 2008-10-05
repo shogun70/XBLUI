@@ -40,80 +40,6 @@ if (!document.readyState) {
 //	window.addEventListener("load", loadListener, false);
 }
 
-var XBLException = function(code, message) {
-	if (!code) code = DOMException.NOT_SUPPORTED_ERR;
-	if (!message) arguments.callee.getMessage(code);
-	var instance = Error(message);
-	instance.name = "DOMException";
-	instance.code = code;
-	return instance;
-}
-
-XBLException.getMessage = function(code) {
-	if (!this.messageTable) {
-		this.messageTable = [];
-		for (var key in DOMException) {
-			var val = DOMException[key];
-			if (key.match(/_ERR$/)) this.messageTable[val] = key;
-		}
-	}
-	return this.messageTable[code];
-}
-
-
-
-/*
-	DomWalker supports the forEach method which walks the DOM (depth first)
-	starting at the given element and calling the given function for every element.
-*/
-DomWalker = function(element) {
-	this.root = element || document.documentElement;
-	this.current = null;
-	this.index = 0;
-}
-
-DomWalker.forEach = function(element, fn, context) { // TODO redo as per DomWalker.prototype.forEach
-	var node = element;
-	var next = element;
-	var index = 0; // or should this be an xpath like expression?
-	do {
-		index++;
-		if (Node.ELEMENT_NODE == node.nodeType) fn.call(context, node, index, element);
-		next = node.firstChild || node.nextSibling;
-		while (!next) {
-			node = node.parentNode;
-			if (element == node) break;
-			next = node.nextSibling;
-		}
-		if (next) node = next;
-	} while (node != element);
-}
-
-
-DomWalker.prototype.forEach = function(fn, context) {
-	if (!this.current) {
-		this.current = this.root;
-		this.index++;
-		fn.call(context, this.current, this.index, this.root); // assumes root is an element
-	}
-
-	OUTER: for (;;) {
-		var next = this.current.firstChild;
-		while (next && (Node.ELEMENT_NODE != next.nodeType || "xml" == next.tagName.toLowerCase())) next = next.nextSibling;
-		var up = this.current;
-		INNER: while (!next) {
-			if (this.root == up) break OUTER;
-			next = up.nextSibling;
-			while (next && (Node.ELEMENT_NODE != next.nodeType || "xml" == next.tagName.toLowerCase())) next = next.nextSibling;
-			up = up.parentNode;
-		}
-		this.current = next;
-		this.index++;
-		if (Node.ELEMENT_NODE == this.current.nodeType) fn.call(context, this.current, this.index, this.root);
-	}
-	
-	return this.current;
-}
 ]]>
 </script>
 
@@ -161,7 +87,7 @@ exit = function() {
 		xblSystems[uri] = null; // FIXME signal sub-systems to exit as well
 	}
 
-	var domWalker = new DomWalker(view);
+	var domWalker = new DOMWalker(view);
 	domWalker.forEach(function(element) {
 		var _elementXBL = element._elementXBL;
 		if (_elementXBL) _elementXBL.DESTROY();
@@ -215,7 +141,7 @@ var __init = function() {
 			var uri = bindingDocumentURIs[i];
 			if (xblSystems[uri].getReadyState() != "complete") return false;
 		}
-		domWalker = new DomWalker(view);
+		domWalker = new DOMWalker(view);
 		readyState = "interactive";
 		logger.info("XBL is traversing the DOM for matched elements");
 	case "interactive":
