@@ -220,9 +220,21 @@ return {
 enhance(window, Meeko.DOM.HTML);
 
 
+(function() { // A few cross-browser fixes
 
-(function() { // make visible window["[[DOMDocument]]"], etc in Safari-2
+if (!document.parentWindow) document.parentWindow = window;
 
+//	document.documentURI for a range of browsers
+var _documentURI = document.documentURI || document.baseURI || document.URL || document.url || document.location;
+if (!document.documentURI) document.documentURI = _documentURI;
+
+// make abbr and output parse on Internet Explorer 
+document.createElement("abbr");
+document.createElement("output");
+
+if (!document.importNode) document.importNode = Document.prototype.importNode;
+
+// make visible window["[[DOMDocument]]"], etc in Safari-2
 document.createElement("select").options;
 document.createTextNode("text");
 document.createAttribute("attribute");
@@ -252,7 +264,8 @@ var interfaceTable = [
 	{ name: "Element", attachTo: "element", base: "Node" },
 	{ name: "HTMLElement", attachTo: "element", base: "Element" },
 	{ name: "Document", attachTo: "document", base: "Node" },
-	{ name: "HTMLDocument", attachTo: "document", base: "Document" }
+	{ name: "HTMLDocument", attachTo: "document", base: "Document" },
+	{ name: "Window", attachTo: "window" }
 ];
 
 var interfacesByName = {};
@@ -274,7 +287,8 @@ var privateKey = Math.random();
 
 function copy(dst, src, fields, override) { // TODO maybe this should be a method on Object
 	function _copy(name) {
-		if (override || (dst.hasOwnProperty && !dst.hasOwnProperty(name)) || dst[name] == null) dst[name] = src[name]; // TODO is this correct?
+		if (!override && (dst.hasOwnProperty && dst.hasOwnProperty(name) || dst[name] != null)) return;
+		dst[name] = src[name];
 	}
 	if (fields && fields.length) {
 		for (var n=fields.length, i=0; i<n; i++) {
@@ -288,33 +302,35 @@ function copy(dst, src, fields, override) { // TODO maybe this should be a metho
 	return dst;
 }
 
+function bind(dst, src, fields, override) {
+	function _bind(name) {
+		if (src[name] == null) return;
+		if (!override && (dst.hasOwnProperty && dst.hasOwnProperty(name) || dst[name] != null)) return;
+		if ("function" == typeof src[name]) dst[name] = function() { return src[name].apply(src, arguments); };
+		else if (dst.__defineGetter__) dst.__defineGetter__(name, function() { return src[name]; });
+		else dst[name] = src[name];
+	}
+	if (fields && fields.length) {
+		for (var n=fields.length, i=0; i<n; i++) {
+			var name = fields[i];
+			_bind(name);
+		}
+	}
+	else {
+		for (var name in src) _bind(name);
+	}
+	return dst;
+}
+
 function applyBindingImplementation(target, bindingImplementation) {
 	var binding = new bindingImplementation(target);
-	for (var key in binding) {
-		if (/^xbl/.test(key)) continue; // filter out xbl* methods
-		(function(field) {
-			if ("function" == typeof binding[field]) target[field] = function() { return binding[field].apply(binding, arguments); };
-			else if (target.__defineGetter__) target.__defineGetter__(field, function() { return binding[field]; });
-			else target[field] = binding[field];
-		})(key);
-	}
-	binding.boundElement = target;
 	if (binding.xblBindingAttached) binding.xblBindingAttached();
 	return binding;
 }
 
-function removeBindingImplementation(target, bindingImplementation) { // FIXME
-	
-}
-
-function applyBinding(target, bindingSpec) {
-	copy(target, bindingSpec.prototype);
-	bindingSpec.apply(target);
-	return addBindingImplementation(target, bindingSpec.implementation);
-}
-
-function removeBinding(target, bindingSpec) { // FIXME
-	
+function removeBindingImplementation(target, binding) {
+	if (binding.xblBindingDetached) binding.xblBindingDetached();
+	if (binding.DESTROY) binding.DESTROY();
 }
 
 var domBindings = {};
@@ -336,12 +352,14 @@ var createDOMBinding = function(name) {
 	}
 	
 	domBinding.remove = function(element) { // FIXME
-		for (var n=this.interfaces.length, i=0; i<n; i++) {
+		var ifName = "_" + this.name;
+		var n=this.interfaces.length;
+		for (i=n-1; i>0; i--) {
 			var iface = this.interfaces[i];
-			removeBindingImplementation(element, iface.implementation);
+			removeBindingImplementation(element, element[ifName][i]);
 			if (iface.remove) iface.remove(element);
 		}
-		// FIXME uncopy(element, this.prototype); 
+		delete element[ifName];
 	}
 
 	domBinding.implementation = function(target) {
@@ -351,9 +369,10 @@ var createDOMBinding = function(name) {
 	}
 	
 	domBinding.addBinding = function(bindingSpec) {
+		var ifName = "_" + this.name;
 		this.interfaces.push(bindingSpec);
 		var index = this.interfaces.length - 1;
-		return Function("element", "return element._"+this.name+"["+index+"];");
+		return Function("element", "var iface = element."+ifName+"; if (iface) return iface["+index+"];");
 	}
 	
 	domBinding.init = function() {
@@ -390,7 +409,7 @@ var timerId = null,
 	domWalker = null;
 
 function init() {	
-	timerId = setInterval(onprogress, 100);
+	timerId = setTimeout(onprogress, 10);
 	if (document.addEventListener) document.addEventListener("DOMContentLoaded", onprogress, true);
 	if (window.addEventListener) window.addEventListener("load", onprogress, true);
 	if (window.attachEvent) window.attachEvent("onload", onprogress);
@@ -407,7 +426,8 @@ function exit() { // FIXME
 	});
 
 	for (var n=registeredSystems.length, i=0; i<n; i++) { 
-		registeredSystems[i].exit();
+		var system = registeredSystems[i];
+		if (system.exit) system.exit();
 	}
 
 	if (window.removeEventListener) window.removeEventListener("unload", exit, false);
@@ -428,11 +448,15 @@ function _init() {
 	MAIN: switch (readyState) { // NOTE all these branches can fall-thru when they result in a state transition
 		case "uninitialized":
 			if (!document.body) return false;
-			for (var n=registeredSystems.length, i=0; i<n; i++) {
-				registeredSystems[i].init();
-			}
 			for (var name in domBindings) {
 				domBindings[name].init();
+			}
+			domBindings["Window"].apply(window);
+			domBindings["Document"].apply(document);
+			domBindings["HTMLDocument"].apply(document);
+			for (var n=registeredSystems.length, i=0; i<n; i++) {
+				var system = registeredSystems[i];
+				if (system.init) system.init();
 			}
 			domWalker = new DOMWalker(view);
 			readyState = "loading";
@@ -456,10 +480,12 @@ function _init() {
 	event.initEvent("progress", true, true);
 	Meeko.stuff.eventSystem.windowEventTarget.dispatchEvent(event);
 	if (readyState == "complete") {
-		clearInterval(timerId); 
 		var event = document.createEvent("Event");
 		event.initEvent("load", true, true);
 		Meeko.stuff.eventSystem.windowEventTarget.dispatchEvent(event);		
+	}
+	else {
+		timerId = window.setTimeout(onprogress, 10);
 	}
 }
 
@@ -467,7 +493,8 @@ init();
 
 return {
 	registerSystem: registerSystem,
-	installBinding: installBinding
+	installBinding: installBinding,
+	bindInterface: bind
 }
 
 })();
@@ -673,6 +700,12 @@ var EventSystem = function() {
 EventSystem.prototype.handleEvent = function(event) { // TODO refactor
 	var keyEventFields = [ "type", "keyCode", "charCode", "keyIdentifier" ];
 	var eventHandlersByType = {
+		"DOMContentLoaded": function(event) {
+			try { document.readyState = "loaded"; }
+			catch(error) { }
+			event.preventDefault();
+			event.stopPropagation();
+		},
 		"load": function(event) {
 			logger.debug("Blocking browser load event");
 			event.preventDefault();
@@ -1074,24 +1107,26 @@ EventTarget.getBinding = function(target) {
 	return (lookup) ? lookup(target) : null;
 	
 }
-EventTarget.implementation = function(element) { }
-EventTarget.implementation.prototype.xblBindingAttached = function() { // FIXME interface removal on window.onunload
+EventTarget.implementation = function(element) {
+	this.boundElement = element;
+	Meeko.stuff.domSystem.bindInterface(element, this, ["addEventListener", "removeEventListener", "dispatchEvent"]);
 	this.listenerTable = {}; // lookup by this.listenerTable[type][Boolean(capture)][index]
-	this.handleEvent = function(event) {
-		var capture = (event.eventPhase == Event.CAPTURING_PHASE) ? 1 : 0;
-		var table = this.listenerTable[event.type];
-		if (!table) return;
-		var listeners = table[capture];
-		for (var n=listeners.length, i=0; i<n; i++) {
-			var listener = listeners[i];
-			try {
-				if (listener.handleEvent) return listener.handleEvent(event);
-				else return listener(event);
-			}
-			catch (error) {
-				logger.error("Error in event listener: " + error);
-				return;
-			}
+}
+
+EventTarget.implementation.prototype.handleEvent = function(event) {
+	var capture = (event.eventPhase == Event.CAPTURING_PHASE) ? 1 : 0;
+	var table = this.listenerTable[event.type];
+	if (!table) return;
+	var listeners = table[capture];
+	for (var n=listeners.length, i=0; i<n; i++) {
+		var listener = listeners[i];
+		try {
+			if (listener.handleEvent) return listener.handleEvent(event);
+			else return listener(event);
+		}
+		catch (error) {
+			logger.error("Error in event listener: " + error);
+			return;
 		}
 	}
 }
@@ -1140,8 +1175,9 @@ return {
 })();
 
 enhance(window, Meeko.DOM.Events);
+
 if (document.documentElement.classList == null) {
-	
+
 var ClassListBinding = {}
 ClassListBinding.apply = function(element) {
 	element.classList = new DOMTokenList(function() { return element.className; }, function(val) { element.className = val });
