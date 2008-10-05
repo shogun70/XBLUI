@@ -153,7 +153,10 @@ XMLHttpRequest.prototype.send = function(data) {
 		this.responseText = prefetchText;
 		try { this.responseXML = (new DOMParser()).parseFromString(prefetchText, "text/xml"); } // TODO Opera throws on fail
 		catch (err) { } // FIXME logger.warn
-		if (this.onreadystatechange) this.onreadystatechange({ type: "readystatechange" }); // FIXME
+		if (this.onreadystatechange) {
+			var xhr = this;
+			window.setTimeout(function() { xhr.onreadystatechange({ type: "readystatechange" }); }, 10); // FIXME
+		}
 		return;
 	}
 
@@ -175,6 +178,10 @@ return {
 }
 
 })();
+
+Meeko.stuff.createGlobal("XMLHttpRequest");
+XMLHttpRequest = Meeko.xml.XMLHttpRequest;
+Meeko.xpl.Namespace.enhance(window, Meeko.xml);
 
 ]]>
 </script>
