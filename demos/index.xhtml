@@ -1,0 +1,279 @@
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+		"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<!--
+XBL2 showcase
+Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>Meeko XBL Showcase</title>
+	<xbl xmlns="http://www.w3.org/ns/xbl">
+		<binding element="*" extends="{pkgdefaultlibdir}/UI.xml#HTMLElement"/>
+		<binding element="#main" extends="{pkgdefaultlibdir}/UI.xml#scrollBox"/>
+		<binding element="#header .nav" extends="{pkgdefaultlibdir}/UI.xml#navlist">
+			<handlers>
+				<handler event="change">
+var element = this.boundElement;
+var document = element.ownerDocument;
+var view = element.getView();
+var item = element.getSelectedItem();
+var refElt = item.getRefElement();
+var href = refElt.href;
+view.setView(href);
+				</handler>
+			</handlers>
+		</binding>
+		<binding element="#header .nav > ul > li" extends="{pkgdefaultlibdir}/UI.xml#navlistitem"/>
+		<binding element="#header .nav > ul > li > a[href]" extends="{pkgdefaultlibdir}/UI.xml#navlink"/>
+		<binding element="object.browser">
+			<implementation>
+<![CDATA[({
+
+getFrame: function() {
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	var name = (function() {
+		var elts = element.childNodes;
+		for (var i=0, n=elts.length; i<n; i++) {
+			var node = elts[i];
+			if ("PARAM" == node.tagName && "target" == node.name) return node.value;
+		}	
+	})() || element.id;
+	var elts = document.getElementsByName(name);
+	for (var i=0, n=elts.length; i<n; i++) {
+		var node = elts[i];
+		if ("IFRAME" == node.tagName) return node;
+	}
+	var elts = element.childNodes;
+	for (var i=0, n=elts.length; i<n; i++) {
+		var node = elts[i];
+		if ("IFRAME" == node.tagName) return node;
+	}
+	return null;
+},
+
+getRelPath: function() {
+	var element = this.boundElement;
+	var elts = element.childNodes;
+	for (var i=0, n=elts.length; i<n; i++) {
+		var node = elts[i];
+		if ("PARAM" == node.tagName && "relpath" == node.name) return node.value;
+	}
+	return null;
+},
+
+setView: function(href) {
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	var iframe = this.getFrame();
+	var relPath = this.getRelPath();
+	var url = href;
+	if (relPath) url += "/" + relPath;
+	var binding = this;
+	iframe.onload = function() { binding.relay(href); }
+	iframe.src = url;
+},
+
+relay: function(href) {
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	var elts = element.childNodes;
+	for (var i=0, n=elts.length; i<n; i++) {
+		var node = elts[i];
+		if ("PARAM" == node.tagName && "relay" == node.name) {
+			var object = document.getElementById(node.value);
+			if (object) object.setView(href);
+		}
+	}
+	
+}
+
+})]]>
+			</implementation>
+		</binding>
+		<binding element="iframe">
+			<implementation>
+<![CDATA[({
+xblBindingAttached: function() {
+	this.setOpenState(this.getOpenState()); // FIXME
+},
+
+setOpenState: function(value) {
+	var element = this.boundElement;
+	var bVal = Boolean(value);
+	var classList = element.getClassList();
+	if (bVal) {
+		classList.remove("closed");
+		classList.add("open");
+		element.style.height = ""; // FIXME
+	}
+	else {
+		classList.remove("open");
+		classList.add("closed");
+		element.style.height = "0px"; // FIXME
+	}
+},
+
+getOpenState: function() {
+	var element = this.boundElement;
+	var classList = element.getClassList();
+	return !classList.has("closed");
+}
+
+})]]>
+			</implementation>
+		</binding>
+		<binding element="label">
+			<implementation>
+<![CDATA[({
+
+getFrame: function() {
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	var name = element.htmlFor;
+	var elts = document.getElementsByName(name);
+	for (var i=0, n=elts.length; i<n; i++) {
+		var node = elts[i];
+		if ("IFRAME" == node.tagName) return node;
+	}
+	var elts = element.childNodes;
+	for (var i=0, n=elts.length; i<n; i++) {
+		var node = elts[i];
+		if ("IFRAME" == node.tagName) return node;
+	}
+	return null;
+}
+
+})]]>
+			</implementation>
+			<handlers>
+				<handler event="click">
+<![CDATA[
+var frame = this.getFrame();
+if (frame) {
+	var isOpen = frame.getOpenState();
+	frame.setOpenState(!isOpen);
+}
+]]>
+				</handler>
+			</handlers>
+		</binding>
+		<binding element="#sourcePanel">
+			<implementation>
+<![CDATA[({
+reflow: function() {
+	var element = this.boundElement;
+	var height = element.clientHeight;
+	var resizingElts = [];
+	var staticHeight = 0;
+	forEach (element.childNodes, function(node) {
+		if (Node.ELEMENT_NODE != node.nodeType) return;
+		if ("IFRAME" == node.tagName) {
+			if (node.getOpenState()) resizingElts.push(node);
+			return;
+		}
+		staticHeight += node.offsetHeight;
+	});
+	var dynamicHeight = (height - staticHeight) / resizingElts.length;
+	forEach (resizingElts, function(frame) {
+		frame.style.height = String(Math.floor(dynamicHeight)) + "px";
+	});
+},
+
+xblEnteredDocument: function() {
+	this.reflow();
+}
+})]]>
+			</implementation>
+			<handlers>
+				<handler event="click">
+this.reflow();
+				</handler>
+			</handlers>
+		</binding>
+	</xbl>
+	<style>
+* { margin: 0; padding: 0; }
+
+/* colors and button borders */
+html { background-color: #dddddd; color: #000000; }
+#main { border: 1px solid #bbbbbb; }
+
+/* borders, paddings, margins */
+img { border: 0px none; vertical-align: middle; }
+html { text-align: center; }
+body { width: 1000px; margin: 10px auto; padding: 0; text-align: left; }
+body { font-family: arial,helvetica,sans-serif; font-size: 80%; }
+#main { height: 500px; margin: 0; padding: 5px; overflow: hidden; }
+#main, #header { width: 500px; display: block; clear: both; }
+object { display: none; width: 0; height: 0; }
+#browserPanel { width: 490px; height: 490px; display: block; float: left; padding: 0 5px; margin: 0; }
+#sourcePanel { width: 490px; height: 490px; display: block; float: left; overflow: hidden; padding: 0 5px; margin: 0; }
+#sourcePanel label { display: block; width: 480px; border: 2px inset #dddddd; }
+#sourcePanel label { border-bottom-width: 0px; padding: 0.2em; }
+#sourcePanel iframe { display: block; width: 480px; overflow: scroll; margin: 0; border: 2px inset #dddddd; border-top-width: 0px; background-color: #ffffff; }
+#browser { display: block; width: 480px; height: 490px; overflow: hidden; margin: 0; border: 2px inset #dddddd; }
+
+
+#demoTabs { width: 100%; padding: 0; display: block; border-bottom: 3px solid #ffffff; }
+#demoTabs ul, #demoTabs li { list-style: outside none; margin: 0; padding: 0; }
+#demoTabs ul { display: block; width: 100%; border-bottom: 1px solid #bbbbbb; }
+#demoTabs li, #demoTabs li a { display: inline; line-height: 2em; padding-top: 0.5em; padding-bottom: 0.5em; }
+#demoTabs li { padding-left: 25px; position: relative; bottom: -1px; _margin-right: 4px; _padding-top: 0; _padding-bottom: 0; }
+#demoTabs li a { padding-right: 25px; _margin-right: -4px; }
+
+#demoTabs li a, #demoTabs li a:active, #demoTabs li a:visited {
+	text-decoration: none;
+	color: #000000;
+	cursor: default;
+}
+#demoTabs li a:focus { -moz-outline: none; outline: none; }
+
+#demoTabs li { background: #dddddd url(button.gif) left top; }
+#demoTabs li a { background: #dddddd url(button.gif) right top; }
+#demoTabs li.current { background-position: left -50px; }
+#demoTabs li.current a { background-position: right -50px; }
+	</style>
+
+</head>
+
+<body>
+<div id="header">
+<div class="nav" id="demoTabs">
+	<a rel="target" href="#BrowserObj"></a>
+	<ul>
+		<li><a href="tree.html" target="browser" title="Tree Demo">Tree</a></li>
+		<li><a href="menu.html" target="browser" title="Menu Demo">Menu</a></li>
+		<li><a href="tabbox.html" target="browser" title="Tabbox Demo">Tabbox</a></li>
+		<li><a href="table.html" target="browser" title="Table Demo">Table</a></li>
+		<li><a href="webforms2.html" target="browser" title="WebForms2 Demo">WebForms2</a></li>
+	</ul>
+</div>
+</div>
+
+<div id="main">
+	
+<div id="browserPanel">
+	<!-- OBJECT elements are placed in the body because they have perverse IE behavior when in the head -->
+	<!-- They also have perverse IE behavior when classid is present -->
+	<!-- Actually, objects are a bad fit for XBL. I just haven't thought of a semantically better way of implementing what I need -->
+	<object declare="declare" class="browser" id="BrowserObj">
+		<param name="NOTrelpath" value="index.html" />
+		<param name="target" value="browser" />
+		<param name="NOTrelay" value="IndexSrcObj" />
+	</object>
+	<iframe name="browser" id="browser" />
+</div>
+
+</div>
+
+<div class="footer">
+	<p><small>Copyright 2007 Sean Hogan <br />All rights reserverd</small></p>
+</div>
+
+</body>
+</html>

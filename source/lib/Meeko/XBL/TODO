@@ -1,0 +1,50 @@
+** XBL Specific **
+
+- test binding removal
+
+- code in a binding document must be executed in the context of that binding document
+
+- templates
+	- simple ( no content element)
+	- standard
+
+- styles in binding documents
+
+- check XBL feature strings
+
+
+** Generic **
+
+- Test & Demos
+
+- Initialization options
+
+- getters and setters if possible
+
+
+** XBL Specification Queries **
+
+- Processing Instructions in HTML (as opposed to XML) aren't detected in many browsers.
+How about <link rel="bindings" type="text/xml" href="binding.xml" /> ?
+
+- xbl trees aren't valid in HTML.
+How about <style type="application/xml"><xbl>...</xbl></style> ?
+
+- It should be possible for methods from XBL bindings to override native methods of bound elements.
+
+- It would be useful to have something like HTC's oncontentready and ondocumentready.
+One solution would be element.onsubtreemodified and document.onprogress events during document load.
+
+- It seems illogical to have an xblBindingAttached, but not xblBindingDetached.
+
+- Does ElementXBL.addBinding(url) add the binding if it is already present?
+
+- Shouldn't there be a ElementXBL.getBinding(url)?
+
+- Shouldn't @extends be @base-binding? Confusion with ES4 class model.
+
+- What does 'Anything else ("modifier")' mean?
+
+- The relationship between external and internal objects and the implementation prototype seems wrong.
+
+- binding methods starting with xbl shouldn't be on the public object or available from the bound-element.

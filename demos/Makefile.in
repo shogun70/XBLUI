@@ -1,0 +1,66 @@
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+PKGNAME = @PKGNAME@
+PKGVERSION = @PKGVERSION@
+
+include @top_srcdir@/mk/gnu.bsdvars.mk
+
+pkglibdir = @pkglibdir@
+pkgdefaultlibdir = @pkgdefaultlibdir@
+pkglibexecdir = @pkglibexecdir@
+pkgdemodir = @pkgdemodir@
+destpkglibdir = @destpkglibdir@
+destpkglibexecdir = @destpkglibexecdir@
+destpkgdemodir = @destpkgdemodir@
+
+toolsdir = @top_srcdir@/tools
+
+.SUFFIXES: .xhtml .html .xml .css
+DEMOS = tree menu tabbox table webforms2
+RESOURCES = wf2select.xml button.gif arrow-up.gif arrow-dn.gif arrow-lft.gif arrow-rit.gif bookmark.gif utilities-system-monitor.gif go-next.gif close.gif internet-web-browser.gif columnpicker.gif
+SRCS = index.xhtml browser.xhtml console.xhtml
+TARGETS = index.html browser.html console.html
+SRCS += ${foreach DEMO,${DEMOS},${DEMO}.xhtml}
+TARGETS += ${foreach DEMO,${DEMOS},${DEMO}.html}
+
+XSLTPROC = /usr/bin/xsltproc --novalid 
+TIDY = /usr/bin/tidy -q
+URLINSTALL = ${toolsdir}/bin/urlinstall
+
+
+PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/XBLUI.js
+PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
+
+all: build
+
+build: ${TARGETS}
+
+clean:
+	-rm ${TARGETS}
+
+install: ${TARGETS} ${RESOURCES}
+	for FILE in ${TARGETS}; do \
+		${URLINSTALL} $${FILE} ${destpkgdemodir}/$${FILE}; \
+		gzip -c $${FILE} | ${URLINSTALL} - ${destpkgdemodir}/$${FILE}.gz; \
+	done;
+	for FILE in ${RESOURCES}; do \
+		${URLINSTALL} ${srcdir}/$${FILE} ${destpkgdemodir}/$${FILE}; \
+		gzip -c ${srcdir}/$${FILE} | ${URLINSTALL} - ${destpkgdemodir}/$${FILE}.gz; \
+	done;
+
+console.html: console.xhtml
+	cat ${.IMPSRC} |\
+	${XSLTPROC} ${srcdir}/xhtml2html.xsl - > ${.TARGET}
+
+.xhtml.html :
+	cat ${.IMPSRC} |\
+	${XSLTPROC} ${PARAMS} ${srcdir}/xhtml2xhtml_standalone.xsl - |\
+	${XSLTPROC} ${PARAMS} ${srcdir}/xhtml2html.xsl - > ${.TARGET}
+
+.xhtml.xml :
+	${XSLTPROC} ${PARAMS} ${srcdir}/xhtml_xbl_css2xbl.xsl ${.IMPSRC} > ${.TARGET}
+
+.xhtml.css :
+	${XSLTPROC} ${PARAMS} ${srcdir}/xhtml_xbl_css2css.xsl ${.IMPSRC} > ${.TARGET}
+

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?access-control allow="*"?>
+<!--
+XBL2 Webforms2 implementation
+Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+
+<!--
+TODO: more input elements
+TODO: repetition interface
+TODO: create events in the right categories/namespaces
+TODO: robustize
+-->
+<xbl xmlns="http://www.w3.org/ns/xbl">
+
+	<script src="WF2.js" />
+
+	<binding id="WF2FormElement">
+		<implementation>(WF2FormElement.prototype)</implementation>
+		<handlers>
+			<handler event="submit">
+<![CDATA[
+var button = event.explicitOriginalTarget; // TODO non-Firefox browsers
+this.submit(button);
+]]>
+			</handler>
+			<handler event="received">
+<![CDATA[
+var rxStatement = this.boundElement.getAttribute("onreceived");
+if (rxStatement) {
+	var rxHandler = eval("function(event) {" + rxStatement + "}");
+	var returnValue = rxHandler.call(this.boundElement, event);
+	if (!returnValue) event.preventDefault();
+}
+]]>
+			</handler>	
+		</handlers>	
+	</binding>
+
+	<binding id="WF2SubmitButton" element="input[type=submit], button[type=submit]">
+		<implementation>(WF2SubmitButton.prototype)</implementation>
+		<handlers>
+			<handler event="click" default-action="perform">
+			</handler>
+		</handlers>
+	</binding>
+
+	<binding id="WF2TextInput">
+		<implementation>(WF2TextInput.prototype)</implementation>
+		<handlers>
+			<handler event="textInput">
+<![CDATA[
+var n = event.keyCode || e.which; // keyCode is nil for moz keypress
+var str = String.fromCharCode(n);
+var filter = this.getFilter();
+if (!filter) return true;
+var r = new RegExp("["+filter+"]");
+if (r.test(str)) return true;
+e.preventDefault();
+return false;
+]]>
+			</handler>
+		</handlers>
+	</binding>
+
+
+	<binding id="WF2NumberInput" element="input[type=number]">
+		<implementation>(WF2NumberInput.prototype)</implementation>
+		<handlers>
+			<handler event="keydown" key="Up">this.stepUp(1);</handler>
+			<handler event="keydown" key="Down">this.stepDown(1);</handler>
+		</handlers>
+	</binding>
+	
+	
+	<binding id="WF2AddElement" element="input[type=add]" extends="#WF2InputElement">
+		<handlers>
+			<handler event="click">
+RepetitionElement(this.htmlTemplate).addRepetitionBlock(null);
+			</handler>			
+		</handlers>
+	</binding>
+
+	<binding id="WF2TextAreaElement">
+	</binding>
+	
+	<binding id="WF2ButtonElement">
+	</binding>
+	
+	<binding id="WF2SelectElement" element="select">
+		<implementation>(WF2SelectElement.prototype)</implementation>
+	</binding>
+	
+	<binding id="WF2OutputElement">
+		<implementation>(WF2OutputElement.prototype)</implementation>
+	</binding>
+
+	<binding id="WF2DatalistElement">
+		<implementation>(WF2DatalistElement.prototype)</implementation>
+	</binding>
+
+</xbl>
