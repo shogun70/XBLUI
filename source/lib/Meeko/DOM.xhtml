@@ -513,7 +513,8 @@ var privateKey = Math.random();
 
 function copy(dst, src, fields, override) { // TODO maybe this should be a method on Object
 	function _copy(name) {
-		if (override || (dst.hasOwnProperty && !dst.hasOwnProperty(name)) || dst[name] == null) dst[name] = src[name]; // TODO is this correct?
+		if (!override && (dst.hasOwnProperty && dst.hasOwnProperty(name) || dst[name] != null)) return;
+		dst[name] = src[name];
 	}
 	if (fields && fields.length) {
 		for (var n=fields.length, i=0; i<n; i++) {
@@ -1062,17 +1063,6 @@ MutationEvent.prototype.initMutationEvent = function(type, bubbles, cancelable) 
 }
 
 
-var eventModuleMap = {
-	"HTMLEvents": "Event",
-	"UIEvents": "UIEvent",
-	"MouseEvents": "MouseEvent",
-	"MutationEvents": "MutationEvent"
-}
-
-
-var DocumentEvent = function() {}
-if (document.createEventObject) {
-
 var eventTemplates = {
 	Event: new Event(privateKey),
 	CustomEvent: new CustomEvent(privateKey),
@@ -1082,6 +1072,46 @@ var eventTemplates = {
 	MouseEvent: new MouseEvent(privateKey),
 	MutationEvent: new MutationEvent(privateKey)	
 }
+
+var eventModuleMap = {
+	"HTMLEvents": "Event",
+	"UIEvents": "UIEvent",
+	"MouseEvents": "MouseEvent",
+	"MutationEvents": "MutationEvent"
+}
+
+
+var DocumentEvent = function() {}
+if (document.createEvent) {{ // Upgrade if less than DOM3
+
+DocumentEvent.prototype.createEvent = function(module) {
+	var dom3Module = eventModuleMap[module] || module;
+	var tmp = eventTemplates[dom3Module];
+	if (!tmp) throw "Invalid event module: " + module;
+	var event;
+	var modules = [ dom3Module, module, "Event", "HTMLEvents" ];
+	for (var n=modules.length, i=0; i<n; i++) {
+		try { event = HTMLDocument.prototype.createEvent.call(document, modules[i]); } catch (error) { }
+		if (event) break;
+	}
+	if (!event) throw "Could not create event in " + module;
+	copy(event, tmp);
+	return event;
+}
+
+var fail = false;
+forEach (eventsByModule, function(dummy, module) {
+	try {
+		var event = document.createEvent(module);
+		if (!event["init"+module]) fail = true;
+	}
+	catch (error) { fail = true; }
+})
+if (fail) document.createEvent = DocumentEvent.prototype.createEvent;
+
+}}
+
+if (document.createEventObject) {{
 
 DocumentEvent.prototype.createEvent = function(module) {
 	var dom3Module = eventModuleMap[module] || module;
@@ -1094,14 +1124,14 @@ DocumentEvent.prototype.createEvent = function(module) {
 	return event;
 }
 
-var documentEvent = addBinding(document, DocumentEvent);
+document.createEvent = DocumentEvent.prototype.createEvent;
 
-}
+}}
 
-if (!document.addEventListener && document.attachEvent) {
+if (!document.addEventListener && document.attachEvent) {{
 
 var EventTarget = function(target) {
-	if (null == target || window != this) return;
+	if (null == target) return null;
 	return arguments.callee.getInterface(target);	
 }
 
@@ -1163,7 +1193,7 @@ EventTarget.implementation.prototype.dispatchEvent = function(event) {
 	catch (error) { return eventSystem.dispatchEvent(element, event); }
 }		
 
-}
+}}
 
 Meeko.stuff.eventSystem = eventSystem; // FIXME back-door to virtually everything
 
