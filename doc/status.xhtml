@@ -220,7 +220,7 @@ popup.style.left = "-1000px";
       </td>
     </tr>
     <tr>
-      <td class="level2"><code>importBindingDocument()</code> in script</td>
+      <td class="level2"><code>loadBindingDocument()</code> in script</td>
       <td class="no">No</td>
       <td></td>
     </tr>
@@ -416,7 +416,12 @@ popup.style.left = "-1000px";
     <tr>
       <td class="level2">key</td>
       <td class="part"><label>Partial</label>
-      <small><ul><li>Supports a subset of key identifiers. Basically the typical non-text keys that seem to be consistent cross-platform. </li></ul></small>
+      <small><ul><li>
+      Supports a subset of key identifiers. Basically the typical non-text keys that seem to be consistent cross-platform. <br />
+      Delete, Backspace, Escape, Down, End, Enter, Home, Insert, Left, PageUp, PageDown, Right, Up, <br />
+      F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12<br />
+      Apart from these, key-strokes can be filtered by their Unicode identifier, U+0001, etc.
+      </li></ul></small>
       </td>
     </tr>
     <tr>
@@ -516,9 +521,7 @@ popup.style.left = "-1000px";
   <tbody>
     <tr>
       <td>IE 6</td>
-      <td class="yes"><label>Yes</label>
-      <small><ul><li>Doesn't support event capturing, or DOMAttrModified events</li></ul></small>
-      </td>
+      <td class="yes">Yes</td>
     </tr>
     <tr>
       <td>Firefox 2</td>
@@ -532,7 +535,7 @@ popup.style.left = "-1000px";
     </tr>
     <tr>
       <td>Safari 2</td>
-      <td class="yes">Yes</td>
+      <td class="part">Partial</td>
       <td></td>
     </tr>
     <tr>
