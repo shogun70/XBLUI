@@ -97,9 +97,36 @@ return ProgressEvent;
 })();
 
 var xblSystems = {};
+var xblSystemCallbacks = {};
+var dispatchCallbacks = function(uri) {
+	var callback, list = xblSystemCallbacks[uri];
+	while (callback = list.shift()) {
+		if ("function" == typeof callback) callback(xblSystems[uri]);
+	}
+	delete xblSystemCallbacks[uri];
+}
+
+var requestXBLSystem = function(uri, callback) {
+	// FIXME the request / callback setup doesn't handle requests after the document has been received
+	if (!xblSystemCallbacks[uri]) {
+		xblSystemCallbacks[uri] = [];
+	}
+
+	xblSystemCallbacks[uri].push(callback);
+
+	if (!xblSystems[uri]) {
+		var xblSystem = new XBLExternalSystem();
+		xblSystems[uri] = xblSystem;
+		xblSystem.addEventListener("load", function() { dispatchCallbacks(uri) }, false);
+		xblSystemCallbacks[uri].unshift(function(xblSystem) {
+			DocumentXBL(document).importStyleSheets(uri);
+		});
+		xblSystem.assign(uri);
+	}
+}
 
 var DocumentXBL = function(target) {
-	if (null == target || window != this) return;
+	if (null == target) return null;
 	return arguments.callee.getInterface(target);
 }
 DocumentXBL.getInterface = Meeko.stuff.domSystem.installBinding("Document", DocumentXBL);
@@ -127,7 +154,7 @@ DocumentXBL.implementation.prototype.registerBoundDocument = function() {
 	} while (node = node.nextSibling);
 	this.bindingDocumentURIs[0] = absoluteURI;
 	xblInternalSystem.addEventListener("load", function() {
-		if (xblInternalSystem.queryProgress() != "load") return;
+		documentXBL.importStyleSheets(absoluteURI);
 		documentXBL.applyBindingDocument(absoluteURI, 0);
 	}, false);
 	xblInternalSystem._init(document, absoluteURI);
@@ -189,182 +216,22 @@ DocumentXBL.implementation.prototype.getBindingDocuments = function() {
 	return docList;
 }
 
-var xblSystemCallbacks = {};
-var dispatchCallbacks = function(uri) {
-	var callback, list = xblSystemCallbacks[uri];
-	while (callback = list.shift()) {
-		if ("function" == typeof callback) callback();
-	}
-	delete xblSystemCallbacks[uri];
-}
-
-var requestXBLSystem = function(uri, callback) {
-	// FIXME the request / callback setup doesn't handle requests after the document has been received
-	if (!xblSystemCallbacks[uri]) {
-		xblSystemCallbacks[uri] = [];
-	}
-
-	xblSystemCallbacks[uri].push(callback);
-
-	if (!xblSystems[uri]) {
-		var xblSystem = new XBLExternalSystem();
-		xblSystems[uri] = xblSystem;
-		xblSystem.addEventListener("load", function() { dispatchCallbacks(uri) }, false);
-		xblSystem.assign(uri);
-	}
-}
-
-
-var cache = {};
-var requestFile = function(uri, callback) { // TODO error-handling
-	var prefetched = cache[uri];
-	if (prefetched) {
-		if ("function" == typeof callback) window.setTimeout(function() { callback(prefetched); }, 10);
-		return prefetched;
-	}
-
-	var rq = new XMLHttpRequest();
-	rq.open("GET", uri, true);
-	rq.onreadystatechange = function() {
-		if (rq.readyState != 4) return null;
-		cache[uri] = rq;
-		if ("function" == typeof callback) callback(rq);
-	}
-	rq.send("");
-	return rq;
-}
-
-
-var parseUri = function(uri, baseURI) {
-	var location = Meeko.Net.URIParser.parseUri(uri, baseURI);
-	return location;
-}
-
-
-var xblInternalSystem = (function() {
-
-var system = new function() {
-	this.xblDocument = null;
-	this.documentXBL = null;
-}
-
-ProgressEvent.apply(system);
-return system;
-
-})();
-
-Meeko.stuff.domSystem.registerSystem(xblInternalSystem);
-
-xblInternalSystem.init = function() {
-	this.documentXBL = DocumentXBL(document);
-	this.documentXBL.init();	
-}
-
-xblInternalSystem._init = function(doc, uri) {
-	var xblSystem = this;
-	if (!uri) uri = doc.documentURI;
-	if (uri != document.documentURI) {
-		Meeko.stuff.xplSystem.documentURI = uri; // FIXME orthogonality
-	}
-	this.notifyProgress("loadstart");
-	this.xblDocument = XBLDocument(doc, uri);
-	this.xblDocument.init(function() {
-		xblSystems[uri] = xblSystem;
-		xblSystem.notifyProgress("load");
-	});
-}
-
-xblInternalSystem.getXBLDocument = function() {
-	return this.xblDocument;
-}
-xblInternalSystem.getBindings = function() {
-	return this.xblDocument.bindings;
-}
-
-xblInternalSystem.getBindingById = function(id) {
-	return this.xblDocument.namedBindings[id];
-}
-
-var XBLExternalSystem = function() {
-	var iframe = document.createElement("iframe");
-	iframe.style.height = "0";
-	iframe.style.width = "0";
-	iframe.style.borderWidth = "0px";
-	document.body.insertBefore(iframe, document.body.firstChild);
-	this.iframe = iframe;
-	this._connected = false;
-	ProgressEvent.apply(this);
-}
-
-XBLExternalSystem.prototype.assign = function(href) {
-	this.notifyProgress("loadstart");
-	this.documentURI = href;
-	var xblSystem = this;
-	window.setTimeout(function() { xblSystem._connect() }, 50);
-	var absoluteURI = href;
-
-	requestFile(href, function(rq) {
-		if (rq.responseXML) {
-			var iframe = xblSystem.iframe;
-			var win = iframe.contentWindow;
-			var doc = win.document;
-			var htmlText = '';
-			htmlText += '<html><head>';
-			htmlText += '<script>window.Meeko = { stuff: { SCRIPT_URL: "' + Meeko.stuff.SCRIPT_URL + '"} };<\/script>';
-			htmlText += '<script src="'+ Meeko.stuff.SCRIPT_URL +'"><\/script>';
-			htmlText += '<link rel="alternate" type="application/xml" href="'+ href + '" />';
-			htmlText += '<style type="application/xml">'+rq.responseText+'<\/style>';
-			htmlText += '<\/head><body><\/body><\/html>';
-			doc.open();
-			doc.write(htmlText);
-			doc.close();
+DocumentXBL.implementation.prototype.importStyleSheets = function(uri) {
+	var xblDocument = xblSystems[uri].getXBLDocument();
+	forEach(xblDocument.getStyleSheets(), function(sheet) {
+		var text = sheet.cssText.replace(/url\(\s*['"]?([^)]+)['"]?\s*\)/, function(href) { return 'url("' + (parseUri(href, uri)) + '")'; }); // FIXME assert that quotes are matching
+		var styleElt = document.createElement("style");
+		try { styleElt.innerText = text; } catch(error) { }
+		if (!styleElt.innerHTML) try { styleElt.innerHTML = text; } catch(error) { }
+		document.getElementsByTagName("head")[0].appendChild(styleElt);
+		if (!styleElt.innerHTML) try {
+			var styleSheets = document.styleSheets;
+			var sheet = styleSheets[styleSheets.length-1];
+			if (sheet.owningElement == styleElt) sheet.cssText = text;
+			else throw "Can't import stylesheet from XBL document";
 		}
-		else {
-			if (rq.responseText) logger.error("XBL document error: " + uri + " is not a valid XML document");
-			else logger.error("Failed request for: " + uri);
-			xblSystem.notifyProgress("error"); // FIXME handle failure in xblSystem
-		}
+		catch (error) { }
 	});
-}
-
-XBLExternalSystem.prototype._connect = function() {
-	var xblSystem = this;
-	if (this._connected) return;
-	var iframe = this.iframe;
-	var win = iframe.contentWindow;
-	if (win.Meeko && win.Meeko.stuff && win.Meeko.stuff.xblSystem) {
-		var remoteSystem = win.Meeko.stuff.xblSystem;
-		if (remoteSystem.queryProgress() == "load") xblSystem.notifyProgress("load");
-		else remoteSystem.addEventListener("load", function(event) { xblSystem.notifyProgress("load"); }, false);
-		this._connected = true;
-	}
-	else window.setTimeout(function() { xblSystem._connect() }, 50);
-
-}
-
-
-XBLExternalSystem.prototype.getXBLDocument = function() {
-	if (!this._connected) this._connect();
-	if (this.queryProgress() != "load") throw "Bindings not ready";
-	var win = this.iframe.contentWindow;
-	var xblSystem = win.Meeko.stuff.xblSystem;
-	return xblSystem.getXBLDocument();
-}
-
-XBLExternalSystem.prototype.getBindings = function() {
-	if (!this._connected) this._connect();
-	if (this.queryProgress() != "load") throw "Bindings not ready";
-	var win = this.iframe.contentWindow;
-	var xblSystem = win.Meeko.stuff.xblSystem;
-	return xblSystem.getBindings();
-}
-
-XBLExternalSystem.prototype.getBindingById = function(id) {
-	if (!this._connected) this._connect();
-	if (this.queryProgress() != "load") throw "Bindings not ready";
-	var win = this.iframe.contentWindow;
-	var xblSystem = win.Meeko.stuff.xblSystem;
-	return xblSystem.getBindingById(id);
 }
 
 /* TODO
@@ -376,7 +243,7 @@ XBLExternalSystem.prototype.getBindingById = function(id) {
 	}
 */
 
-function getEventPhaseMask(eventPhase) { // TODO rename to Event.getPhaseMask()
+function getEventPhaseMask(eventPhase) { // TODO not used. Maybe remove it
 	if (eventPhase < 0) return 0x0; // TODO warning
 	if (eventPhase == 0) return 0x6; // target or bubble
 	if (eventPhase == 0x78626C44) return 0x8000;
@@ -384,7 +251,7 @@ function getEventPhaseMask(eventPhase) { // TODO rename to Event.getPhaseMask()
 }
 
 var ElementXBL = function(target) {
-	if (null == target || window != this) return;
+	if (null == target) return null;
 	return arguments.callee.getInterface(target);
 }
 ElementXBL.getInterface = Meeko.stuff.domSystem.installBinding("Element", ElementXBL);
@@ -819,6 +686,158 @@ XBLBinding.prototype.filterEventByModifiers = function(event, modifiers) {
 	return true;
 }
 
+var cache = {};
+var requestFile = function(uri, callback) { // TODO error-handling
+	var prefetched = cache[uri];
+	if (prefetched) {
+		if ("function" == typeof callback) window.setTimeout(function() { callback(prefetched); }, 10);
+		return prefetched;
+	}
+
+	var rq = new XMLHttpRequest();
+	rq.open("GET", uri, true);
+	rq.onreadystatechange = function() {
+		if (rq.readyState != 4) return null;
+		cache[uri] = rq;
+		if ("function" == typeof callback) callback(rq);
+	}
+	rq.send("");
+	return rq;
+}
+
+
+var parseUri = function(uri, baseURI) {
+	var location = Meeko.Net.URIParser.parseUri(uri, baseURI);
+	return location;
+}
+
+
+var xblInternalSystem = (function() {
+
+var system = new function() {
+	this.xblDocument = null;
+	this.documentXBL = null;
+}
+
+ProgressEvent.apply(system);
+return system;
+
+})();
+
+Meeko.stuff.domSystem.registerSystem(xblInternalSystem);
+
+xblInternalSystem.init = function() {
+	this.documentXBL = DocumentXBL(document);
+	this.documentXBL.init();	
+}
+
+xblInternalSystem._init = function(doc, uri) {
+	var xblSystem = this;
+	if (!uri) uri = doc.documentURI;
+	if (uri != document.documentURI) {
+		Meeko.stuff.xplSystem.documentURI = uri; // FIXME orthogonality
+	}
+	this.notifyProgress("loadstart");
+	this.xblDocument = XBLDocument(doc, uri);
+	this.xblDocument.init(function() {
+		xblSystems[uri] = xblSystem;
+		xblSystem.notifyProgress("load");
+	});
+}
+
+xblInternalSystem.getXBLDocument = function() {
+	return this.xblDocument;
+}
+xblInternalSystem.getBindings = function() {
+	return this.xblDocument.bindings;
+}
+
+xblInternalSystem.getBindingById = function(id) {
+	return this.xblDocument.namedBindings[id];
+}
+
+var XBLExternalSystem = function() {
+	var iframe = document.createElement("iframe");
+	iframe.style.height = "0";
+	iframe.style.width = "0";
+	iframe.style.borderWidth = "0px";
+	document.body.insertBefore(iframe, document.body.firstChild);
+	this.iframe = iframe;
+	this._connected = false;
+	ProgressEvent.apply(this);
+}
+
+XBLExternalSystem.prototype.assign = function(href) {
+	this.notifyProgress("loadstart");
+	this.documentURI = href;
+	var xblSystem = this;
+	window.setTimeout(function() { xblSystem._connect() }, 50);
+	var absoluteURI = href;
+
+	requestFile(href, function(rq) {
+		if (rq.responseXML) {
+			var iframe = xblSystem.iframe;
+			var win = iframe.contentWindow;
+			var doc = win.document;
+			var htmlText = '';
+			htmlText += '<html><head>';
+			htmlText += '<script>window.Meeko = { stuff: { SCRIPT_URL: "' + Meeko.stuff.SCRIPT_URL + '"} };<\/script>';
+			htmlText += '<script src="'+ Meeko.stuff.SCRIPT_URL +'"><\/script>';
+			htmlText += '<link rel="alternate" type="application/xml" href="'+ href + '" />';
+			htmlText += '<style type="application/xml">'+rq.responseText+'<\/style>';
+			htmlText += '<\/head><body><\/body><\/html>';
+			doc.open();
+			doc.write(htmlText);
+			doc.close();
+		}
+		else {
+			if (rq.responseText) logger.error("XBL document error: " + uri + " is not a valid XML document");
+			else logger.error("Failed request for: " + uri);
+			xblSystem.notifyProgress("error"); // FIXME handle failure in xblSystem
+		}
+	});
+}
+
+XBLExternalSystem.prototype._connect = function() {
+	var xblSystem = this;
+	if (this._connected) return;
+	var iframe = this.iframe;
+	var win = iframe.contentWindow;
+	if (win.Meeko && win.Meeko.stuff && win.Meeko.stuff.xblSystem) {
+		var remoteSystem = win.Meeko.stuff.xblSystem;
+		if (remoteSystem.queryProgress() == "load") xblSystem.notifyProgress("load");
+		else remoteSystem.addEventListener("load", function(event) { xblSystem.notifyProgress("load"); }, false);
+		this._connected = true;
+	}
+	else window.setTimeout(function() { xblSystem._connect() }, 50);
+
+}
+
+
+XBLExternalSystem.prototype.getXBLDocument = function() {
+	if (!this._connected) this._connect();
+	if (this.queryProgress() != "load") throw "Bindings not ready";
+	var win = this.iframe.contentWindow;
+	var xblSystem = win.Meeko.stuff.xblSystem;
+	return xblSystem.getXBLDocument();
+}
+
+XBLExternalSystem.prototype.getBindings = function() {
+	if (!this._connected) this._connect();
+	if (this.queryProgress() != "load") throw "Bindings not ready";
+	var win = this.iframe.contentWindow;
+	var xblSystem = win.Meeko.stuff.xblSystem;
+	return xblSystem.getBindings();
+}
+
+XBLExternalSystem.prototype.getBindingById = function(id) {
+	if (!this._connected) this._connect();
+	if (this.queryProgress() != "load") throw "Bindings not ready";
+	var win = this.iframe.contentWindow;
+	var xblSystem = win.Meeko.stuff.xblSystem;
+	return xblSystem.getBindingById(id);
+}
+
 /*
 	XBL document & element wrappers
 	TODO: abstract element-handling in xbl-tree-parsing
@@ -839,6 +858,12 @@ function getTextContent(element) {
 	return text;
 }
 
+function getLocalName(element) {
+	return (element.localName) ? element.localName : element.tagName.replace(element.prefix+":", "");	
+}
+var XBLNS = "http://www.w3.org/ns/xbl";
+var HTMLNS = "http://www.w3.org/1999/xhtml";
+
 var XBLDocument = function(_document, documentURI) { // TODO documentURI is available via _document, except in IE
 	if (!(this instanceof arguments.callee)) return new arguments.callee(_document, documentURI);
 
@@ -847,7 +872,9 @@ var XBLDocument = function(_document, documentURI) { // TODO documentURI is avai
 
 	this.documentURI = documentURI;
 
-	this.styleSheets = [];
+	this.srcDocuments = [];
+	this.srcXBLElements = [];
+	this.srcHTMLStyleElements = [];
 	this.xblElements = [];
 	this.bindings = [];
 	this.namedBindings = {};
@@ -857,24 +884,24 @@ var XBLDocument = function(_document, documentURI) { // TODO documentURI is avai
 XBLDocument.prototype.init = function(callback) {
 	this._callback = callback;
 	var _document = this._target;
-	this._xblTrees = [];
 
 	var xblDoc = this;	
-	if (_document == document) {
-		var styleElts = _document.getElementsByTagName("style"); // TODO only allow children of head??
-		forEach(styleElts, function(elt) {
+	xblDoc.srcDocuments.push(_document); // NOTE only useful for an XBL document or an XML compound document containing XBL trees
+	if (_document == document) { // i.e. this is a HTMLDocument
+		var xblCapsules = _document.getElementsByTagName("style"); // TODO only allow children of head??
+		forEach(xblCapsules, function(elt) {
 			switch (elt.type) { case "application/xml": case "text/xml": break; default: return; };
-			var text = elt.textContent || elt.innerHTML;
+			var text = elt.textContent || elt.innerHTML; // TODO standardize??
 			var xml = (new DOMParser).parseFromString(text, "application/xml"); // TODO catch errors
-			xblDoc.styleSheets.push(xml);
-			xblDoc._xblTrees.push(xml.documentElement);
+			xblDoc.srcDocuments.push(xml);
 		});
 	}
-	else {
-		forEach(_document.getElementsByTagName("xbl"), function(node) { // TODO only allow children of head??
-			xblDoc._xblTrees.push(node);
-		})
-	}
+	
+	forEach(xblDoc.srcDocuments, function(xmlDoc) {
+		forEach(xmlDoc.getElementsByTagName("xbl"), function(node) { // TODO xbl-namespace
+			xblDoc.srcXBLElements.push(node);
+		});
+	});
 
 	this._init();
 }
@@ -882,7 +909,7 @@ XBLDocument.prototype.init = function(callback) {
 XBLDocument.prototype._init = function() {
 	var xblDoc = this;
 	var elt;
-	if (elt = xblDoc._xblTrees.shift()) {
+	if (elt = xblDoc.srcXBLElements.shift()) {
 		xblDoc._addXBLTree(elt, function() { xblDoc._init(); })
 		return;
 	};
@@ -907,16 +934,28 @@ XBLDocument.prototype._addXBLTree = function(elt, callback) {
 	});
 }
 
+XBLDocument.prototype.getStyleSheets = function() {
+	var sheets = [];
+	var xblDoc = this;
+	forEach(this.xblElements, function(xblElt) {
+		forEach(xblElt.srcHTMLStyleElements, function(styleElt) {
+			var text = getTextContent(styleElt);
+			sheets.push({ cssText: text, href: xblDoc.documentURI });
+		});
+	});
+	return sheets;
+}
 
 var XBLXblElement = function(_element, _document) {
 	if (!(this instanceof arguments.callee)) return new arguments.callee(_element, _document);
 
 	this.readyState = "uninitialized";
-	if ("xbl" != _element.tagName.toLowerCase()) throw 'XBLXblElement interface only valid for "xbl" elements';
+	var localName = getLocalName(_element);
+	if ("xbl" != localName || XBLNS != _element.namespaceURI) throw 'XBLXblElement interface only valid for "xbl" elements';
 	this._target = _element;
 	this.xblDocument = _document;
 	this.bindings = [];
-	
+	this.srcHTMLStyleElements = [];
 }
 
 XBLXblElement.prototype.init = function(callback) {
@@ -935,7 +974,8 @@ XBLXblElement.prototype._init = function() {
 		var node = this._current;
 		this._current = node.nextSibling;		
 		if (Node.ELEMENT_NODE != node.nodeType) continue;
-		if ("script" == node.tagName.toLowerCase()) {
+		var localName = getLocalName(node);
+		if ("script" == localName && XBLNS == node.namespaceURI) {
 			var src = node.getAttribute("src");
 			var jsText = "";
 			if (src) {
@@ -963,13 +1003,19 @@ XBLXblElement.prototype._init = function() {
 				}); // back in the loop
 				return;
 			}			
-
+			continue;
 		}
-		if ("binding" == node.tagName.toLowerCase()) {
+		if ("binding" == localName  && XBLNS == node.namespaceURI) {
 			var binding = XBLBindingElement(node, this.xblDocument);
 			this.bindings.push(binding);
 			binding.init();
+			continue;
 		}
+		if ("style" == localName  && HTMLNS == node.namespaceURI) {
+			this.srcHTMLStyleElements.push(node);
+			continue;
+		}
+		logger.warn("Ignoring " + node.tagName + " element: invalid child of xbl:xbl");			
 	}
 
 	this.readyState = "complete";
@@ -978,8 +1024,8 @@ XBLXblElement.prototype._init = function() {
 
 var XBLBindingElement = function(_element, _document) {
 	if (!(this instanceof arguments.callee)) return new arguments.callee(_element, _document);
-
-	if ("binding" != _element.tagName.toLowerCase()) throw 'XBLBindingElement interface only valid for "binding" elements';
+	var localName = getLocalName(_element);
+	if ("binding" != localName || XBLNS != _element.namespaceURI) throw 'XBLBindingElement interface only valid for "binding" elements';
 	this._target = _element;
 	this.xblDocument = _document;
 }
@@ -1001,18 +1047,14 @@ XBLBindingElement.prototype.init = function() {
 	var XBLHandlers = function(_element) {
 		for (var node=_element.firstChild; node; node=node.nextSibling) {
 			if (Node.ELEMENT_NODE != node.nodeType) continue;
-			var tagName = node.tagName.toLowerCase();
-			switch (tagName) {
-				case "handler":
-					var handler = XBLHandlerElement(node, _document);
-					binding.handlers.push(handler);
-					handler.init();
-					break;
-				
-				default:
-					logger.warn("Ignoring " + tagName + " element: invalid child of xbl:handlers");
-					break;				
+			var localName = getLocalName(node);
+			if ("handler" == localName && XBLNS == node.namespaceURI) {
+				var handler = XBLHandlerElement(node, _document);
+				binding.handlers.push(handler);
+				handler.init();
+				continue;
 			}
+			logger.warn("Ignoring " + node.tagName + " element: invalid child of xbl:handlers");
 		}
 	}
 
@@ -1024,8 +1066,12 @@ XBLBindingElement.prototype.init = function() {
 
 	for (var node=_element.firstChild; node; node=node.nextSibling) {
 		if (Node.ELEMENT_NODE != node.nodeType) continue;
-		var tagName = node.tagName.toLowerCase();
-		switch (tagName) {
+		if (XBLNS != node.namespaceURI) {
+			logger.warn("Ignoring " + tagName + " element: invalid namespace for child of xbl:binding");
+			continue;
+		}
+		var localName = getLocalName(node);
+		switch (localName) {
 			case "implementation":
 				implementationElts.push(node);
 				if (implementationElts.length <= 1) {
@@ -1074,7 +1120,7 @@ XBLBindingElement.prototype.init = function() {
 				break;
 			
 			default:
-				logger.warn("Ignoring " + tagName + " element: invalid child of xbl:binding");
+				logger.warn("Ignoring " + node.tagName + " element: invalid child of xbl:binding");
 				break;
 		}
 	}
@@ -1084,8 +1130,8 @@ XBLBindingElement.prototype.init = function() {
 
 XBLHandlerElement = function(_element, _document) {
 	if (!(this instanceof arguments.callee)) return new arguments.callee(_element, _document);
-
-	if ("handler" != _element.tagName.toLowerCase()) throw 'XBLHandlerElement interface only valid for "handler" elements';
+	var localName = getLocalName(_element);
+	if ("handler" != localName || XBLNS != _element.namespaceURI) throw 'XBLHandlerElement interface only valid for "handler" elements';
 	this._target = _element;
 	this.xblDocument = _document;
 }
