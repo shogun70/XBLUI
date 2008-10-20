@@ -75,6 +75,16 @@ Array.some = function(array, callback, context) {
 	return false;
 }
 
+// NOTE non-standard Array methods
+Array.compare = function(array1, array2, cmp) { // NOTE compares n elements where n is length of shorter array
+	if (!cmp) cmp = function(a,b) { return (a < b) ? -1 : (a > b) ? 1 : 0 };
+	var rc = 0;
+	var n1 = array1.length, n2 = array2.length, n = (n1 <= n2) ? n1 : n2;
+	for (var i=0; i<n; i++) {
+		if (rc = cmp(array1[i], array2[i])) return rc;
+	}
+	return rc;
+}
 
 Array.prototype.indexOf = function(val, start) { return Array.indexOf(this, val, start); }
 Array.prototype.lastIndexOf = function(val, start) { return Array.lastIndexOf(this, val, start); }
@@ -83,10 +93,12 @@ Array.prototype.filter = function(callback, context) { return Array.filter(this,
 Array.prototype.forEach = function(callback, context) { return Array.forEach(this, callback, context); }
 Array.prototype.map = function(callback, context) { return Array.map(this, callback, context); }
 Array.prototype.some = function(callback, context) { return Array.some(this, callback, context); }
+Array.prototype.compare = function(array, cmp) { return Array.compare(this, array, cmp); }
 
 var Object = function() {}
 Object.prototype = new this.Object();
 
+// NOTE non-standard Object methods
 Object.toLoggerString = function(object) { // NOTE the complexity here is work-arounds for Safari-2
 	var string = "";
 	for (var field in object) {
