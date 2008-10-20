@@ -5,10 +5,26 @@
 <script type="text/javascript">
 <![CDATA[
 
+/*
+ NOTE See Microsoft's reccomendation for choosing the right version of MSXML
+ at http://blogs.msdn.com/xmlteam/archive/2006/10/23/using-the-right-version-of-msxml-in-internet-explorer.aspx
+*/
+
 if (!this.Meeko) this.Meeko = {};
 
 Meeko.XML = (function() {
 
+var createActiveXObject = function(name) {
+	var versions = [ "Msxml2.%name%", "Microsoft.%name%" ];
+	var object;
+	for (var n = versions.length, i=0; i<n; i++) {
+		var oName = versions[i].replace("%name%", name);
+		try { object = new ActiveXObject(oName); } catch (error) { continue; }
+		break;
+	}
+	if (!object) throw "" + name + " not supported on this platform";
+	return object;
+}
 var URIParser = Meeko.Net.URIParser;
 
 var DOMParser = this.DOMParser || (function() {
@@ -18,7 +34,7 @@ var DOMParser = function() {}
 DOMParser.prototype.parseFromString = function(text, mimeType) {
 	var xmlDom;
 	if (!ActiveXObject) throw "DOMParser.parseFromString not supported";
-	xmlDom = new ActiveXObject("Microsoft.XMLDOM");
+	xmlDom = createActiveXObject("XMLDOM");
 	xmlDom.async = "false";
 	xmlDom.loadXML(text);
 	return xmlDom;
@@ -68,7 +84,7 @@ HttpRequest.getLocation = function(uri, baseURI) {
 }
 
 var xXMLHttpRequest = this.XMLHttpRequest || function() {
-	return new ActiveXObject("Microsoft.XMLHTTP");
+	return createActiveXObject("XMLHTTP"); 
 };
 
 var XMLHttpRequest = function() {
