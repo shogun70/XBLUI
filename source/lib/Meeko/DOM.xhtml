@@ -259,13 +259,14 @@ for (var name in safari2Prototypes) {
 Meeko.stuff.domSystem = (function() {
 
 var interfaceTable = [
+	{ name: "Window", attachTo: "window" },
 	{ name: "Node", attachTo: "node" },
 	{ name: "Text", attachTo: "text", base: "Node" },
-	{ name: "Element", attachTo: "element", base: "Node" },
-	{ name: "HTMLElement", attachTo: "element", base: "Element" },
 	{ name: "Document", attachTo: "document", base: "Node" },
 	{ name: "HTMLDocument", attachTo: "document", base: "Document" },
-	{ name: "Window", attachTo: "window" }
+	{ name: "Element", attachTo: "element", base: "Node" },
+	{ name: "HTMLElement", attachTo: "element", base: "Element" },
+	{ name: "HTMLFormElement", attachTo: "element", element: "form", base: "HTMLElement" }
 ];
 
 var interfacesByName = {};
@@ -398,6 +399,11 @@ function installBinding(name, binding) {
 	return domBindings[name].addBinding(binding);
 }
 
+function applyElementBindings(element) {
+	domBindings["Element"].apply(element);
+	domBindings["HTMLElement"].apply(element);
+}
+
 var registeredSystems = [];
 function registerSystem(sys) {
 	registeredSystems.push(sys);
@@ -464,13 +470,13 @@ function _init() {
 				var system = registeredSystems[i];
 				if (system.init) system.init();
 			}
+			window.addEventListener("DOMNodeInserted", function(event) {
+				if (Node.ELEMENT_NODE == event.target.nodeType) applyElementBindings(event.target);
+			}, true);
 			domWalker = new DOMWalker(view);
 			readyState = "loading";
 		case "loading":
-			domWalker.forEach(function(element) {
-				domBindings["Element"].apply(element);
-				domBindings["HTMLElement"].apply(element);
-			});
+			domWalker.forEach(applyElementBindings);
 			// FIXME if document.readyState is updated while this thread is running then there could be a failure here.
 			switch (document.readyState) {
 				case "loaded": case "interactive": case "complete":	readyState = "loaded"; break;
@@ -699,9 +705,9 @@ var EventSystem = function() {
 		for (var type in eventsByType) {
 			window.addEventListener(type, this.eventListener, true);
 		}
+		this.windowEventTarget = addBinding(window, WindowEventTarget);
 	}
 
-	this.windowEventTarget = addBinding(window, WindowEventTarget);
 }
 
 
@@ -1054,7 +1060,7 @@ MutationEvent.prototype = new Event(privateKey);
 MutationEvent.prototype.initMutationEvent = function(type, bubbles, cancelable) {
 	var xplParams = [ "type", "bubbles", "cancelable", "relatedNode", "prevValue", "newValue", "attrName", "attrChange" ]
 	var n = xplParams.length;
-	if (arguments.length < n) throw "Improper argument list in call to initMutationEvent"; // FIXME
+	// if (arguments.length < n) throw "Improper argument list in call to initMutationEvent"; // FIXME
 	this.initEvent(type, bubbles, cancelable);
 	for (var i=3; i<n; i++) {
 		var name = xplParams[i];
@@ -1192,6 +1198,87 @@ EventTarget.implementation.prototype.dispatchEvent = function(event) {
 	try { return element.fireEvent("on" + event.type, event); }
 	catch (error) { return eventSystem.dispatchEvent(element, event); }
 }		
+
+}}
+
+if (!document.addEventListener && document.attachEvent) {{ // DOMMutation is only required on IE
+
+var DOMMutation = function(target) {
+	if (null == target) return null;
+	return arguments.callee.getInterface(target);	
+}
+
+DOMMutation.interfaceLookup = new Array(13); // NOTE potentially one for every node type + Window
+DOMMutation.interfaceLookup[Node.DOCUMENT_NODE] = Meeko.stuff.domSystem.installBinding("Document", DOMMutation);
+DOMMutation.interfaceLookup[Node.ELEMENT_NODE] = Meeko.stuff.domSystem.installBinding("Element", DOMMutation);
+DOMMutation.getInterface = function(target) {
+	var lookup = this.interfaceLookup[target.nodeType];
+	return (lookup) ? lookup(target) : null;
+	
+}
+DOMMutation.methods = ["insertBefore", "replaceChild", "removeChild", "appendChild"];
+
+DOMMutation.implementation = function(element) {
+	var domMutation = this;
+	this.boundElement = element;
+	this.boundMethods = {};
+	var methods = DOMMutation.methods;
+	for(var n=methods.length, i=0; i<n; i++) {
+		var name = methods[i];
+		this.boundMethods[name] = element[name];
+	}
+	Meeko.stuff.domSystem.bindInterface(element, this, methods);
+	this.listener = function(event) { domMutation.onpropertychange(event); }
+	element.attachEvent("onpropertychange", this.listener);
+}
+DOMMutation.implementation.prototype.DESTROY = function() {
+	var element = this.boundElement;
+	element.detachEvent("onpropertychange", this.listener);
+	// FIXME Meeko.stuff.domSystem.unbindInterface(element, this, DOMMutation.methods);
+}
+
+DOMMutation.implementation.prototype.onpropertychange = function(event) {
+	if (event.propertyName == "innerHTML") {
+		var element = this.boundElement;
+		// FIXME should have "DOMNodeRemoved" events too
+		for (var node=element.firstChild; node; node=node.nextSibling) {
+			if (Node.ELEMENT_NODE != node.nodeType) continue;
+			if (node["_Element"]) continue; // FIXME orthogonality - how to tell if node is newly inserted??
+			this.notify("DOMNodeInserted", node, element);
+		}
+	}
+}
+DOMMutation.implementation.prototype.insertBefore = function(node, ref) {
+	var result = this.boundMethods.insertBefore(node, ref);
+	this.notify("DOMNodeInserted", node, this.boundElement); // FIXME
+	return result;
+}
+
+DOMMutation.implementation.prototype.replaceChild = function(node, old) {
+	this.notify("DOMNodeRemoved", old, this.boundElement); // FIXME
+	var result = this.boundMethods.replaceChild(node, old);
+	this.notify("DOMNodeInserted", node, this.boundElement); // FIXME
+	return result;
+}
+
+DOMMutation.implementation.prototype.removeChild = function(old) {
+	this.notify("DOMNodeRemoved", old, this.boundElement); // FIXME
+	var result = this.boundMethods.removeChild(ref);
+	return result;
+}
+
+DOMMutation.implementation.prototype.appendChild = function(node) {
+	var result = this.boundMethods.appendChild(node);
+	this.notify("DOMNodeInserted", node, this.boundElement); // FIXME
+	return result;
+}
+
+DOMMutation.implementation.prototype.notify = function(type, node) {
+	var event = document.createEvent("MutationEvent");
+	event.initMutationEvent(type, true, false, this.boundElement);
+	eventSystem.dispatchEvent(node, event);
+}
+
 
 }}
 
