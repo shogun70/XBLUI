@@ -10,19 +10,19 @@ All rights reserved
 <script src="UI.js"/>
 
 <binding id="tree">
-	<implementation>(tree.prototype)</implementation>
+	<implementation>(Meeko.UI.tree.prototype)</implementation>
 </binding>
 
 <binding id="treeitem">
-	<implementation>(treeitem.prototype)</implementation>
+	<implementation>(Meeko.UI.treeitem.prototype)</implementation>
 </binding>
 
 <binding id="navlist">
-	<implementation>(navlist.prototype)</implementation>
+	<implementation>(Meeko.UI.navlist.prototype)</implementation>
 </binding>
 
 <binding id="navlistitem">
-	<implementation>(navlistitem.prototype)</implementation>
+	<implementation>(Meeko.UI.navlistitem.prototype)</implementation>
 	<handlers>
 		<handler event="click" default-action="cancel">
 		var element = this.boundElement;
@@ -44,15 +44,15 @@ All rights reserved
 </binding>
 
 <binding id="scrollBox">
-	<implementation>(scrollBox.prototype)</implementation>
+	<implementation>(Meeko.UI.scrollBox.prototype)</implementation>
 </binding>
 	
 <binding id="scrollBoxWithResize">
-	<implementation>(scrollBoxWithResize.prototype)</implementation>
+	<implementation>(Meeko.UI.scrollBoxWithResize.prototype)</implementation>
 </binding>
 	
 <binding id="switchBox">
-	<implementation>(switchBox.prototype)</implementation>
+	<implementation>(Meeko.UI.switchBox.prototype)</implementation>
 </binding>
 
 </xbl>

@@ -17,7 +17,7 @@ TODO: robustize
 	<script src="WF2.js" />
 
 	<binding id="WF2FormElement">
-		<implementation>(WF2FormElement.prototype)</implementation>
+		<implementation>(Meeko.WF2.WF2FormElement.prototype)</implementation>
 		<handlers>
 			<handler event="submit">
 <![CDATA[
@@ -39,7 +39,7 @@ if (rxStatement) {
 	</binding>
 
 	<binding id="WF2SubmitButton" element="input[type=submit], button[type=submit]">
-		<implementation>(WF2SubmitButton.prototype)</implementation>
+		<implementation>(Meeko.WF2.WF2SubmitButton.prototype)</implementation>
 		<handlers>
 			<handler event="click" default-action="perform">
 			</handler>
@@ -47,7 +47,7 @@ if (rxStatement) {
 	</binding>
 
 	<binding id="WF2TextInput">
-		<implementation>(WF2TextInput.prototype)</implementation>
+		<implementation>(Meeko.WF2.WF2TextInput.prototype)</implementation>
 		<handlers>
 			<handler event="textInput">
 <![CDATA[
@@ -66,7 +66,7 @@ return false;
 
 
 	<binding id="WF2NumberInput" element="input[type=number]">
-		<implementation>(WF2NumberInput.prototype)</implementation>
+		<implementation>(Meeko.WF2.WF2NumberInput.prototype)</implementation>
 		<handlers>
 			<handler event="keydown" key="Up">this.stepUp(1);</handler>
 			<handler event="keydown" key="Down">this.stepDown(1);</handler>
@@ -89,15 +89,15 @@ RepetitionElement(this.htmlTemplate).addRepetitionBlock(null);
 	</binding>
 	
 	<binding id="WF2SelectElement" element="select">
-		<implementation>(WF2SelectElement.prototype)</implementation>
+		<implementation>(Meeko.WF2.WF2SelectElement.prototype)</implementation>
 	</binding>
 	
 	<binding id="WF2OutputElement">
-		<implementation>(WF2OutputElement.prototype)</implementation>
+		<implementation>(Meeko.WF2.WF2OutputElement.prototype)</implementation>
 	</binding>
 
 	<binding id="WF2DatalistElement">
-		<implementation>(WF2DatalistElement.prototype)</implementation>
+		<implementation>(Meeko.WF2.WF2DatalistElement.prototype)</implementation>
 	</binding>
 
 </xbl>

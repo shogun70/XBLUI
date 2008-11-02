@@ -5,7 +5,7 @@ XBL2 UI classes
 Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
 All rights reserved
 -->
-<package xmlns="http://www.meekostuff.net/ns/xpl">
+<package namespace="Meeko.UI" xmlns="http://www.meekostuff.net/ns/xpl">
 
 <class name="tree">
 	<method name="getRefElement">

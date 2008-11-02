@@ -13,7 +13,7 @@ TODO: create events in the right categories/namespaces
 TODO: robustize
 -->
 
-<package xmlns="http://www.meekostuff.net/ns/xpl">
+<package namespace="Meeko.WF2" xmlns="http://www.meekostuff.net/ns/xpl">
 	<class name="WF2FormElement">
 		<property name="replace" type="String">
 			<getter>return this.boundElement.getAttribute("replace");</getter>
