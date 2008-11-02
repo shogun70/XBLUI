@@ -25,7 +25,6 @@ sub new {
 	$self->{prefetchedDocuments} = {};
 	$self->{params} = {};
 	$self->{diskCache} = {};
-	$self->{memCache} = {};
 	$self->{makeDepend} = 0;
 	return $self;
 }
@@ -34,26 +33,25 @@ sub new {
 sub build() {
 	my $self = shift;
 	my $href = shift;
+	my $uri = URI->new($href);
+	if ($uri->scheme) {
+		$self->{baseURI} = $uri;
+	}
+	else {
+		my $baseURI = URI->new_abs($href, "file://localhost" . getcwd() . "/");
+		$self->{baseURI} = $baseURI;
+		my $fname = $baseURI->rel( $baseURI );
+		$uri = URI->new($fname);
+	}
+		
+	
 	while (<main::DATA>) {
 		print;
 	}
-	$self->buildFromHref($href) if $href;
-}
+	$self->buildFromUri($uri);
+	print <<"";
+Meeko.stuff.xplSystem.init();
 
-sub makeDependencies() {
-	my $self = shift;
-	my $fname = shift;
-	my $cwd = getcwd();
-
-	my $baseHref = "file://localhost" . $cwd;
-	my $uri = URI->new_abs($fname, $baseHref);
-	my $szUri = $uri->as_string();
-	my $rq = $self->requestUri($uri);
-	$self->process($rq->{responseXML}, {
-		handleContext => sub { my ($szUri, $rq) = @_; print($szUri . " "); },
-		handlePrefetch => sub { my ($szUri, $rq) = @_; print($szUri . " "); },
-		handleScript => sub { my ($szUri, $rq) = @_; print($szUri . " ") if ($szUri); }
-	});
 }
 
 sub expandParams() {
@@ -66,47 +64,47 @@ sub expandParams() {
 	return $text;
 }
 
-sub prefetchFromHref() {
+sub prefetchFromUri() {
 	my $self = shift;
-	my ($href, $baseHref) = @_;
-	$baseHref ||= "file://localhost" . getcwd() . "/";
+	my $uri = shift;
+	my $fetchUri = $uri;
 
-	my $uri = URI->new_abs($href, $baseHref);
-	my $szUri = $uri->as_string();
-	if ($self->{diskCache}->{$szUri}) {
-		$szUri = "file://" . $self->{diskCache}->{$szUri};
+	if (!$uri->scheme) { die "" . $uri . " is not an absolute uri\n"; }
+	elsif ($self->{diskCache}->{$uri}) {
+		$fetchURI = URI->new_abs($self->{diskCache}->{$uri}, "file://localhost");
 	}
-	my $rq = HTTP::Request->new(GET => $szUri);
+	my $rq = HTTP::Request->new(GET => $fetchURI);
 	my $res = $userAgent->request($rq);
-	($res->is_success) or die "Couldn't retrieve " . $href . " --> " . $res->status_line, "\n";
+	($res->is_success) or die "Couldn't retrieve " . $uri . " --> " . $res->status_line, "\n";
 	my $text = $res->content;
 	$text =~ s/\\/\\\\/g;
 	$text =~ s/'/\\'/g;
 	$text =~ s/\t/\\t/g;
 	$text =~ s/\r/\\r/g;
 	$text =~ s/\n/\\n/g;
-	print "Meeko.stuff.xplSystem.prefetch['" . $href . "'] = '" . $text . "';\n";
+	print "Meeko.stuff.xplSystem.prefetch['" . $uri . "'] = '" . $text . "';\n";
 }
 
-sub buildFromHref() {
+sub buildFromUri() {
 	my $self = shift;
-	my ($href, $baseHref) = @_;
-	$baseHref ||= "file://localhost" . getcwd() . "/";
+	my $uri = shift;
+	my $fetchURI = $uri;
 
-	my $uri = URI->new_abs($href, $baseHref);
-	my $szUri = $uri->as_string();
-	$self->{requiredDocuments}->{$szUri} and return;
-	if ($self->{diskCache}->{$szUri}) {
-		$szUri = "file://" . $self->{diskCache}->{$szUri};
+	$self->{requiredDocuments}->{$uri} and return;
+	if (!$uri->scheme) {
+		$fetchURI = URI->new_abs($uri, $self->{baseURI});
 	}
-	my $rq = HTTP::Request->new(GET => $szUri);
+	elsif ($self->{diskCache}->{$uri}) {
+		$fetchURI = URI->new_abs($self->{diskCache}->{$uri}, "file://localhost");
+	}
+	my $rq = HTTP::Request->new(GET => $fetchURI);
 	my $res = $userAgent->request($rq);
-	($res->is_success) or die "Couldn't retrieve " . $href . " --> " . $res->status_line, "\n";
+	($res->is_success) or die "Couldn't retrieve " . $uri . " --> " . $res->status_line, "\n";
 	my $parser = XML::LibXML->new();
 	my $document = $parser->parse_string($res->content);
-	$self->{requiredDocuments}->{$szUri} = $document;
+	$self->{requiredDocuments}->{$uri} = $document;
 	
-	print "Meeko.stuff.xplSystem.createContext('$href');\n";
+	print "Meeko.stuff.xplSystem.createContext('$uri');\n";
 	my $node = $document->firstChild;
 	while ($node) {
 		(1 == $node->nodeType) and last;
@@ -114,15 +112,28 @@ sub buildFromHref() {
 			my $pi = XMLProcessingInstruction->new($node);
 			($pi && $pi->target) or next;
 			if ("xpl-param" eq $pi->target) {
-				print "Meeko.stuff.xplSystem.contexts['$href'].params['" . $pi->attributes->{name} . "'] = '" . $self->expandParams($pi->attributes->{value}) . "';\n";
+				print "Meeko.stuff.xplSystem.contexts['$uri'].params['" . $pi->attributes->{name} . "'] = '" . $self->expandParams($pi->attributes->{value}) . "';\n";
 			}
 			elsif ("xpl-require" eq $pi->target) {
-				my $href = $self->expandParams($pi->attributes->{href});
-				$self->buildFromHref($href, $szUri);
+				my $requireHref = $self->expandParams($pi->attributes->{href});
+				my $requireUri = URI->new_abs($requireHref, $uri);
+				if (!$uri->scheme && !$requireUri->scheme) {
+					my $badUri = $requireUri->as_string;
+					$badUri =~ s/^\///;
+					$requireUri = URI->new($badUri); # work-around when dealing with rel-paths
+				}
+				print "Meeko.stuff.xplSystem.contexts['$uri'].requiredContexts.push('$requireUri');\n";
+				$self->buildFromUri($requireUri);
 			}
 			elsif ("xpl-prefetch" eq $pi->target) {
-				my $href = $self->expandParams($pi->attributes->{href});
-				$self->prefetchFromHref($href, $szUri);
+				my $prefetchHref = $self->expandParams($pi->attributes->{href});
+				my $prefetchUri = URI->new_abs($prefetchHref, $uri);
+				if (!$uri->scheme && !$prefetchUri->scheme) {
+					my $badUri = $prefetchUri->as_string;
+					$badUri =~ s/^\///;
+					$prefetchUri = URI->new($badUri); # work-around when dealing with rel-paths
+				}
+				$self->prefetchFromUri($prefetchUri);
 			}
 		}
 		$node = $node->nextSibling;
@@ -134,52 +145,31 @@ sub buildFromHref() {
 		my $scriptSrc = $script->getAttribute("src");
 		my $scriptText;
 		if ($scriptSrc) {
-			my $szScriptUri = URI->new_abs($scriptSrc, $baseHref)->as_string();
-			my $rq = HTTP::Request->new(GET => $szScriptUri);
+			my $fetchUri = URI->new_abs($scriptSrc, $uri);
+			if (!$uri->scheme && !$fetchUri->scheme) {
+				my $badUri = $fetchUri->as_string;
+				$badUri =~ s/^\///;
+				$fetchUri = URI->new_abs($badUri, $self->{baseURI});
+			}
+			my $rq = HTTP::Request->new(GET => $fetchUri);
 			my $res = $userAgent->request($rq);
-			($res->is_success) or die "Couldn't retrieve " . $href . " --> " . $res->status_line, "\n";
+			($res->is_success) or die "Couldn't retrieve " . $fetchUri . " --> " . $res->status_line, "\n";
 			$scriptText = $res->content;
 		}
 		else {
 			$scriptText = $script->textContent;
 		}
 
-print <<EOT;
-(function() {
+print <<"";
+Meeko.stuff.xplSystem.contexts['$uri'].wrappedScript = function() {
 	var xplSystem = Meeko.stuff.xplSystem;
-	var xplContext = xplSystem.contexts['$href'];
+	var xplContext = xplSystem.contexts['$uri'];
 	var logger = xplContext.logger;
 	$scriptText
-})();
-EOT
+}
+
 	}
 
-}
-
-sub requestUri() {
-	my $self = shift;
-	my ($uri) = @_;
-	my $resolvedUri = ($self->{diskCache}->{$uri}) ? "file://" . $self->{diskCache}->{$uri} : $uri;
-	my $rq = new XMLHttpRequest;
-	$rq->open("GET", $resolvedUri, 0);
-	$rq->send("");
-	($rq->status == "200") and $self->{memCache}->{$uri} = $rq;
-	($rq->responseXML) and $rq->responseXML->documentURI = $uri;
-	return $rq;
-}
-
-sub resolveUri() {
-	my $self = shift;
-	my ($uri) = @_;
-	return ($self->{diskCache}->{$uri}) ? "file://" . $self->{diskCache}->{$uri} : $uri;
-}
-
-sub normalize() {
-	my $self = shift;
-	my ($href, $baseUri) = @_;
-	my $baseURL = new URI($baseUri);
-	my $normalURL = new URI($baseURL, $href);
-	return $normalURL.toString();
 }
 
 } # end XPLBuilder package
@@ -251,7 +241,7 @@ for (my $i=0; $i<$n; $i++) {
 	}
 }
 
-if ($xplBuilder->{makeDepend}) { $xplBuilder->makeDependencies($href); }
+if ($xplBuilder->{makeDepend}) { die "--make-depend option not supported"; }
 else { $xplBuilder->build($href); }
 
 __DATA__
@@ -304,7 +294,9 @@ Logger.prototype._log = function(data) {
 
 var XPLContext = function(ref) {
 	this.params = {};
-	this.logger = new Logger(ref);	
+	this.requiredContexts = [];
+	this.installed = false;
+	this.logger = new Logger(ref);
 }
 
 var XPLSystem = function() {
@@ -322,6 +314,31 @@ XPLSystem.prototype.createContext = function(ref) {
 	return xplContext;
 }
 
+XPLSystem.prototype.createNamespace = function(name) { // TODO error checking
+	var a = name.split(".");
+	var ns = window;
+	for (var n=a.length, i=0; i<n; i++) {
+		var step = a[i];
+		if (!ns[step]) ns[step] = {};
+		ns = ns[step];
+	}
+	return ns;
+}
+
+XPLSystem.prototype.init = function() {
+	var xplSystem = this;
+	function require(href) {
+		var xplContext = xplSystem.contexts[href];
+		if (xplContext.installed) return true;
+		for (var n=xplContext.requiredContexts.length, i=0; i<n; i++) {
+			require(xplContext.requiredContexts[i]);
+		}
+		var rc = xplContext.wrappedScript.call(window);
+		xplContext.installed = true; // FIXME
+		return rc;
+	}
+	for (var href in xplSystem.contexts) require(href);
+}
 
 var Script = function() {
 	this.readyState = "initialized";
