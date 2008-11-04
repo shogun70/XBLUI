@@ -21,7 +21,16 @@ All rights reserved
 </xsl:template>
 
 <xsl:template match="xpl:package">
+Meeko.stuff.xplSystem.createNamespace("<xsl:value-of select="@namespace" />");
+<xsl:value-of select="@namespace" /> = (function() {
 	<xsl:apply-templates select="xpl:class[@name]"/>
+return {
+	<xsl:for-each select="xpl:class[@visibility='public' or not(@visibility)]">
+	<xsl:value-of select="@name"/>: <xsl:value-of select="@name"/><xsl:if test="position()!=last()">, </xsl:if><xsl:text>
+	</xsl:text>
+	</xsl:for-each>
+}
+})();
 </xsl:template>
 
 <xsl:template match="xpl:package/xpl:class">
@@ -31,11 +40,19 @@ var <xsl:value-of select="@name"/> = function() { };
 <xsl:value-of select="@name"/>.prototype = new <xsl:value-of select="@extends"/>;
 	</xsl:if>
 	
-	<xsl:apply-templates select="xpl:property[@visibility='public' or not(@visibility)]">
+	<xsl:apply-templates select="xpl:property">
+		<xsl:with-param name="object"><xsl:value-of select="@name"/></xsl:with-param>
+	</xsl:apply-templates>
+	
+	<xsl:apply-templates select="xpl:method">
+		<xsl:with-param name="object"><xsl:value-of select="@name"/></xsl:with-param>
+	</xsl:apply-templates>
+	
+	<xsl:apply-templates select="xpl:instance/xpl:property[@visibility='public' or not(@visibility)]">
 		<xsl:with-param name="object"><xsl:value-of select="@name"/>.prototype</xsl:with-param>
 	</xsl:apply-templates>
 	
-	<xsl:apply-templates select="xpl:method[(@visibility='public' or not(@visibility)) and @name!='xblBindingAttached']">
+	<xsl:apply-templates select="xpl:instance/xpl:method[(@visibility='public' or not(@visibility)) and @name!='xblBindingAttached']">
 		<xsl:with-param name="object"><xsl:value-of select="@name"/>.prototype</xsl:with-param>
 	</xsl:apply-templates>
 	
@@ -46,27 +63,27 @@ var <xsl:value-of select="@name"/> = function() { };
 	</xsl:for-each>
 }
 
-	<xsl:if test="(xpl:property | xpl:method)[@visibility='protected' or @visibility='private']">
+	<xsl:if test="(xpl:instance/xpl:property | xpl:instance/xpl:method)[@visibility='protected' or @visibility='private']">
 <xsl:value-of select="@name"/>.prototype.xplInit = function() {
 	var xplObject = this;
-		<xsl:apply-templates select="xpl:property[@visibility='protected' or @visibility='private']">
+		<xsl:apply-templates select="xpl:instance/xpl:property[@visibility='protected' or @visibility='private']">
 			<xsl:with-param name="object">xplObject</xsl:with-param>
 		</xsl:apply-templates>
-		<xsl:apply-templates select="xpl:method[@visibility='protected' or @visibility='private']">
+		<xsl:apply-templates select="xpl:instance/xpl:method[@visibility='protected' or @visibility='private']">
 			<xsl:with-param name="object">xplObject</xsl:with-param>
 		</xsl:apply-templates>
 	if (xplObject.__defineGetter__) {
-		<xsl:apply-templates select="xpl:property[@visibility='protected' or @visibility='private']" mode="js2">
+		<xsl:apply-templates select="xpl:instance/xpl:property[@visibility='protected' or @visibility='private']" mode="js2">
 			<xsl:with-param name="object">xplObject</xsl:with-param>
 		</xsl:apply-templates>
 	}
-		<xsl:value-of select="string(xpl:method[@name='xplInit']/xpl:body)"/>
+		<xsl:value-of select="string(xpl:instance/xpl:method[@name='xplInit']/xpl:body)"/>
 }
 	</xsl:if>
 	
 
 if (<xsl:value-of select="@name"/>.prototype.__defineGetter__) {
-	<xsl:apply-templates select="xpl:property[@visibility='public' or not(@visibility)]" mode="js2">
+	<xsl:apply-templates select="xpl:instance/xpl:property[@visibility='public' or not(@visibility)]" mode="js2">
 		<xsl:with-param name="object"><xsl:value-of select="@name"/>.prototype</xsl:with-param>
 	</xsl:apply-templates>
 }
@@ -76,7 +93,7 @@ return <xsl:value-of select="@name"/>;
 </xsl:template>
 
 
-<xsl:template match="xpl:class/xpl:property">
+<xsl:template match="xpl:property">
 	<xsl:param name="object">this</xsl:param>
 	<xsl:variable name="Name"><xsl:call-template name="ucFirst"><xsl:with-param name="text" select="@name"/></xsl:call-template></xsl:variable>
 	<xsl:if test="xpl:getter">
@@ -94,7 +111,7 @@ return <xsl:value-of select="@name"/>;
 	</xsl:if>
 </xsl:template>
 
-<xsl:template match="xpl:class/xpl:property" mode="js2">
+<xsl:template match="xpl:instance/xpl:property" mode="js2">
 	<xsl:param name="object">this</xsl:param>
 	<xsl:variable name="Name"><xsl:call-template name="ucFirst"><xsl:with-param name="text" select="@name"/></xsl:call-template></xsl:variable>
 	<xsl:if test="xpl:getter">
@@ -105,7 +122,7 @@ return <xsl:value-of select="@name"/>;
 	</xsl:if>
 </xsl:template>
 
-<xsl:template match="xpl:class/xpl:method">
+<xsl:template match="xpl:method">
 	<xsl:param name="$object">this</xsl:param>
 <xsl:value-of select="$object"/>.<xsl:value-of select="@name"/> = function(<xsl:for-each select="xpl:parameter">
 			<xsl:value-of select="@name"/><xsl:if test="position()!=last()">, </xsl:if>
