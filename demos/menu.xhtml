@@ -9,7 +9,39 @@ All rights reserved
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 	<title>Meeko XBL Menu Demo</title>
-	<xbl xmlns="http://www.w3.org/ns/xbl">
+	<style>
+html { border: none; padding: 0; margin: 0; } 
+body { width: 480px; height: 100%; }
+#menu {
+	margin: 0px;
+	padding: 0px;
+	background-color: #ffffff;
+}
+/* Reset CSS */
+.menu { display: block; height: 0; overflow: hidden; }
+.menu { margin: 0px; padding: 0px; background-color: #dddddd; }
+
+#edit { background-color: #ffffff; margin: 0px; padding: 1em; }
+	</style>
+	<xbl xmlns="http://www.w3.org/ns/xbl" xmlns:html="http://www.w3.org/1999/xhtml">
+		<html:style>
+.menu { height: auto; overflow: visible; }			
+.menu { border: 1px outset #dddddd; }
+.menu li.closed ul { height: 0; overflow: hidden; border: none; }
+.menu ul, .menu li { list-style: none outside; margin: 0px; padding: 0px; display: inline; }
+.menu li { position: relative; top: 0px; left: 0px; }
+.menu li button { border: none; background-color: #dddddd; padding: 0.1em 0.5em; margin: 0; }
+.menu li ul { display: block; position: absolute; top: 1em; left: 0; width: auto; _width: 0; }
+.menu li li { display: block; white-space: nowrap; padding: 0.1em 0.5em; }
+.menu li.open button, .menu li li:hover { background-color: #0033cc; color: #dddddd; }
+.menu li ul {
+	list-style-type: none;
+	background-color: #dddddd;
+	border-style: outset;
+	border-color: #dddddd;
+	border-width: 1px;
+}
+		</html:style>
 		<binding element="#menu > div > ul > li" extends="{pkgdefaultlibdir}/UI.xml#treeitem">
 			<handlers>
 				<handler event="mouseover">
@@ -21,34 +53,6 @@ this.boundElement.setOpenState(false);
 			</handlers>
 		</binding>
 	</xbl>
-	<style>
-html { border: none; padding: 0; margin: 0; } 
-body { width: 480px; height: 100%; }
-#menu {
-	margin: 0px;
-	padding: 0px;
-	background-color: #ffffff;
-}
-/* Reset CSS */
-.menu { margin: 0px; padding: 0px; background-color: #dddddd; }
-.menu ul, .menu li { list-style: none outside; margin: 0px; padding: 0px; display: inline; }
-.menu li { position: relative; top: 0px; left: 0px; }
-.menu li button { border: none; background-color: #dddddd; padding: 0.1em 0.5em; margin: 0; }
-.menu li ul { display: block; position: absolute; top: 1em; left: 0; width: auto; _width: 0; }
-.menu li.closed ul { visibility: hidden; }
-.menu li li { display: block; white-space: nowrap; padding: 0.1em 0.5em; }
-.menu { border: 1px outset #dddddd; }
-.menu li.open button, .menu li li:hover { background-color: #0033cc; color: #dddddd; }
-.menu li ul {
-	list-style-type: none;
-	background-color: #dddddd;
-	border-style: outset;
-	border-color: #dddddd;
-	border-width: 1px;
-}
-
-#edit { background-color: #ffffff; margin: 0px; padding: 1em; }
-	</style>
 </head>
 
 <body id="menu">

@@ -9,7 +9,26 @@ All rights reserved
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 	<title>Meeko XBL Tree Demo</title>
-	<xbl xmlns="http://www.w3.org/ns/xbl">
+	<style>
+html { border: none; }
+body { width: 480px; height: 100%; }
+#tree, #tree .nav {
+	margin: 0px;
+	padding: 0px;
+	background-color: #ffffff;
+}
+#tree .nav label { display: block; background-color: #dddddd; border: 1px outset #dddddd; }
+#tree ul, #tree li { list-style: none outside; margin-left: 0px; padding-left: 0px; }
+	</style>
+	<xbl xmlns="http://www.w3.org/ns/xbl" xmlns:html="http://www.w3.org/1999/xhtml">
+		<html:style>
+#tree li.closed ul { display: none; }
+
+/* pseudo list-style-image */
+#tree li { padding-left: 15px; }
+#tree li.closed { background: url(arrow-rit.gif) no-repeat; }
+#tree li.open { background: url(arrow-dn.gif) no-repeat; }
+		</html:style>
 		<binding element="#tree .nav" extends="{pkgdefaultlibdir}/UI.xml#tree"/>
 		<binding element="#tree .nav li" extends="{pkgdefaultlibdir}/UI.xml#treeitem">
 			<handlers>
@@ -21,22 +40,6 @@ treeitem.setOpenState(!isOpen);
 			</handlers>
 		</binding>
 	</xbl>
-	<style>
-html { border: none; }
-body { width: 480px; height: 100%; }
-#tree, #tree .nav {
-	margin: 0px;
-	padding: 0px;
-	background-color: #ffffff;
-}
-#tree .nav label { display: block; background-color: #dddddd; border: 1px outset #dddddd; }
-#tree ul, #tree li { list-style: none outside; margin-left: 0px; padding-left: 0px; }
-#tree li.closed ul { display: none; }
-/* pseudo list-style-image */
-#tree li { padding-left: 15px; }
-#tree li.closed { background: url(arrow-rit.gif) no-repeat; }
-#tree li.open { background: url(arrow-dn.gif) no-repeat; }
-	</style>
 </head>
 
 <body id="tree">
