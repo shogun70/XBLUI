@@ -7,18 +7,18 @@ All rights reserved
 -->
 <package namespace="Meeko.UI" xmlns="http://www.meekostuff.net/ns/xpl">
 
-<class name="tree">
+<class pattern="binding" name="tree">
 	<instance>
-		<method name="getRefElement">
-			<body>
+		<property name="refElement">
+			<getter>
 	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
 		if ("A" == node.tagName || "LABEL" == node.tagName) return node;
 	}
 	return null;
-			</body>
-		</method>
-		<method name="getView">
-			<body>
+			</getter>
+		</property>
+		<property name="view">
+			<getter>
 	var element = this.boundElement;
 	var document = element.ownerDocument;
 	var ref = this.getRefElement();
@@ -36,18 +36,18 @@ All rights reserved
 		if (id) return document.getElementById(id);
 	}
 	return null;
-			</body>
-		</method>
-		<method name="getList">
-			<body>
+			</getter>
+		</property>
+		<property name="list">
+			<getter>
 	var node = this.boundElement;
 	if ("OL" == node.tagName || "UL" == node.tagName || "SELECT" == node.tagName) return node;
 	for (var node=node.firstChild; node; node=node.nextSibling) {
 		if ("OL" == node.tagName || "UL" == node.tagName || "SELECT" == node.tagName) return node;
 	}
 	return null;
-			</body>
-		</method>
+			</getter>
+		</property>
 		<method name="setOpenState">
 			<parameter name="state"/>
 			<body>
@@ -81,8 +81,8 @@ All rights reserved
 	return items;
 			</body>
 		</method>
-		<method name="getSelectedItem">
-			<body>
+		<property name="selectedItem">
+			<getter>
 <![CDATA[
 	var items = this.getItems();
 	var n = items.length;
@@ -91,8 +91,8 @@ All rights reserved
 	}
 	return null;
 ]]>
-			</body>
-		</method>
+			</getter>
+		</property>
 		<method name="selectItem">
 			<parameter name="item"/>
 			<body>
@@ -143,18 +143,18 @@ All rights reserved
 	</instance>
 </class>
 
-<class name="treeitem">
+<class pattern="binding" name="treeitem">
 	<instance>
-		<method name="getRefElement">
-			<body>
+		<property name="refElement">
+			<getter>
 	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
 		if ("A" == node.tagName || "LABEL" == node.tagName) return node;
 	}
 	return null;
-			</body>
-		</method>
-		<method name="getView">
-			<body>
+			</getter>
+		</property>
+		<property name="view">
+			<getter>
 	var element = this.boundElement;
 	var document = element.ownerDocument;
 	var ref = this.getRefElement();
@@ -172,18 +172,18 @@ All rights reserved
 		if (id) return document.getElementById(id);
 	}
 	return null;
-			</body>
-		</method>
-		<method name="getList">
-			<body>
+			</getter>
+		</property>
+		<property name="list">
+			<getter>
 	var node = this.boundElement;
 	if ("OL" == node.tagName || "UL" == node.tagName || "SELECT" == node.tagName) return node;
 	for (var node=node.firstChild; node; node=node.nextSibling) {
 		if ("OL" == node.tagName || "UL" == node.tagName || "SELECT" == node.tagName) return node;
 	}
 	return null;
-			</body>
-		</method>
+			</getter>
+		</property>
 		<method name="activate">
 			<body>
 	var element = this.boundElement;
@@ -222,18 +222,18 @@ All rights reserved
 	</instance>
 </class>
 
-<class name="navlist">
+<class pattern="binding" name="navlist">
 	<instance>
-		<method name="getRefElement">
-			<body>
+		<property name="refElement">
+			<getter>
 	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
 		if ("A" == node.tagName) return node;
 	}
 	return null;
-			</body>
-		</method>
-		<method name="getView">
-			<body>
+			</getter>
+		</property>
+		<property name="view">
+			<getter>
 	var element = this.boundElement;
 	var document = element.ownerDocument;
 	var anchor = this.getRefElement();
@@ -245,18 +245,18 @@ All rights reserved
 		return document.getElementById(id);
 	}
 	return null;
-			</body>
-		</method>
-		<method name="getList">
-			<body>
+			</getter>
+		</property>
+		<property name="list">
+			<getter>
 	var element = this.boundElement;
 	if ("OL" == element.tagName || "UL" == element.tagName) return node;
 	for (var node=element.firstChild; node; node=node.nextSibling) {
 		if ("OL" == node.tagName || "UL" == node.tagName) return node;
 	}
 	return null;
-			</body>
-		</method>
+			</getter>
+		</property>
 		<method name="getItems">
 			<body>
 	var list = this.getList();
@@ -267,8 +267,8 @@ All rights reserved
 	return items;
 			</body>
 		</method>
-		<method name="getSelectedIndex">
-			<body>
+		<property name="selectedIndex">
+			<getter>
 <![CDATA[
 	var items = this.getItems();
 	var n = items.length;
@@ -277,10 +277,10 @@ All rights reserved
 	}
 	return null;
 ]]>
-			</body>
-		</method>
-		<method name="getSelectedItem">
-			<body>
+			</getter>
+		</property>
+		<property name="selectedItem">
+			<getter>
 <![CDATA[
 	var items = this.getItems();
 	var n = items.length;
@@ -289,8 +289,8 @@ All rights reserved
 	}
 	return null;
 ]]>
-			</body>
-		</method>
+			</getter>
+		</property>
 		<method name="selectItem">
 			<parameter name="item"/>
 			<body>
@@ -341,18 +341,18 @@ All rights reserved
 	</instance>
 </class>
 
-<class name="navlistitem">
+<class pattern="binding" name="navlistitem">
 	<instance>
-		<method name="getRefElement">
-			<body>
+		<property name="refElement">
+			<getter>
 	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
 		if ("A" == node.tagName) return node;
 	}
 	return null;
-			</body>
-		</method>
-		<method name="getView">
-			<body>
+			</getter>
+		</property>
+		<property name="view">
+			<getter>
 	var element = this.boundElement;
 	var document = element.ownerDocument;
 	var anchor = this.getRefElement();
@@ -364,12 +364,12 @@ All rights reserved
 		return document.getElementById(id);
 	}
 	return null;
-			</body>
-		</method>
+			</getter>
+		</property>
 	</instance>
 </class>
 
-<class name="scrollBox">
+<class pattern="binding" name="scrollBox">
 	<instance>
 		<method name="setView">
 			<parameter name="item"/>
@@ -386,7 +386,7 @@ All rights reserved
 	</instance>
 </class>
 
-<class name="scrollBoxWithResize">
+<class pattern="binding" name="scrollBoxWithResize">
 	<instance>
 		<method name="setView">
 			<parameter name="item"/>
@@ -411,7 +411,7 @@ All rights reserved
 	</instance>
 </class>
 
-<class name="switchBox">
+<class pattern="binding" name="switchBox">
 	<instance>
 		<method name="setView">
 			<parameter name="item"/>
@@ -599,7 +599,7 @@ while (this.repetitionBlocks.length < nBlocks) this.addRepetitionBlock();
 	</instance>
 </class>
 
-<class name="WF2FormElement">
+<class pattern="binding" name="WF2FormElement">
 	<instance>
 		<property name="replace" type="String">
 			<getter>return this.boundElement.getAttribute("replace");</getter>
@@ -768,7 +768,11 @@ return this.resetFromData(httpRequest.responseXML);
 ]]>
 			</body>
 		</method>
-		<property name="httpRequest" visibility="private" readonly="true" type="XMLHttpRequest">new XMLHttpRequest()</property>
+		<method name="xblBindingAttached">
+			<body>
+this.httpRequest = new this.boundElement.ownerDocument.parentWindow.XMLHttpRequest();
+			</body>
+		</method>
 		<method name="encode" visibility="protected">
 			<body>
 <![CDATA[
@@ -800,7 +804,7 @@ forEach(this.elements, function(el) {
 	</instance>
 </class>
 
-<class name="WF2SubmitButton">
+<class pattern="binding" name="WF2SubmitButton">
 	<instance>
 		<property name="replace" type="String">
 			<getter>return this.boundElement.getAttribute("replace");</getter>
@@ -821,7 +825,7 @@ forEach(this.elements, function(el) {
 	</instance>
 </class>
 
-<class name="WF2TextInput">
+<class pattern="binding" name="WF2TextInput">
 	<instance>
 		<property name="filter">
 			<getter>return this.boundElement.getAttribute("filter");</getter>
@@ -830,7 +834,7 @@ forEach(this.elements, function(el) {
 	</instance>
 </class>
 
-<class name="WF2NumberInput">
+<class pattern="binding" name="WF2NumberInput">
 	<instance>
 		<property name="min">
 			<getter>return this.boundElement.getAttribute("min");</getter>
@@ -942,7 +946,7 @@ return validity;
 	</instance>
 </class>
 
-<class name="WF2SelectElement">
+<class pattern="binding" name="WF2SelectElement">
 	<instance>
 		<property name="value">
 			<getter>return this.boundElement.getAttribute("value");</getter>
@@ -959,7 +963,11 @@ if (rc) this.boundElement.setAttribute("data", val);
 			</setter>
 		</property>
 			
-	<property name="httpRequest" visibility="protected" readonly="true" type="XMLHttpRequest">new this.boundElement.ownerDocument.parentWindow.XMLHttpRequest()</property>
+		<method name="xblBindingAttached">
+			<body>
+this.httpRequest = new this.boundElement.ownerDocument.parentWindow.XMLHttpRequest();
+			</body>
+		</method>
 		<method name="load" visibility="protected">
 			<parameter name="src" />
 			<body>
@@ -996,11 +1004,11 @@ if (this.getData()) this.load(this.getData());
 	</instance>
 </class>
 
-<class name="WF2OutputElement">
+<class pattern="binding" name="WF2OutputElement">
 	<instance>
-		<property name="name">
+		<property pattern="attribute" name="name" type="string">
 			<getter>return this.boundElement.getAttribute("name");</getter>
-			<setter>return this.boundElement.setAttribute("name", val);</setter>
+			<setter>this.boundElement.setAttribute("name", val);</setter>
 		</property>
 		<property name="value">
 			<getter>
@@ -1019,10 +1027,14 @@ if (!this.boundElement.textContent) this.textContent = "\u00a0";// non-breaking-
 	</instance>
 </class>
 
-<class name="WF2DatalistElement">
+<class pattern="binding" name="WF2DatalistElement">
+	<script>
+document.createElement("datalist"); // NOTE fix for IE. Assumes HTML document
+	</script>
 	<instance>
-		<property name="name">
+		<property pattern="attribute" name="name" type="string">
 			<getter>return this.boundElement.getAttribute("name");</getter>
+			<setter>this.boundElement.setAttribute("name", val);</setter>
 		</property>
 	</instance>
 </class>
