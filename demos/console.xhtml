@@ -66,12 +66,22 @@ Meeko.stuff.trace = {};
 Meeko.stuff.trace.log = function(data) {
 	var rows = document.getElementById("console").getElementsByTagName("tbody")[0];
 	var frag = document.createElement("tr");
-	function fn(txt) { var td = document.createElement("td"); td.appendChild(document.createTextNode((txt!=null)?txt:" ")); return td; }
+	function createCell(txt, title) {
+		var td = document.createElement("td");
+		td.appendChild(document.createTextNode((txt!=null)?txt:" "));
+		td.setAttribute("title", title);
+		return td;
+	}
 	var level = (["DEBUG", "INFO", "WARN", "ERROR"])[data.level];
-	frag.appendChild(fn(level));
-	frag.appendChild(fn(data.message));
-	frag.appendChild(fn(data.url));
-	frag.appendChild(fn(data.ref));
+	function filename(url) {
+		var a = url.split('/');
+		return "" + ((a.length > 1) ? ".../" : "") + a[a.length-1];
+	}
+	frag.appendChild(createCell(level));
+	frag.appendChild(createCell(data.message));
+	frag.appendChild(createCell(filename(data.url), data.url));
+	frag.appendChild(createCell(filename(data.ref), data.ref));
+	frag.appendChild(createCell((new Date).getTime()));
 	frag.className = level;
 	var rc = rows.appendChild(frag);
 }
@@ -132,7 +142,7 @@ window.onresize = function() {
 	</div>
 	<div id="consoleBox" class="open">
 		<table id="console">
-			<colgroup span="4"><col style="width: 5em;" /><col /><col style="width: 30%;" /><col style="width: 20%;" /></colgroup>
+			<colgroup span="5"><col style="width: 5em;" /><col /><col style="width: 10em;" /><col style="width: 10em;" /><col style="width: 10em;" /></colgroup>
 			<tbody>
 			</tbody>
 		</table>
