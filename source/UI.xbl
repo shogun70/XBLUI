@@ -55,6 +55,10 @@ All rights reserved
 	<implementation>(Meeko.UI.switchBox.prototype)</implementation>
 </binding>
 
+<binding id="table">
+	<implementation>(Meeko.UI.table.prototype)</implementation>
+</binding>
+
 <binding id="RepetitionElement">
 	<implementation>(Meeko.UI.RepetitionElement)</implementation>
 </binding>
