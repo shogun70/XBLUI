@@ -14,13 +14,12 @@ html {
 	border: none;
 	background-color: #dddddd;
 }
-body { width: 480px; height: 100%; }
+body { height: 100%; }
 table {
 	text-align: left;
 	border-collapse: collapse;
 	border: 1px solid gray;
 	table-layout: auto;
-	font-size: 80%;
 	background-color: #ffffff;
 }
 caption {
@@ -36,17 +35,19 @@ thead th {
 }
 thead th button {
 	width: 100%;
+	margin: 0;
 	padding-left: 1ex;
 	padding-right: 10px;
 	border: 1px outset #dddddd;
-	background: #dddddd center right no-repeat;
+	background-color: #dddddd;
 	text-align: left;
-	font-size: 80%;
 }
   </style>
   <xbl xmlns="http://www.w3.org/ns/xbl" xmlns:html="http://www.w3.org/1999/xhtml">
 	<html:style>
 thead th.sorted button {
+	background-position: center right;
+	background-repeat: no-repeat;
 	background-image: url(arrow-dn.gif);
 }
 thead th.reversed button {
