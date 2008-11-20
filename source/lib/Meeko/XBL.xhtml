@@ -39,6 +39,7 @@ ProgressEvent.remove = function(target) { // FIXME
 	var iface = target._ProgressEvent;
 	// delete target._ProgressEvent;
 	target._ProgressEvent = null;
+	Meeko.stuff.domSystem.releaseInterface(target, iface, ["addEventListener", "removeEventListener", "notifyProgress", "queryProgress" ]);
 	if (iface.DESTROY) iface.DESTROY(); 
 }
 
@@ -329,11 +330,7 @@ ElementXBL.prototype.DESTROY = function() {
 	}
 	this.registeredEvents = null;
 	
-	// TODO Meeko.stuff.domSystem.unbindInterface();
-	element.addBinding = null;
-	element.removeBinding = null;
-	element.hasBinding = null;
-	element.getBinding = null;
+	Meeko.stuff.domSystem.releaseInterface(element, this, [ "addBinding", "removeBinding", "hasBinding", "getBinding" ]);
 
 	this.elementXBL_eventListener = null;
 	this.documentXBL = null;
