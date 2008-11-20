@@ -7,7 +7,7 @@ All rights reserved
 -->
 <package namespace="Meeko.UI" xmlns="http://www.meekostuff.net/ns/xpl">
 
-<class pattern="binding" name="tree">
+<class pattern="binding" name="treeitem">
 	<instance>
 		<property name="refElement">
 			<getter>
@@ -40,14 +40,25 @@ All rights reserved
 		</property>
 		<property name="list">
 			<getter>
-	var node = this.boundElement;
-	if ("OL" == node.tagName || "UL" == node.tagName || "SELECT" == node.tagName) return node;
-	for (var node=node.firstChild; node; node=node.nextSibling) {
+	var element = this.boundElement;
+	if ("OL" == element.tagName || "UL" == element.tagName || "SELECT" == element.tagName) return element;
+	for (var node=element.firstChild; node; node=node.nextSibling) {
 		if ("OL" == node.tagName || "UL" == node.tagName || "SELECT" == node.tagName) return node;
 	}
 	return null;
 			</getter>
 		</property>
+		<method name="activate">
+			<body>
+	var element = this.boundElement;
+	for (var ancestor=element.parentNode; ancestor; ancestor=ancestor.parentNode) {
+		if (ancestor.selectItem) {
+			ancestor.selectItem(element);
+			break;
+		}
+	}
+			</body>
+		</method>
 		<method name="setOpenState">
 			<parameter name="state"/>
 			<body>
@@ -55,10 +66,12 @@ All rights reserved
 	var list = this.getList();
 	if (!list) throw " ";
 	if (state) {
-		element.setAttribute("class", "open");
+		element.classList.remove("closed");
+		element.classList.add("open");
 	}
 	else {
-		element.setAttribute("class", "closed");
+		element.classList.remove("open");
+		element.classList.add("closed");
 	}
 			</body>
 		</method>
@@ -67,17 +80,22 @@ All rights reserved
 	var element = this.boundElement;
 	var list = this.getList();
 	if (!list) throw " ";
-	var state = (element.getAttribute("class") == "open");
+	var state = element.classList.has("open");
 	return state;
 			</body>
 		</method>
+	</instance>
+</class>
+
+<class pattern="binding" name="tree" extends="treeitem">
+	<instance>
 		<method name="getItems">
 			<body>
 	var list = this.getList();
 	var items = [];
-	forEach (list.childNodes, function(node) {
+	for (var node=list.firstChild; node; node=node.nextSibling) {
 		if (Node.ELEMENT_NODE == node.nodeType) items.push(node);
-	});
+	}
 	return items;
 			</body>
 		</method>
@@ -143,12 +161,12 @@ All rights reserved
 	</instance>
 </class>
 
-<class pattern="binding" name="treeitem">
+<class pattern="binding" name="navlistitem">
 	<instance>
 		<property name="refElement">
 			<getter>
 	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
-		if ("A" == node.tagName || "LABEL" == node.tagName) return node;
+		if ("A" == node.tagName) return node;
 	}
 	return null;
 			</getter>
@@ -157,68 +175,17 @@ All rights reserved
 			<getter>
 	var element = this.boundElement;
 	var document = element.ownerDocument;
-	var ref = this.getRefElement();
-	if ("A" == ref.tagName) {
-		var href = ref.href;
-		var baseURI = document.documentURI;
-		var rex = new RegExp("^"+baseURI+"#");
-		if (href.match(rex)) {
-			var id = href.replace(rex, "");
-			return document.getElementById(id);
-		}
-	}
-	else if ("LABEL" == ref.tagName) {
-		var id = ref.htmlFor;
-		if (id) return document.getElementById(id);
+	var anchor = this.getRefElement();
+	var href = anchor.href;
+	var baseURI = document.documentURI;
+	var rex = new RegExp("^"+baseURI+"#");
+	if (href.match(rex)) {
+		var id = href.replace(rex, "");
+		return document.getElementById(id);
 	}
 	return null;
 			</getter>
 		</property>
-		<property name="list">
-			<getter>
-	var node = this.boundElement;
-	if ("OL" == node.tagName || "UL" == node.tagName || "SELECT" == node.tagName) return node;
-	for (var node=node.firstChild; node; node=node.nextSibling) {
-		if ("OL" == node.tagName || "UL" == node.tagName || "SELECT" == node.tagName) return node;
-	}
-	return null;
-			</getter>
-		</property>
-		<method name="activate">
-			<body>
-	var element = this.boundElement;
-	for (var ancestor=element.parentNode; ancestor; ancestor=ancestor.parentNode) {
-		if (ancestor.selectItem) {
-			ancestor.selectItem(element);
-			break;
-		}
-	}
-			</body>
-		</method>
-		<method name="setOpenState">
-			<parameter name="state"/>
-			<body>
-	var element = this.boundElement;
-	var list = this.getList();
-	if (!list) throw "setOpenState";
-	if (state) {
-		element.classList.remove("closed");
-		element.classList.add("open");
-	}
-	else {
-		element.classList.remove("open");
-		element.classList.add("closed");
-	}
-			</body>
-		</method>
-		<method name="getOpenState">
-			<body>
-	var element = this.boundElement;
-	var list = this.getList();
-	if (!list) throw "getOpenState";
-	return element.classList.has("open");
-			</body>
-		</method>
 	</instance>
 </class>
 
@@ -261,9 +228,9 @@ All rights reserved
 			<body>
 	var list = this.getList();
 	var items = [];
-	forEach (list.childNodes, function(node) {
+	for (var node=list.firstChild; node; node=node.nextSibling) {
 		if (Node.ELEMENT_NODE == node.nodeType) items.push(node);
-	});
+	}
 	return items;
 			</body>
 		</method>
@@ -341,34 +308,6 @@ All rights reserved
 	</instance>
 </class>
 
-<class pattern="binding" name="navlistitem">
-	<instance>
-		<property name="refElement">
-			<getter>
-	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
-		if ("A" == node.tagName) return node;
-	}
-	return null;
-			</getter>
-		</property>
-		<property name="view">
-			<getter>
-	var element = this.boundElement;
-	var document = element.ownerDocument;
-	var anchor = this.getRefElement();
-	var href = anchor.href;
-	var baseURI = document.documentURI;
-	var rex = new RegExp("^"+baseURI+"#");
-	if (href.match(rex)) {
-		var id = href.replace(rex, "");
-		return document.getElementById(id);
-	}
-	return null;
-			</getter>
-		</property>
-	</instance>
-</class>
-
 <class pattern="binding" name="scrollBox">
 	<instance>
 		<method name="setView">
@@ -418,19 +357,19 @@ All rights reserved
 			<body>
 	var element = this.boundElement;
 	if (element != item.parentNode) throw "setView failed: item is not child of switchBox";
-	forEach (element.childNodes, function(child) {
-		if (Node.ELEMENT_NODE != child.nodeType) return;
+	for (var child=element.firstChild; child; child=child.nextSibling) {
+		if (Node.ELEMENT_NODE != child.nodeType) continue;
 		if (item == child) child.style.display = "";
 		else child.style.display = "none";
-	});
+	}
 			</body>
 		</method>
 		<method name="_getPanels">
 			<body>
 	var elements = [];
-	forEach (this.boundElement.childNodes, function(child) {
+	for (var child=this.boundElement.firstChild; child; child=child.nextSibling) {
 		if (Node.ELEMENT_NODE == child.nodeType) elements.push(child);
-	});
+	}
 	return elements;
 			</body>
 		</method>
@@ -446,6 +385,94 @@ All rights reserved
 		else panels[i].style.display = "";
 	}
 	return;
+]]>
+			</body>
+		</method>
+	</instance>
+</class>
+
+<class pattern="xbl:binding" name="table">
+	<instance>
+		<method name="getColumns">
+			<body>
+	var element = this.boundElement;
+	return element.tHead.rows[0].cells;
+			</body>
+		</method>
+		<method name="_sort" visibility="protected">
+			<parameter name="column"/>
+			<parameter name="type"/>
+			<parameter name="reverse"/>
+			<body>
+<![CDATA[
+	var element = this.boundElement;
+	forEach (element.tBodies, function(tBody) {
+		var clone = tBody.cloneNode(true);
+		var rows = [];
+		var row;
+		while (row = clone.firstChild) { // NOTE assumes tBody only contains rows
+			clone.removeChild(row);
+			if (Node.ELEMENT_NODE == row.nodeType) rows.push(row);
+		}
+		var values = [];
+		for (var i=0, n=rows.length; i<n; i++) {
+			var row = rows[i]; var cell = (row.cells && row.cells.length) ? row.cells[column] : row.getElementsByTagName("td")[column];
+			var val = new String(cell.firstChild.nodeValue);
+			val.rowIndex = i;
+			values.push(val);
+		}
+		switch (type) {
+			case "string":
+				values = values.sort();
+				break;
+			case "number":
+				values = values.sort(function(a, b) { return Number(a) - Number(b); });
+				break;
+			default:
+				throw "Unrecognized sort type: " + type;
+				break;
+		}
+		if (reverse) values = values.reverse();
+		for (var n=values.length, i=0; i<n; i++) {
+			var val = values[i];
+			clone.appendChild(rows[val.rowIndex]);
+		}
+		var parent = tBody.parentNode;
+		parent.replaceChild(clone, tBody);
+	});
+]]>
+			</body>
+		</method>
+		<method name="toggleColumnSortState">
+			<parameter name="column"/>
+			<body>
+<![CDATA[
+	var type = "string";
+	var cols = this.getColumns();
+	var classList = cols[column].classList;
+	if (classList.has("number")) type = "number";
+	if (classList.has("string")) type = "string";
+	var sortable = classList.has("sortable");
+	var sorted = classList.has("sorted");
+	var reversed = classList.has("reversed");
+	if (!sortable) return;
+	if (!sorted) {
+		this._sort(column, type, false);
+		classList.add("sorted");
+		classList.remove("reversed");
+	}
+	else {
+		this._sort(column, type, !reversed);
+		if (reversed) classList.remove("reversed");
+		else classList.add("reversed");
+	}
+	for (var n=cols.length, i=0; i<n; i++) {
+		if (column != i) {
+			var classList = cols[i].classList;
+			classList.remove("sorted");
+			classList.remove("reversed");
+		}
+	}
 ]]>
 			</body>
 		</method>
@@ -491,9 +518,9 @@ var pattern = new RegExp("\\[" + name + "\\]", "g");
 var elt, iter = document.createTreeWalker(newBlock, NodeFilter.SHOW_ELEMENT, null, false);
 while (elt = iter.nextNode()) {
 	Array.forEach (["id", "name", "for", "value"], function(attrName) {
-		var val = elt.getAttribute(attrName);
-		elt.setAttribute(attrName, val.replace(pattern, index));
-	});
+		var val = this.getAttribute(attrName);
+		this.setAttribute(attrName, val.replace(pattern, index));
+	}, elt);
 }
 
 newBlock.setAttribute("repeat-template", name);
@@ -637,11 +664,11 @@ return nodeList;
 		<method name="checkValidity">
 			<body>
 <![CDATA[
-	var element = this.boundElement;
 	var valid = true;
-	forEach (element.elements, function(el)  {
+	var elements = this.boundElement.elements;
+	for (var i=0, el; el=elements[i]; i++)  {
 		if (el.checkValidity && !el.checkValidity()) valid = false;
-	})
+	}
 	return valid;
 ]]>
 			</body>
