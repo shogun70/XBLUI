@@ -125,13 +125,44 @@ function bind(dest, source, fields, override) {
 	return dest;
 }
 
+function release(dest, source, fields, override) {
+	function _release(dst, src, name, force) {
+		if (dst[name] == null) return;
+		if (!force && (src.hasOwnProperty && !src.hasOwnProperty(name) || src[name] == null)) return;
+		dst[name] = null;
+	}
+	if (fields && fields.length) {
+		for (var n=fields.length, i=0; i<n; i++) {
+			var name = fields[i];
+			_release(dest, source, name, override);
+		}
+	}
+	else {
+		for (var name in source) _release(dest, source, name, override);
+	}
+	return dest;
+}
+
 function hide(target, fields) {
 	for (var n=fields.length, i=0; i<n; i++) {
 		var name = fields[i];
+		var _name = "_" + name;
 		if (target[name]) {
-			target["_"+name] = target[name];
+			target[_name] = target[name];
 			// delete target[name];
-			// target[name] = null; // FIXME why does this screw things
+			target[name] = null;
+		}
+	}
+}
+
+function restore(target, fields) {
+	for (var n=fields.length, i=0; i<n; i++) {
+		var name = fields[i];
+		var _name = "_" + name;
+		if (target[_name]) {
+			target[name] = target[_name];
+			// delete target[name];
+			target[_name] = null;
 		}
 	}
 }
@@ -425,7 +456,9 @@ return {
 	addImplementation: function(name, impl) { return domBindings[name].addImplementation(impl); },
 	mergeImplementation: function(name, impl) { return domBindings[name].mergeImplementation(impl); },
 	bindInterface: bind,
+	releaseInterface: release,
 	hideInterface: hide,
+	restoreInterface: restore,
 	applyToTree: applyToTree,
 	removeFromTree: removeFromTree
 }
