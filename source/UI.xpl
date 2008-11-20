@@ -5,6 +5,12 @@ XBL2 UI classes
 Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
 All rights reserved
 -->
+
+<!--
+  TODO: use TreeWalker
+  TODO: scrap navlist and navlistitem
+  TODO: consolidate switchBox functionality
+-->
 <package namespace="Meeko.UI" xmlns="http://www.meekostuff.net/ns/xpl">
 
 <class pattern="binding" name="treeitem">
@@ -99,13 +105,25 @@ All rights reserved
 	return items;
 			</body>
 		</method>
+		<property name="selectedIndex">
+			<getter>
+<![CDATA[
+	var items = this.getItems();
+	var n = items.length;
+	for (var i=0; i<n; i++) {
+		if (items[i].classList.has("current")) return i;
+	}
+	return null;
+]]>
+			</getter>
+		</property>
 		<property name="selectedItem">
 			<getter>
 <![CDATA[
 	var items = this.getItems();
 	var n = items.length;
 	for (var i=0; i<n; i++) {
-		if ("current" == items[i].className) return items[i];
+		if (items[i].classList.has("current") return items[i];
 	}
 	return null;
 ]]>
@@ -161,152 +179,10 @@ All rights reserved
 	</instance>
 </class>
 
-<class pattern="binding" name="navlistitem">
-	<instance>
-		<property name="refElement">
-			<getter>
-	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
-		if ("A" == node.tagName) return node;
-	}
-	return null;
-			</getter>
-		</property>
-		<property name="view">
-			<getter>
-	var element = this.boundElement;
-	var document = element.ownerDocument;
-	var anchor = this.getRefElement();
-	var href = anchor.href;
-	var baseURI = document.documentURI;
-	var rex = new RegExp("^"+baseURI+"#");
-	if (href.match(rex)) {
-		var id = href.replace(rex, "");
-		return document.getElementById(id);
-	}
-	return null;
-			</getter>
-		</property>
-	</instance>
-</class>
+<!-- FIXME navlistitem and navlist have no functionality beyond tree and treeitem. Should they be scrapped? -->
+<class pattern="binding" name="navlistitem" extends="treeitem"/>
 
-<class pattern="binding" name="navlist">
-	<instance>
-		<property name="refElement">
-			<getter>
-	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
-		if ("A" == node.tagName) return node;
-	}
-	return null;
-			</getter>
-		</property>
-		<property name="view">
-			<getter>
-	var element = this.boundElement;
-	var document = element.ownerDocument;
-	var anchor = this.getRefElement();
-	var href = anchor.href;
-	var baseURI = document.documentURI;
-	var rex = new RegExp("^"+baseURI+"#");
-	if (href.match(rex)) {
-		var id = href.replace(rex, "");
-		return document.getElementById(id);
-	}
-	return null;
-			</getter>
-		</property>
-		<property name="list">
-			<getter>
-	var element = this.boundElement;
-	if ("OL" == element.tagName || "UL" == element.tagName) return node;
-	for (var node=element.firstChild; node; node=node.nextSibling) {
-		if ("OL" == node.tagName || "UL" == node.tagName) return node;
-	}
-	return null;
-			</getter>
-		</property>
-		<method name="getItems">
-			<body>
-	var list = this.getList();
-	var items = [];
-	for (var node=list.firstChild; node; node=node.nextSibling) {
-		if (Node.ELEMENT_NODE == node.nodeType) items.push(node);
-	}
-	return items;
-			</body>
-		</method>
-		<property name="selectedIndex">
-			<getter>
-<![CDATA[
-	var items = this.getItems();
-	var n = items.length;
-	for (var i=0; i<n; i++) {
-		if (items[i].classList.has("current")) return i;
-	}
-	return null;
-]]>
-			</getter>
-		</property>
-		<property name="selectedItem">
-			<getter>
-<![CDATA[
-	var items = this.getItems();
-	var n = items.length;
-	for (var i=0; i<n; i++) {
-		if (items[i].classList.has("current")) return items[i];
-	}
-	return null;
-]]>
-			</getter>
-		</property>
-		<method name="selectItem">
-			<parameter name="item"/>
-			<body>
-<![CDATA[
-	var list = this.getList();
-	if (item.parentNode != list) throw "Element doesn't exist in list";
-	var items = this.getItems();
-	var n = items.length;
-	for (var i=0; i<n; i++) {
-		if (items[i] == item) items[i].classList.add("current");
-		else items[i].classList.remove("current");
-	}
-	this.signalChange();
-]]>
-			</body>
-		</method>
-		<method name="signalChange">
-			<body>
-	var element = this.boundElement;
-	var document = element.ownerDocument;
-	var event;
-	event = document.createEvent("HTMLEvents");
-	event.initEvent("change", false, true);
-	return element.dispatchEvent(event);
-			</body>
-		</method>
-		<method name="ondocumentready">
-			<body>
-	var item = this.getSelectedItem();
-	if (item) {
-		this.signalChange();
-	}
-	else {
-		var item = this.getItems()[0];
-		this.selectItem(item);
-	}
-			</body>
-		</method>
-		<method name="xblEnteredDocument">
-			<body>
-	var binding = this;
-	this._init = function() {
-		binding.ondocumentready();
-	}
-	this.boundElement.ownerDocument.parentWindow.addEventListener("load", this._init, false);
-			</body>
-		</method>
-	</instance>
-</class>
+<class pattern="binding" name="navlist" extends="tree"/>
 
 <class pattern="binding" name="scrollBox">
 	<instance>
@@ -335,7 +211,7 @@ All rights reserved
 	for (var node=item; element!=node; node=node.parentNode) {
 		if (document==node) throw "setView failed: item is not descendant of scrollBoxWithResize";
 	}
-	element.style.height = String(item.clientHeight) + "px";
+	element.style.height = "" + item.clientHeight + "px";
 	element.scrollTop = item.offsetTop - element.offsetTop;
 			</body>
 		</method>
