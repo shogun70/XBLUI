@@ -99,21 +99,21 @@ var Object = function() {}
 Object.prototype = new this.Object();
 
 // NOTE non-standard Object methods
-Object.copy = function(dst, src, fields, override) {
-	function _copy(name) {
-		if (!override && (dst.hasOwnProperty && dst.hasOwnProperty(name) || dst[name] != null)) return;
+Object.copy = function(dest, source, fields, override) {
+	function _copy(dst, src, name, over) {
+		if (!over && (dst.hasOwnProperty && dst.hasOwnProperty(name) || dst[name] != null)) return;
 		dst[name] = src[name];
 	}
 	if (fields && fields.length) {
 		for (var n=fields.length, i=0; i<n; i++) {
 			var name = fields[i];
-			_copy(name);
+			_copy(dest, source, name, override);
 		}
 	}
 	else {
-		for (var name in src) _copy(name);
+		for (var name in source) _copy(dest, source, name, override);
 	}
-	return dst;
+	return dest;
 }
 
 Object.toLoggerString = function(object) { // NOTE the complexity here is work-arounds for Safari-2
