@@ -1,14 +1,97 @@
 <?xml version="1.0"?>
 <?xpl-require href="../Javascript-1.6/Javascript.xhtml"?>
-<?xpl-require href="../DOM/Core.xhtml"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <script type="text/javascript">
 <![CDATA[
 
-if (!this.Meeko) this.Meeko = {};
+(function() { // A few cross-browser fixes
 
-Meeko.DOM.System = (function() {
+if (!document.parentWindow) document.parentWindow = window;
+
+//	document.documentURI for a range of browsers
+var _documentURI = document.documentURI || document.baseURI || document.URL || document.url || document.location;
+if (!document.documentURI) document.documentURI = _documentURI;
+
+// make abbr and output parse on Internet Explorer 
+document.createElement("abbr");
+document.createElement("output");
+
+// make visible window["[[DOMDocument]]"], etc in Safari-2
+document.createElement("select").options;
+document.createTextNode("text");
+document.createAttribute("attribute");
+
+var safari2Prototypes = {
+	Node: "[[DOMNode.prototype]]",
+	Text: "[[DOMText.prototype]]",
+	Document: "[[DOMDocument.prototype]]",
+	Element: "[[DOMElement.prototype]]",
+	Event: "[[DOMEvent.prototype]]"
+}
+
+for (var name in safari2Prototypes) {
+	var proto = safari2Prototypes[name];
+	if (!window[proto]) continue;
+	if (!window[name]) window[name] = function() {};
+	window[name].prototype = window[proto];
+}
+
+})();
+
+Meeko.stuff.domSystem = (function() {
+
+var interfaceTable = [
+//	{ name: "Node" },
+	{ name: "Window", nodeType: 0 }, // NOTE treated as a node for internal purposes
+	{ name: "Text", base: "Node", nodeType: 3 }, // Node.TEXT_NODE },
+	{ name: "Document", base: "Node", nodeType: 9 }, // Node.DOCUMENT_NODE },
+	{ name: "HTMLDocument", base: "Document", nodeType: 9 }, // Node.DOCUMENT_NODE },
+	{ name: "Element", base: "Node", nodeType: 1 }, // Node.ELEMENT_NODE },
+	{ name: "HTMLElement", base: "Element", nodeType: 1 }, // Node.ELEMENT_NODE },
+	{ name: "HTMLFormElement", element: "form", base: "HTMLElement", nodeType: 1 } // Node.ELEMENT_NODE }
+];
+
+var interfacesByName = {};
+Object.forEach (interfaceTable, function(row) {
+	interfacesByName[row.name] = row;
+})
+
+var interfaceInheritanceChains = {};
+for (var name in interfacesByName) {
+	interfaceInheritanceChains[name] = [];
+	var chain = interfaceInheritanceChains[name];
+	do {
+		chain.unshift(name);
+		var ifSpec = interfacesByName[name];
+		name = (ifSpec) ? ifSpec.base : null;
+	} while (name);
+}
+
+function getLocalName(element) {
+	return (element.localName) ? element.localName : element.tagName.replace(element.prefix+":", "");	
+}
+var htmlElementRulesTree = {
+	_test: function(node) { return getLocalName(node) },
+	_default: "HTMLElement"	
+}
+
+var interfaceRulesTree = {
+	_test: function(node) { return (node == window) ? 0 : node.nodeType; },
+	0: "Window",
+	1: { // Node.ELEMENT_NODE
+		_test: function(node) { return node.namespaceURI },
+		"http://www.w3.org/1999/xhtml" : htmlElementRulesTree,
+		_null: htmlElementRulesTree,
+		_default: "Element"		
+	},
+	9: { // Node.DOCUMENT_NODE
+		_test: function(node) { return node.namespaceURI },
+		"http://www.w3.org/1999/xhtml" : "HTMLDocument",
+		_null: "HTMLDocument",
+		_default: "Document"
+	}
+}
 
 
 /*
@@ -22,97 +105,333 @@ elementBinding = function() {}
 
 var privateKey = Math.random();
 
-function copy(dst, src, fields, override) { // TODO maybe this should be a method on Object
-	function _copy(name) {
-		if (override || (dst.hasOwnProperty && !dst.hasOwnProperty(name)) || dst[name] == null) dst[name] = src[name]; // TODO is this correct?
+function bind(dest, source, fields, override) {
+	function _bind(dst, src, name, over) {
+		if (src[name] == null) return;
+		if (!over && (dst.hasOwnProperty && dst.hasOwnProperty(name) || dst[name] != null)) return;
+		if ("function" == typeof src[name]) dst[name] = function() { return src[name].apply(src, arguments); };
+		else if (dst.__defineGetter__) dst.__defineGetter__(name, function() { return src[name]; });
+		else dst[name] = src[name];
 	}
 	if (fields && fields.length) {
 		for (var n=fields.length, i=0; i<n; i++) {
 			var name = fields[i];
-			_copy(name);
+			_bind(dest, source, name, override);
 		}
 	}
 	else {
-		for (var name in src) _copy(name);
+		for (var name in source) _bind(dest, source, name, override);
 	}
-	return dst;
+	return dest;
 }
 
-function addBindingImplementation(target, bindingImplementation) {
-	var binding = new bindingImplementation(element);
-	for (var key in binding) {
-		if (/^xbl/.test(key)) continue; // filter out xbl* methods
-		(function(field) {
-			if ("function" == typeof target[field]) target[field] = function() { return binding[field].apply(binding, arguments); }
-			else if (target.__defineGetter__) target.__defineGetter__(field, function() { return binding[field]; });
-			else target[field] = binding[field];
-		})(key);
-	}
-	binding.boundElement = target;
-	if (binding.xblBindingAttached) binding.xblBindingAttached();
-	return binding;
-}
-
-
-// make visible window["[[DOMDocument]]"], etc in Safari-2
-document.createElement("select").options;
-document.createTextNode("text");
-document.createAttribute("attribute");
-
-var safari2Prototypes = {
-	Document: "[[DOMDocument.prototype]]",
-	HTMLDocument: "[[DOMDocument.prototype]]",
-	Element: "[[DOMElement.prototype]]",
-	HTMLElement: "[[DOMElement.prototype]]"
-}
-
-for (var name in safari2Prototypes) {
-	var proto = safari2Prototypes[name];
-	if (!window[name]) {
-		if (window[proto]) {
-			window[name] = function() {};
-			window[name].prototype = window[proto];
+function hide(target, fields) {
+	for (var n=fields.length, i=0; i<n; i++) {
+		var name = fields[i];
+		if (target[name]) {
+			target["_"+name] = target[name];
+			// delete target[name];
+			// target[name] = null; // FIXME why does this screw things
 		}
-	}	
+	}
 }
 
-var systemBindings = {
-	Document: function() {},
-	HTMLDocument: function() {},
-	Element: function() {},
-	HTMLElement: function() {}
+var DOMBinding = function(name) {
+	this.name = name;
+	this.prototype = {};
+	this.interfaces = [];
+	this.mergedInterfaces = [];
+	this.implementation = function(target) {};
 }
-
-var implementation = function() {
+DOMBinding.prototype.apply = function(target) {
+	if (this.baseBinding) this.baseBinding.apply(target);
+	Object.copy(target, this.prototype); // TODO optimize
+	var internal = new this.implementation(target);
+	for (var n=this.mergedInterfaces.length, i=0; i<n; i++) {
+		var iface = this.mergedInterfaces[i];
+		if (iface.prototype.CREATE) iface.prototype.CREATE.call(internal, target);
+	}
 	for (var n=this.interfaces.length, i=0; i<n; i++) {
 		var iface = this.interfaces[i];
-		iface.implementation.apply(this, arguments);
+		if (iface) internal[i] = new iface(target);
+	}
+	var ifName = "_" + this.name;
+	target[ifName] = internal;
+}
+DOMBinding.prototype.remove = function(target) { // FIXME
+	var ifName = "_" + this.name;
+	var internal = target[ifName];
+	// delete target[ifName]
+	target[ifName] = null;
+	if (!internal) {
+		logger.warn("Failure removing non-existant "+this.name+" interface from "+target.tagName);
+		return;
+	}
+	for (var n=this.interfaces.length, i=n-1; i>=0; i--) {
+		if (internal[i] && internal[i].DESTROY) internal[i].DESTROY(target);
+		internal[i] = null;
+	}
+	// FIXME Object.uncopy(target, this.prototype);
+	for (var field in this.prototype) {
+		if (target[field] === this.prototype[field]) target[field] = null;
+	}
+	if (this.baseBinding) this.baseBinding.remove(target);
+}
+DOMBinding.prototype.addImplementation = function(impl) {
+	this.interfaces.push(impl);
+	var ifName = "_" + this.name;
+	var index = this.interfaces.length - 1;
+	return Function("target", "var domBinding = target['"+ifName+"']; return (domBinding) ? domBinding["+index+"] : null;"); // FIXME shouldn't need the check
+}
+DOMBinding.prototype.mergeImplementation = function(impl) {
+	this.mergedInterfaces.push(impl);
+	var ifName = "_" + this.name;
+	return Function("target", "return target['"+ifName+"']; ");
+}
+DOMBinding.init = function(domBinding, interfaces, mergedInterfaces) {
+	for (var n=mergedInterfaces.length, i=0; i<n; i++) {
+		var iface = mergedInterfaces[i];
+		if (iface && iface.prototype) Object.copy(domBinding.implementation.prototype, iface.prototype);			
+	}
+}
+DOMBinding.prototype.init = function() {
+	DOMBinding.init(this, this.interfaces, this.mergedInterfaces);
+}
+
+var domBindings = {};
+for (var name in interfacesByName) {
+	var ifSpec = interfacesByName[name];
+	var domBinding = new DOMBinding(name);
+	domBindings[name] = domBinding;
+	if (!window[name]) window[name] = domBinding;
+	if (!window[name].prototype) window[name].prototype = domBinding.prototype;
+	
+	var baseName = ifSpec.base;
+	if (baseName) domBinding.baseBinding = domBindings[baseName];
+}
+
+
+var DOMBindingChain = function(name) {
+	this.name = name;
+	this.prototype = {};
+	this.implementation = function() {};
+	this.interfaces = [];
+	this.mergedInterfaces = [];
+}
+DOMBindingChain.prototype.apply = function(target) {
+	Object.copy(target, this.prototype);
+	var internal = new this.implementation;
+	for (var n=this.mergedInterfaces.length, i=0; i<n; i++) {
+		var iface = this.mergedInterfaces[i];
+		if (iface.prototype.CREATE) iface.prototype.CREATE.call(internal, target);
+	}
+	// FIXME forEach(this.interfaces, function() {});
+	var ifNames = interfaceInheritanceChains[this.name];
+	for (var n=ifNames.length, i=0; i<n; i++) {
+		var ifName = "_" + ifNames[i];
+		target[ifName] = internal;
+	}
+}
+DOMBindingChain.prototype.remove = function(target) { // FIXME
+	var internal = target["_" + this.name];
+	var ifNames = interfaceInheritanceChains[this.name];
+	for (var n=ifNames.length, i=0; i<n; i++) {
+		var ifName = "_" + ifNames[i];
+		target[ifName] = null;
+	}
+	// FIXME forEach(this.interfaces, function() {});
+	if (internal.DESTROY) internal.DESTROY();
+}
+DOMBindingChain.prototype.init = function() {
+	var ifNames = interfaceInheritanceChains[this.name];
+	for (var n=ifNames.length, i=0; i<n; i++) {
+		var ifName = ifNames[i];
+		var domBinding = domBindings[ifName];
+		if (!domBinding) continue; // NOTE only Node should be undefined
+		Object.copy(this.prototype, domBinding.prototype, null, true);
+		this.interfaces = this.interfaces.concat(domBinding.interfaces); // FIXME screws up getInterface implementations, which doesn't matter since we aren't using them
+		this.mergedInterfaces = this.mergedInterfaces.concat(domBinding.mergedInterfaces);
+		DOMBinding.init(this, this.interfaces, this.mergedInterfaces);
 	}
 }
 
-for (var ifName in systemBindings) {
-	systemBindings[ifName].interfaces = [];
-	systemBindings[ifName].implementation = implementation;
-	if (window[ifName]) systemBindings[ifName].prototype = window[ifName];
-	else window[ifName] = systemBindings[ifName];
+var domBindingChains = {};
+for (var name in interfacesByName) {
+	var ifSpec = interfacesByName[name];
+	var chain = new DOMBindingChain(name);
+	domBindingChains[name] = chain;
 }
 
-function applySystemBinding(element, ifName) {
-	var spec = systemBindings[ifName];
-	if (spec == window[ifName]) copy(element, spec.prototype);
-	spec.apply(element);
-	addBinding(element, spec.implementation);
+
+function applyDOMBindings(node) {
+	if (node["_Element"]) return; // FIXME optimization for element insertion
+	var rule = interfaceRulesTree;
+	while ("string" != typeof rule) {
+		var rc = rule._test(node);
+		if (rc != null) rule = rule[rc] || rule._default || "";
+		else rule = rule._null || "";
+	}
+	var domBinding = domBindings[rule];
+//	var domBinding = domBindingChains[rule];
+	if (!domBinding) {
+		logger.error("Could not find DOMBinding for nodeType: " + node.nodeType);
+		throw "Error applying DOMBindings";
+	}
+	domBinding.apply(node);
 }
 
-function addInterface(bindingSpec, ifName) {
-	var sysBinding = systemBindings[ifName];
-	sysBinding.interfaces.push(bindingSpec);
-	copy(sysBinding.prototype, bindingSpec.prototype);
-	copy(sysBinding.implementation.prototype, bindingSpec.implementation.prototype);
-	return function(element) { return element["_"+ifName]; }
+function removeDOMBindings(node) { // FIXME
+	var rule = interfaceRulesTree;
+	while ("string" != typeof rule) {
+		var rc = rule._test(node);
+		if (rc != null) rule = rule[rc] || rule._default || "";
+		else rule = rule._null || "";
+	}
+	var domBinding = domBindings[rule];
+//	var domBinding = domBindingChains[rule];
+	if (!domBinding) {
+		logger.error("Could not find DOMBinding for nodeType: " + node.nodeType);
+		throw "Error removing DOMBindings";
+	}
+	domBinding.remove(node);
+}
+
+function applyToTree(node) { 
+	var localWalker = new DOMWalker(node);
+	localWalker.forEach(applyDOMBindings); // FIXME some elements will already have bindings applied
+}
+
+function removeFromTree(node) {
+	var localWalker = new DOMWalker(node);
+	localWalker.forEach(removeDOMBindings); // FIXME some elements will already have bindings applied	
+}
+
+var registeredSystems = [];
+function registerSystem(sys) {
+	registeredSystems.push(sys);
+}
+
+var timerId = null,
+	readyState = "uninitialized",
+	_initializing = false,
+	domWalker = null;
+
+function init() {
+	if (null == document.readyState) { // Mozilla
+		document.readyState = "loading";	
+		document.addEventListener("DOMContentLoaded", function(event) { document.readyState = "loaded"; }, true);
+		window.addEventListener("load", function(event) { if (event.target == document || event.target == window) document.readyState = "complete"; }, true);
+	}
+	
+	if (window.addEventListener) window.addEventListener("unload", exit, true);
+	if (window.attachEvent) window.attachEvent("onunload", exit);	
+
+	timerId = window.setTimeout(onprogress, 50);
+}
+
+function exit() { // FIXME
+logger.debug("Beginning exit process");
+	var domWalker = new DOMWalker(document.documentElement);
+	domWalker.forEach(removeDOMBindings);
+	removeDOMBindings(document);
+	removeDOMBindings(window);
+
+logger.debug("DOMBindings removed");
+	for (var n=registeredSystems.length, i=0; i<n; i++) { 
+		var system = registeredSystems[i];
+		if (system.exit) system.exit();
+	}
+
+	if (window.removeEventListener) window.removeEventListener("unload", exit, false);
+	if (window.detachEvent) window.detachEvent("onunload", exit);
+logger.debug("Finished exit process");
+}
+
+function onprogress() {
+	if (_initializing) { // NOTE re-entrancy has been observed on several browsers. Might be a bug in the design
+		;;;logger.debug("Re-entrancy during initialization");
+		return false; 
+	}
+	_initializing = true;
+	_init();
+	_initializing = false;
+}
+
+function _init() {
+	timerId = window.setTimeout(onprogress, 50);
+	MAIN: switch (readyState) { // NOTE all these branches can fall-thru when they result in a state transition
+		case "uninitialized":
+logger.debug("initializing");
+			if (!document.body) return false;
+			for (var name in domBindings) {
+				domBindings[name].init();
+				domBindingChains[name].init();
+			}
+			applyDOMBindings(window);
+			applyDOMBindings(document);
+			window.addEventListener("DOMNodeInserted", function(event) {
+				if (event.target.nodeType == 1) { // Node.ELEMENT_NODE) {
+					var localWalker = new DOMWalker(event.target);
+					localWalker.forEach(applyDOMBindings); // FIXME some elements will already have bindings applied
+				}
+			}, true);
+			for (var n=registeredSystems.length, i=0; i<n; i++) {
+				var system = registeredSystems[i];
+				if (system.init) system.init();
+			}
+			domWalker = new DOMWalker(document.documentElement);
+			readyState = "loading";
+		case "loading":
+logger.debug("loading");
+			domWalker.forEach(applyDOMBindings);
+			// FIXME if document.readyState is updated while this thread is running then there could be a failure here.
+			switch (document.readyState) {
+				case "loaded": case "interactive": case "complete":
+					logger.debug("Dispatching compat DOMContentLoaded event");
+					var event = document.createEvent("Event");
+					event.initEvent("DOMContentLoaded", true, true);
+					document.dispatchEvent(event);
+					readyState = "loaded";
+					break;
+				default: break MAIN;
+			}
+		case "loaded":
+logger.debug("loaded");
+			for (var n=registeredSystems.length, i=0; i<n; i++) {
+				if ("complete" != registeredSystems[i].getReadyState()) break MAIN;
+			}
+			readyState = "complete";
+logger.debug("complete");
+	}
+	
+	// NOTE it is an error if we don't get to this point
+	logger.debug("Dispatching compat progress event");
+	var event = document.createEvent("Event");
+	event.initEvent("progress", true, true);
+	window.dispatchEvent(event);
+	if (readyState == "complete") {
+		logger.debug("Dispatching compat load event");
+		var event = document.createEvent("Event");
+		event.initEvent("load", true, true);
+		window.dispatchEvent(event);
+		window.clearTimeout(timerId);
+	}
+}
+
+init();
+
+return {
+	registerSystem: registerSystem,
+	addImplementation: function(name, impl) { return domBindings[name].addImplementation(impl); },
+	mergeImplementation: function(name, impl) { return domBindings[name].mergeImplementation(impl); },
+	bindInterface: bind,
+	hideInterface: hide,
+	applyToTree: applyToTree,
+	removeFromTree: removeFromTree
 }
 
 })();
+
 
 ]]>
 </script>

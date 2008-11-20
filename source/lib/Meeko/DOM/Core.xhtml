@@ -1,13 +1,12 @@
 <?xml version="1.0"?>
 <?xpl-require href="../Javascript-1.6/Javascript.xhtml"?>
+<?xpl-require href="../DOM/System.xhtml"?>
 <html>
 <head>
 <script>
 <![CDATA[
 
-if (!this.Meeko) this.Meeko = {};
-if (!this.Meeko.DOM) this.Meeko.DOM = {};
-
+Meeko.stuff.xplSystem.createNamespace("Meeko.DOM.Core");
 Meeko.DOM.Core = (function() {
 	
 var Node = function() {};
@@ -24,7 +23,62 @@ Node.DOCUMENT_TYPE_NODE = 10;
 Node.DOCUMENT_FRAGMENT_NODE = 11;
 Node.NOTATION_NODE = 12;
 
+Node.DOCUMENT_POSITION_DISCONNECTED = 0x01;
+Node.DOCUMENT_POSITION_PRECEDING = 0x02;
+Node.DOCUMENT_POSITION_FOLLOWING = 0x04;
+Node.DOCUMENT_POSITION_CONTAINS = 0x08;
+Node.DOCUMENT_POSITION_CONTAINED_BY = 0x10;
+Node.DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20;
+
+var Text = function() {};
+
+var Document = function() {};
+
+Document.prototype.importNode = function(node, bDeep) {
+	var document = this;
+	var tree;
+	switch (node.nodeType) {
+		case Node.ELEMENT_NODE:
+			tree = document.createElement(node.nodeName);
+			var attrs = node.attributes;
+			for (var i=0; i<attrs.length; i++) {
+				var attr = attrs[i];
+				tree.setAttribute(attr.nodeName, attr.nodeValue);
+			};
+			var children = node.childNodes;
+			if (bDeep) for (var i=0; i<children.length; i++) {
+				var child = children[i];
+				tree.appendChild(document.importNode(child, true));
+			};
+			break;
+		case Node.CDATA_SECTION_NODE:
+		case Node.TEXT_NODE:
+			tree = document.createTextNode(node.nodeValue);
+			break;
+	}
+	return tree;
+}
+
+var Element = function() {}
+
+
 var DOMException = function() {};
+
+if (!document.documentElement.compareDocumentPosition && document.documentElement.contains) {
+
+Element.prototype.compareDocumentPosition = function(node) {
+	if (node == undefined) return 0x01; // Node.DOCUMENT_POSITION_DISCONNECTED;
+	if (this === node) return 0;
+	if (node.sourceIndex <= 0 || this.sourceIndex <= 0) return 0x01; // Node.DOCUMENT_POSITION_DISCONNECTED;
+	if (node.contains(this)) return 0x0A; // Node.DOCUMENT_POSITION_CONTAINS | Node.DOCUMENT_POSITION_PRECEDING;
+	if (this.contains(node)) return 0x14; // Node.DOCUMENT_POSITION_CONTAINED_BY | Node.DOCUMENT_POSITION_FOLLOWING;
+	if (node.sourceIndex < this.sourceIndex) return 0x02; // Node.DOCUMENT_POSITION_PRECEDING;
+	if (node.sourceIndex > this.sourceIndex) return 0x04; // Node.DOCUMENT_POSITION_FOLLOWING;
+	return 0x01; // Node.DOCUMENT_POSITION_DISCONNECTED;
+}
+
+}
+
 
 DOMException.INDEX_SIZE_ERR = 1;
 DOMException.DOMSTRING_SIZE_ERR = 2;
@@ -44,27 +98,68 @@ DOMException.INVALID_ACCESS_ERR = 15;
 DOMException.VALIDATION_ERR = 16;
 DOMException.TYPE_MISMATCH_ERR = 17;
 
-var XPLError = function(code, message) {
-	if (!code) code = DOMException.NOT_SUPPORTED_ERR;
-	if (!message) arguments.callee.getMessage(code);
-	var instance = Error(message);
-	instance.name = "DOMException";
-	instance.code = code;
-	return instance;
-}
 
-XPLError.getMessage = function(code) {
-	if (!this.messageTable) {
-		this.messageTable = [];
-		for (var key in DOMException) {
-			var val = DOMException[key];
-			if (key.match(/_ERR$/)) this.messageTable[val] = key;
-		}
+var DOMTokenList = function(getter, setter) { // TODO parameter checking
+	this._getText = getter;
+	this._setText = setter;
+	this.valueOf = getter;
+	this.toString = getter;
+	this.length = {
+		internal: this,
+		valueOf: function() { return this.internal._getTokens().length },
+		toString: function() { return String(this.valueOf()); }
+	};
+};
+DOMTokenList.prototype.DESTROY = function() { // FIXME is this needed??
+	this.valueOf = null;
+	this.toString = null;
+	this._getText = null;
+	this._setText = null;
+	this.length.internal = null;
+	this.length.valueOf = null;
+	this.length.toString = null;
+	this.length = null;
+}
+DOMTokenList.prototype.item = function(index) {
+	return this._getTokens()[index];		
+}
+DOMTokenList.prototype.has = function(token) {
+	return (-1 != Array.indexOf(this._getTokens(), token));
+}
+DOMTokenList.prototype.add = function(token) {
+	var tokens = this._getTokens();
+	if (!this.has(token)) {
+		var text = this._getText().replace(/\s*$/, " " + token);
+		this._setText(text);
 	}
-	return this.messageTable[code];
 }
-
-
+DOMTokenList.prototype.remove = function(token) {
+	if (this.has(token)) {
+		var rex, text = this._getText();
+		rex = RegExp("\\s+"+token+"\\s+", "g");
+		text = text.replace(rex, " ");
+		rex = RegExp("^\\s*"+token+"\\s+");
+		text = text.replace(rex, "");
+		rex = RegExp("\\s+"+token+"\\s*$");
+		text = text.replace(rex, "");
+		if (text == token) text = "";
+		this._setText(text);
+	}		
+}
+DOMTokenList.prototype.toggle = function(token) {
+	if (this.has(token)) this.remove(token);
+	else this.add(token);		
+}
+DOMTokenList.prototype._getTokens = function() {
+	var text = this._getText();
+	if (!text) return [];
+	var strings = text.split(/\s+/);
+	var sorted = strings.sort();
+	for (var i=sorted.length-1; i>0; i--) {
+		if (sorted[i] == sorted[i-1]) sorted.splice(i);
+	}
+	return sorted;		
+}
 
 /*
 	DOMWalker supports the forEach method which walks the DOM (depth first)
@@ -119,98 +214,20 @@ DOMWalker.prototype.forEach = function(fn, context) {
 	return this.current;
 }
 
-var Document = function() {};
-
-Document.prototype.importNode = function(node, bDeep) {
-	var document = this;
-	var tree;
-	switch (node.nodeType) {
-		case Node.ELEMENT_NODE:
-			tree = document.createElement(node.nodeName);
-			var attrs = node.attributes;
-			for (var i=0; i<attrs.length; i++) {
-				var attr = attrs[i];
-				tree.setAttribute(attr.nodeName, attr.nodeValue);
-			};
-			var children = node.childNodes;
-			if (bDeep) for (var i=0; i<children.length; i++) {
-				var child = children[i];
-				tree.appendChild(document.importNode(child, true));
-			};
-			break;
-		case Node.CDATA_SECTION_NODE:
-		case Node.TEXT_NODE:
-			tree = document.createTextNode(node.nodeValue);
-			break;
-	}
-	return tree;
-}
-
-
-var DOMTokenList = function(getter, setter) { // TODO parameter checking
-	this._getText = getter;
-	this._setText = setter;
-	this.valueOf = getter;
-	this.toString = getter;
-	this.length = {
-		binding: this,
-		valueOf: function() { return this.binding.getTokens().length },
-		toString: function() { return String(this.valueOf()); }
-	};
-};
-DOMTokenList.prototype.item = function(index) {
-	return this._getTokens()[index];		
-}
-DOMTokenList.prototype.has = function(token) {
-	return (-1 != Array.indexOf(this._getTokens(), token));
-}
-DOMTokenList.prototype.add = function(token) {
-	var tokens = this._getTokens();
-	if (!this.has(token)) {
-		var text = this._getText().replace(/\s*$/, " " + token);
-		this._setText(text);
-	}
-}
-DOMTokenList.prototype.remove = function(token) {
-	if (this.has(token)) {
-		var rex, text = this._getText();
-		rex = RegExp("\\s+"+token+"\\s+", "g");
-		text = text.replace(rex, " ");
-		rex = RegExp("^\\s*"+token+"\\s+");
-		text = text.replace(rex, "");
-		rex = RegExp("\\s+"+token+"\\s*$");
-		text = text.replace(rex, "");
-		if (text == token) text = "";
-		this._setText(text);
-	}		
-}
-DOMTokenList.prototype.toggle = function(token) {
-	if (this.has(token)) this.remove(token);
-	else this.add(token);		
-}
-DOMTokenList.prototype._getTokens = function() {
-	var text = this._getText;
-	if (!text) return [];
-	var strings = text.split(/\s+/);
-	var sorted = strings.sort();
-	for (var i=sorted.length-1; i>0; i--) {
-		if (sorted[i] == sorted[i-1]) sorted.splice(i);
-	}
-	return sorted;		
-}
-
 return {
 	Node: Node,
+	Text: Text,
+	Document: Document,
+	Element: Element,
 	DOMException: DOMException,
-	XPLError: XPLError,
 	DOMTokenList: DOMTokenList,
-	DOMWalker: DOMWalker,
-	Document: Document
+	DOMWalker: DOMWalker
 };
 
 })();
 
 Meeko.XPL.Namespace.enhance(window, Meeko.DOM.Core);
+
 
 ]]>
 </script>
