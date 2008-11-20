@@ -7,6 +7,7 @@ All rights reserved
 -->
 
 <!--
+FIXME: Everything moved to UI.xpl. Remove this file.
 TODO: more input elements
 TODO: repetition interface
 TODO: create events in the right categories/namespaces
