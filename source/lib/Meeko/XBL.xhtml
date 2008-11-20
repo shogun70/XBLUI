@@ -18,55 +18,62 @@ if (!this.Meeko) this.Meeko = {
 
 var ProgressEvent = (function() { // FIXME consolidate this with EventTarget in DOM Events??
 
-var ProgressEvent = function(target) {
-	if (null == target || window != this) return;
-	return target._ProgressEvent;
+var ProgressEvent = function(target) { // NOTE meant to be called by ProgressEvent.apply() - which overrides Function.prototype.apply()
+	if (null == target) return;
+	var iface = target._ProgressEvent;
+	if (iface) return iface;
+	if (this instanceof arguments.callee) {
+		this.CREATE(target);
+		return this;
+	}
+	throw "Unexpected condition in ProgressEvent() call";
 }
 
-ProgressEvent.apply = function(element) {
-	element._ProgressEvent = new ProgressEvent.implementation(element);
+ProgressEvent.apply = function(target) {
+	var iface = new this(target);
+	target._ProgressEvent = iface;
+	Meeko.stuff.domSystem.bindInterface(target, iface, ["addEventListener", "removeEventListener", "notifyProgress", "queryProgress" ]);
 }
 
-ProgressEvent.remove = function(element) { // FIXME
-	var iface = element._ProgressEvent;
-	element._ProgressEvent = null;
+ProgressEvent.remove = function(target) { // FIXME
+	var iface = target._ProgressEvent;
+	// delete target._ProgressEvent;
+	target._ProgressEvent = null;
 	if (iface.DESTROY) iface.DESTROY(); 
 }
 
 
-ProgressEvent.implementation = function(element) {
-	this.boundElement = element;
+ProgressEvent.prototype.CREATE = function(target) {
+	this.target = target;
 	this.progressState = "uninitialized";
-	Meeko.stuff.domSystem.bindInterface(element, this, ["addEventListener", "removeEventListener", "notifyProgress", "queryProgress" ]);
 	this.listenerTable = {}; // lookup by this.listenerTable[type][index]
 }
 
-ProgressEvent.implementation.prototype.DESTROY = function() {
-	this.boundElement = null;
+ProgressEvent.prototype.DESTROY = function() {
+	this.target = null;
 }
 
-ProgressEvent.implementation.prototype.handleEvent = function(event) {
+ProgressEvent.prototype.handleEvent = function(event) {
 	var listeners = this.listenerTable[event.type];
 	if (!listeners) return;
 	for (var n=listeners.length, i=0; i<n; i++) {
 		var listener = listeners[i];
 		try {
-			if (listener.handleEvent) return listener.handleEvent(event);
-			else return listener(event);
+			if (listener.handleEvent) listener.handleEvent(event);
+			else listener(event);
 		}
 		catch (error) {
 			logger.error("Error in ProgressEvent listener: " + error);
-			return;
 		}
 	}
 }
 
-ProgressEvent.implementation.prototype.addEventListener = function(type, listener, useCapture) {
+ProgressEvent.prototype.addEventListener = function(type, listener, useCapture) {
 	if (!this.listenerTable[type]) this.listenerTable[type] = [];
 	this.listenerTable[type].push(listener);
 }
 
-ProgressEvent.implementation.prototype.removeEventListener = function(type, listener, useCapture) {
+ProgressEvent.prototype.removeEventListener = function(type, listener, useCapture) {
 	var listeners = this.listenerTable[type];
 	for (var i=listeners.length-1; i>=0; i--) {
 		if (listeners[i] == listener) {
@@ -76,7 +83,7 @@ ProgressEvent.implementation.prototype.removeEventListener = function(type, list
 	}
 }
 
-ProgressEvent.implementation.prototype.notifyProgress = function(eventType) {
+ProgressEvent.prototype.notifyProgress = function(eventType) {
 	var ok = (this.progressState == "uninitialized" && eventType == "loadstart") ||
 		((this.progressState == "loadstart" || this.progressState == "progress") && 
 		(eventType == "progress" || eventType == "load" || eventType == "abort" || eventType == "error"));
@@ -85,81 +92,80 @@ ProgressEvent.implementation.prototype.notifyProgress = function(eventType) {
 	this.progressState = eventType;
 	var event = {}; // FIXME should be a real event
 	event.type = eventType;
-	event.target = this.boundElement;
-	event.currentTarget = this.boundElement;
+	event.target = this.target;
+	event.currentTarget = this.target;
 	event.eventPhase = Event.AT_TARGET;
 	this.handleEvent(event);
 }		
 
-ProgressEvent.implementation.prototype.queryProgress = function() { return this.progressState; }
+ProgressEvent.prototype.queryProgress = function() { return this.progressState; }
 return ProgressEvent;
 
 })();
 
-var xblSystems = {};
-var xblSystemCallbacks = {};
-var dispatchCallbacks = function(uri) {
-	var callback, list = xblSystemCallbacks[uri];
-	while (callback = list.shift()) {
-		if ("function" == typeof callback) callback(xblSystems[uri]);
+var xblSystems = [];
+var bindingSystems = [];
+var xblManager = {};
+xblManager.getReadyState = function() {
+	var n = xblSystems.length;
+	var nComplete = 0;
+	for (var i=0; i<n; i++) {
+		var system = xblSystems[i];
+		if (system.queryProgress() == "load") nComplete++;
 	}
-	delete xblSystemCallbacks[uri];
+	return (!n) ? "uninitialized" : 
+		(n == nComplete) ? "complete" : "loading";
+}
+xblManager.init = function() {
+	DocumentXBL(document).init();
+}
+
+Meeko.stuff.domSystem.registerSystem(xblManager);
+
+
+function getBindingSystems() {
+	return bindingSystems.filter(function(system) { return system.queryProgress() == "load"; })
+}
+function getXBLSystem(uri) {
+	return xblSystems[uri];
 }
 
 var requestXBLSystem = function(uri, callback) {
-	// FIXME the request / callback setup doesn't handle requests after the document has been received
-	if (!xblSystemCallbacks[uri]) {
-		xblSystemCallbacks[uri] = [];
+	var xblSystem = xblSystems[uri];
+	if (xblSystem) {
+		if (callback) xblSystem.addEventListener("load", callback, false);
+		return xblSystem;
 	}
-
-	xblSystemCallbacks[uri].push(callback);
-
-	if (!xblSystems[uri]) {
-		var xblSystem = new XBLExternalSystem();
-		xblSystems[uri] = xblSystem;
-		xblSystem.addEventListener("load", function() { dispatchCallbacks(uri) }, false);
-		xblSystemCallbacks[uri].unshift(function(xblSystem) {
-			DocumentXBL(document).importStyleSheets(uri);
-		});
-		xblSystem.assign(uri);
+	else {
+		xblSystem = DocumentXBL(document).createXBLSystem(uri);
+		if (callback) xblSystem.addEventListener("load", callback, false);		
+		xblSystem.request(uri);
 	}
+	return xblSystem;
 }
 
 var DocumentXBL = function(target) {
 	if (null == target) return null;
-	return arguments.callee.getInterface(target);
+	if (this == window) return arguments.callee.getInterface(target);
 }
-DocumentXBL.getInterface = Meeko.stuff.domSystem.installBinding("Document", DocumentXBL);
+DocumentXBL.getInterface = Meeko.stuff.domSystem.addImplementation("Document", DocumentXBL);
 
-DocumentXBL.implementation = function() {
-	this.bindingDocumentURIs = new Array(1);
-	this.xblDocumentTable = {};
-}
-DocumentXBL.implementation.prototype.init = function() {		
+DocumentXBL.prototype.init = function() {		
 	this.registerBoundDocument();
 	this.registerXBLProcessingInstructions();
 	this.registerXBLLinkElements();
+	this.registerXBLStyleElements();
 }
-DocumentXBL.implementation.prototype.registerBoundDocument = function() {
+DocumentXBL.prototype.registerBoundDocument = function() {
 	var documentXBL = this;
-	var absoluteURI = document.documentURI;
-	var node = document.getElementsByTagName("head")[0].firstChild;
-	do {
-		if (Node.ELEMENT_NODE != node.nodeType) continue;
-		if ("link" != node.tagName.toLowerCase()) continue;
-		if (node.rel == "alternate" && node.type == "application/xml") {
-			absoluteURI = node.href;
-			break;
-		}
-	} while (node = node.nextSibling);
-	this.bindingDocumentURIs[0] = absoluteURI;
-	xblInternalSystem.addEventListener("load", function() {
-		documentXBL.importStyleSheets(absoluteURI);
-		documentXBL.applyBindingDocument(absoluteURI, 0);
+	var xblSystem = this.createXBLSystem(document.documentURI);
+	bindingSystems.push(xblSystem);	// ASSERT bindingSystems.length == 1
+	xblSystem.addEventListener("load", function() {
+			documentXBL.applyBindingSystem(xblSystem);
 	}, false);
-	xblInternalSystem._init(document, absoluteURI);
+	xblSystem.init(document, document.documentURI);
 }
-DocumentXBL.implementation.prototype.registerXBLProcessingInstructions = function() {
+DocumentXBL.prototype.registerXBLProcessingInstructions = function() {
 	var node = document.firstChild;
 	do {
 		if (document.documentElement == node) break;
@@ -179,47 +185,79 @@ DocumentXBL.implementation.prototype.registerXBLProcessingInstructions = functio
 	} while (node = node.nextSibling);
 }
 
-DocumentXBL.implementation.prototype.registerXBLLinkElements = function() {
+DocumentXBL.prototype.registerXBLLinkElements = function() {
 	var node = document.getElementsByTagName("head")[0].firstChild;
 	do {
 		if (Node.ELEMENT_NODE != node.nodeType) continue;
 		if ("link" != node.tagName.toLowerCase()) continue;
-		if (node.rel == "bindings") this.registerBindingDocument(node.getAttribute("href")); // NOTE use unnormalized href attribute
+		if (node.rel == "bindings") this.registerBindingDocument(node.getAttribute("href"));
 	} while (node = node.nextSibling);
 }
 
-DocumentXBL.implementation.prototype.registerBindingDocument = function(uri) {
-	var absoluteURI = parseUri(uri, document.documentURI).toString(); // FIXME should registerBindingDocument receive absoluteURI?
-	this.bindingDocumentURIs.push(absoluteURI);
-	var docIndex = this.bindingDocumentURIs.length - 1;
+DocumentXBL.prototype.registerXBLStyleElements = function() {
 	var documentXBL = this;
-	requestXBLSystem(absoluteURI, function() {
-		documentXBL.applyBindingDocument(absoluteURI, docIndex);
-	});
+	var node = document.getElementsByTagName("head")[0].firstChild;
+	do {
+		if (Node.ELEMENT_NODE != node.nodeType) continue;
+		if ("style" != node.tagName.toLowerCase()) continue;
+		if (node.type != "application/xml" && node.type != "text/xml") continue;
+		var text = node.textContent || node.innerHTML; // TODO standardize??
+		var xml = (new DOMParser).parseFromString(text, "application/xml"); // TODO catch errors
+		var xblSystem = this.createXBLSystem(document.documentURI);
+		bindingSystems.push(xblSystem);
+		xblSystem.addEventListener("load", function() {
+			documentXBL.applyBindingSystem(xblSystem);
+		}, false);
+		xblSystem.init(xml, document.documentURI);
+	} while (node = node.nextSibling);
 }
 
-DocumentXBL.implementation.prototype.applyBindingDocument = function(uri, docIndex) {
-	var xblDocument = xblSystems[uri].getXBLDocument();
+DocumentXBL.prototype.registerBindingDocument = function(uri) {
+	var documentXBL = this;
+	var absoluteURI = parseUri(uri, document.documentURI).toString(); // FIXME should registerBindingDocument receive absoluteURI?
+	var xblSystem = this.createXBLSystem(absoluteURI);
+	bindingSystems.push(xblSystem);
+	xblSystem.addEventListener("load", function() {
+		documentXBL.applyBindingSystem(xblSystem);
+	}, false);
+	xblSystem.request(absoluteURI);
+}
+
+DocumentXBL.prototype.createXBLSystem = function(uri) {
+	var documentXBL = this;
+	var xblSystem = new XBLLocalSystem();
+	xblSystem.documentURI = uri;
+	xblSystems.push(xblSystem);
+	if (!xblSystems[uri]) xblSystems[uri] = xblSystem;
+	xblSystem.addEventListener("load", function() {
+		documentXBL.importStyleSheets(xblSystem);
+	}, false)
+	return xblSystem;
+}
+
+DocumentXBL.prototype.applyBindingSystem = function(system) {
+	var xblDocument = system.getXBLDocument();
+	var index = bindingSystems.indexOf(system);
 	var domWalker = new DOMWalker(document.body);
 	domWalker.forEach(function(element) {
 		var elementXBL = ElementXBL(element);
-		if (elementXBL) elementXBL.applyBindingDocument(xblDocument, docIndex);
+		if (elementXBL) elementXBL.applyBindingDocument(xblDocument, index);
 	});
 }
 
-DocumentXBL.implementation.prototype.getBindingDocuments = function() {
+DocumentXBL.prototype.getBindingDocuments = function() {
 	var docList = [];
-	for (var n=this.bindingDocumentURIs.length, i=0; i<n; i++) {
-		var uri = this.bindingDocumentURIs[i];
-		if (xblSystems[uri]) docList.push(xblSystems[uri].getXBLDocument());
+	var systems = getBindingSystems();
+	for (var n=systems.length, i=0; i<n; i++) {
+		docList.push(systems[i].getXBLDocument());
 	}
 	return docList;
 }
 
-DocumentXBL.implementation.prototype.importStyleSheets = function(uri) {
-	var xblDocument = xblSystems[uri].getXBLDocument();
-	forEach(xblDocument.getStyleSheets(), function(sheet) {
-		var text = sheet.cssText.replace(/url\(\s*['"]?([^)]+)['"]?\s*\)/, function(href) { return 'url("' + (parseUri(href, uri)) + '")'; }); // FIXME assert that quotes are matching
+DocumentXBL.prototype.importStyleSheets = function(xblSystem) {
+	var xblDocument = xblSystem.getXBLDocument();
+	Array.forEach(xblDocument.getStyleSheets(), function(sheet) {
+		var text = sheet.cssText.replace(/url\(\s*['"]?([^)]+)['"]?\s*\)/g, function(all, href) { return 'url("' + (parseUri(href, xblDocument.documentURI)) + '")'; }); // FIXME assert that quotes are matching
 		var styleElt = document.createElement("style");
 		try { styleElt.innerText = text; } catch(error) { }
 		if (!styleElt.innerHTML) try { styleElt.innerHTML = text; } catch(error) { }
@@ -251,30 +289,59 @@ function getEventPhaseMask(eventPhase) { // TODO not used. Maybe remove it
 }
 
 var ElementXBL = function(target) {
-	if (null == target) return null;
-	return arguments.callee.getInterface(target);
+	if (null == target) return null; // TODO throw ??
+	if (this == window) return arguments.callee.getInterface(target);
+	else arguments.callee.prototype.CREATE.call(this, target);
 }
-ElementXBL.getInterface = Meeko.stuff.domSystem.installBinding("Element", ElementXBL);
+ElementXBL.getInterface = Meeko.stuff.domSystem.addImplementation("Element", ElementXBL);
 
-ElementXBL.implementation = function(element) {
+ElementXBL.prototype.CREATE = function(element) {
 	this.boundElement = element;
 	this.documentXBL = DocumentXBL(element.ownerDocument);
 	this.bindingChains = [];
 	this.methods = {};
 	this.registeredEvents = {};
 	var elementXBL = this;
-	this.eventListener = function(event) { elementXBL.handleEvent(event); }
+	this.elementXBL_eventListener = function(event) { elementXBL.elementXBL_handleEvent(event); }
 	Meeko.stuff.domSystem.bindInterface(element, this, [ "addBinding", "removeBinding", "hasBinding", "getBinding" ]);
-}
 
-ElementXBL.implementation.prototype.xblBindingAttached = function() {
-	forEach (this.documentXBL.getBindingDocuments(), function(doc, docIndex) {
+	Array.forEach (this.documentXBL.getBindingDocuments(), function(doc, docIndex) {
 		this.applyBindingDocument(doc, docIndex);
 	}, this);
 }
 
-ElementXBL.implementation.prototype.applyBindingDocument = function(doc, docIndex) {
-	forEach (doc.bindings, function(bindingSpec, bindingIndex) {
+ElementXBL.prototype.DESTROY = function() {
+	var element = this.boundElement;
+	var bindingChains = this.bindingChains;
+	for (var i=bindingChains.length-1; i>=0; i--) {
+		this.deleteBindingChain(i);
+	}
+
+	for (var key in this.methods) {
+		// delete element[key];
+		element[key] = null;
+	}
+	for (var evType in this.registeredEvents) {
+		var oldPhases = this.registeredEvents[evType];
+		this.registeredEvents[evType] = null;
+		if (oldPhases & 0x01) element.removeEventListener(evType, this.elementXBL_eventListener, true);
+		if (oldPhases & 0x02) element.removeEventListener(evType, this.elementXBL_eventListener, false);		
+	}
+	this.registeredEvents = null;
+	
+	// TODO Meeko.stuff.domSystem.unbindInterface();
+	element.addBinding = null;
+	element.removeBinding = null;
+	element.hasBinding = null;
+	element.getBinding = null;
+
+	this.elementXBL_eventListener = null;
+	this.documentXBL = null;
+	this.boundElement = null;
+}
+
+ElementXBL.prototype.applyBindingDocument = function(doc, docIndex) {
+	Array.forEach (doc.bindings, function(bindingSpec, bindingIndex) {
 		var selectorText = bindingSpec.element;
 		var selectors = bindingSpec.elementSelectorList;
 		if (!selectors) return;
@@ -285,53 +352,66 @@ ElementXBL.implementation.prototype.applyBindingDocument = function(doc, docInde
 			if (rc) break;
 		}
 		if (rc) {
-			this.configurationAddBinding(bindingSpec, new Meeko.CSS.Specificity(docIndex, bindingIndex, 0) ); // TODO abstract the precedence test
+			// this.addBindingFromSpecification(bindingSpec, new Meeko.CSS.Specificity(docIndex, bindingIndex, 0) ); // TODO abstract the precedence test
+			this.addBindingFromSpecification(bindingSpec, [ XBLBinding.CONFIGURATION_CONTEXT, docIndex, bindingIndex, 0 ] ); 
 		}
 	}, this);	
 }
 
-ElementXBL.implementation.prototype.xblBindingDetached = function() {
-	var element = this.boundElement;
-	var bindingChains = this.bindingChains;
-	var chain;
-	while (chain = bindingChains.pop()) {
-		this.deleteBindingChain(chain);		
+ElementXBL.prototype.addBinding = function(bindingURI) {
+	var _elementXBL = this;
+	var callback = function() { _elementXBL.addBinding(bindingURI); }
+	var absoluteURI = parseUri(bindingURI, document.documentURI); // FIXME only valid in bound document
+	var xblSystem = xblSystems[absoluteURI.href];
+	if (xblSystem && xblSystem.queryProgress() == "load") {
+		var spec = xblSystem.getBindingById(bindingURI.anchor);
 	}
-
-	for (var key in this.methods) {
-		// delete element[key];
-		element[key] = null;
+	else {
+		requestXBLSystem(bindingURI.href, callback); // FIXME handle failure
+		return;
 	}
-	for (var evType in this.registeredEvents) {
-		element.removeEventListener(evType, this.eventListener, false);
-	}
-	
-	this.boundElement = null;
+	this.addBindingFromSpecification(spec, [ XBLBinding.IMMEDIATE_CONTEXT, 0, 0, 0 ]);
 }
 
-ElementXBL.implementation.prototype.configurationAddBinding = function(bindingSpec, specificity) {
+ElementXBL.prototype.removeBinding = function(bindingURI) { // TODO
+	
+}
+
+ElementXBL.prototype.hasBinding = function(bindingURI) { // TODO
+	
+}
+
+ElementXBL.prototype.addBindingFromSpecification = function(bindingSpec, specificity) {
 	// NOTE in case a required XBLDocument is not loaded, this function requests the document
 	// and adds a callback which just starts the function from scratch
 	var _elementXBL = this;
-	var callback = function() { _elementXBL.configurationAddBinding(bindingSpec, specificity); }
+	var callback = function() { _elementXBL.addBindingFromSpecification(bindingSpec, specificity); }
 	var specList = [];
 	var spec = bindingSpec;
 	
 	while (spec) {
 		specList.unshift(spec);
 		if (!spec.baseBindingURI) break;
-		var bindingURI = parseUri(spec.baseBindingURI, spec.xblDocument.documentURI);
-		var xblSystem = xblSystems[bindingURI.href];
-		if (xblSystem && xblSystem.queryProgress() == "load") {
-			spec = xblSystem.getBindingById(bindingURI.anchor);
+		if (spec.baseBindingURI.match(/^#/)) {
+			spec = xblSystem.getBindingById(baseBindingURI.replace(/^#/, '')); // FIXME what if anchor == ""??
 		}
 		else {
-			requestXBLSystem(bindingURI.href, callback); // FIXME
-			return;
+			var bindingURI = parseUri(spec.baseBindingURI, spec.xblDocument.documentURI);
+			var xblSystem = xblSystems[bindingURI.href];
+			if (xblSystem && xblSystem.queryProgress() == "load") {
+				spec = xblSystem.getBindingById(bindingURI.anchor); // FIXME what if anchor == ""??
+			}
+			else {
+				requestXBLSystem(bindingURI.href, callback); // FIXME handle failure
+				return;
+			}
 		}
 	}
 	
 	var chain = [];
+	chain.specificity = [];
+	for (var n=specificity.length, i=0; i<n; i++) chain.specificity[i] = specificity[i];
+
 	var baseBinding;
 	var binding;
 	while (spec = specList.shift()) {
@@ -341,42 +421,29 @@ ElementXBL.implementation.prototype.configurationAddBinding = function(bindingSp
 		chain.push(binding);
 	}
 	
-	var element = this.boundElement;
-	
-	chain.context = XBLBinding.CONFIGURATION_CONTEXT;
-	chain.specificity = specificity;
-
 	var bindingChains = _elementXBL.bindingChains;
-	var superChain;
-	for (var i=0; superChain=bindingChains[i]; i++) {
-		if (XBLBinding.CONFIGURATION_CONTEXT != superChain.context) break;
-		if (Meeko.CSS.Specificity.cmp(specificity, superChain.specificity) < 0) break;
+	var moreDerivedChain;
+	for (var i=0; moreDerivedChain=bindingChains[i]; i++) {
+		if (XBLBinding.CONFIGURATION_CONTEXT != moreDerivedChain.context) break;
+		if (Array.compare(chain.specificity, moreDerivedChain.specificity) < 0) break;
 	}
 
-	if (i > 0) {	
+	if (i > 0) {
 		var baseChain = bindingChains[i-1];
 		var baseBinding = baseChain[baseChain.length-1];
 		chain[0].setBaseBinding(baseBinding);
 	}
-	if (superChain) superChain[0].setBaseBinding(chain[chain.length-1]);
+	if (moreDerivedChain) moreDerivedChain[0].setBaseBinding(chain[chain.length-1]);
 	this.insertBindingChain(chain, i);
 }
 
-ElementXBL.implementation.prototype.deleteBindingChain = function(chain) {
-	var binding = null;
-	while (binding = chain.shift()) { // FIXME
-		binding.setBaseBinding(null);
-		binding.detach();
-		binding.DESTROY();
-	}
-}
-
-ElementXBL.implementation.prototype.insertBindingChain = function(chain, index) {
+ElementXBL.prototype.insertBindingChain = function(chain, index) {
 	var _elementXBL = this;
 	var element = this.boundElement;
 	this.bindingChains.splice(index, 0, chain);
 	
-	forEach (chain, function(binding, chainIndex) {
+	for (var chainIndex=0; chainIndex<chain.length; chainIndex++) {
+		var binding = chain[chainIndex];
 		binding.attach(element);
 		for (var key in binding.external) { // FIXME filter out base-prototype methods, e.g. prototype[key] == Object.prototype[key];
 			if (/^xbl/.test(key)) continue; // filter out xbl* methods
@@ -422,7 +489,8 @@ ElementXBL.implementation.prototype.insertBindingChain = function(chain, index) 
 			}
 		}
 
-		forEach (binding.handlers, function(handler) {
+		for (var n=binding.handlers.length, i=0; i<n; i++) {
+			var handler = binding.handlers[i];
 			var eventType = handler.event;
 			var eventPhase = handler.phase;
 			var capture = (eventPhase == Event.CAPTURING_PHASE);
@@ -430,10 +498,10 @@ ElementXBL.implementation.prototype.insertBindingChain = function(chain, index) 
 			var oldPhases = this.registeredEvents[eventType] || 0x00;
 			var newPhases = oldPhases | phaseMask;
 			if (oldPhases != newPhases) {
-				element.addEventListener(eventType, this.eventListener, capture); // FIXME need this.eventListener for Safari2
+				element.addEventListener(eventType, this.elementXBL_eventListener, capture); // FIXME need this.eventListener for Safari2
 				this.registeredEvents[eventType] = newPhases;
 			}
-		}, _elementXBL);
+		}
 
 		if (binding.internal.xblEnteredDocument) {
 			try {
@@ -444,13 +512,35 @@ ElementXBL.implementation.prototype.insertBindingChain = function(chain, index) 
 			}
 		}
 	
-	}, this);
+	}
 
 	return chain;
 }
 
+ElementXBL.prototype.deleteBindingChain = function(index) { // FIXME this only removes properties and methods on element. Need to check whether less-derived bindings have fields with same name
+	var element = this.boundElement;
+	var chain = this.bindingChains[index];
+	var binding;
+	while (binding = chain.pop()) {
+		var external = binding.external;
+		for (var key in external) {
+			if (external.__defineGetter__) { // TODO better getter setter tester
+				var getter = external.__lookupGetter__(key);
+				var setter = external.__lookupSetter__(key);
+				if (getter && element.__lookupGetter__(key) === getter || setter && element.__lookupSetter__(key) === setter) delete element[key];
+			}
+			if (getter || setter) continue;
+			if (element[key] === external[key]) element[key] = null;
+		}
+		binding.setBaseBinding(null);
+		binding.detach();
+		binding.DESTROY();
+	}
+	this.bindingChains.splice(index, 1);
+}
 
-ElementXBL.implementation.prototype.handleEvent = function(event) {
+
+ElementXBL.prototype.elementXBL_handleEvent = function(event) {
 	var type = event.type;
 	var capture = event.eventPhase == Event.CAPTURING_PHASE;
 	var phaseMask = capture ? 0x01 : 0x02;
@@ -505,7 +595,12 @@ XBLBinding.CSS_CONTEXT = 2;
 XBLBinding.IMMEDIATE_CONTEXT = 3;
 
 
-XBLBinding.prototype.DESTROY = function() {}
+XBLBinding.prototype.DESTROY = function() {
+	var internal = this.internal;
+	this.internal = null;
+	var external = internal.external;
+	internal.external = null;
+}
 
 XBLBinding.prototype.setBaseBinding = function(binding) {
 	var oldBinding = this.baseBinding;
@@ -529,7 +624,8 @@ XBLBinding.prototype.detach = function() {
 XBLBinding.prototype.handleEvent = function(event) {
 	var object = this.internal;
 	var handlers = this.handlers;
-	forEach (handlers, function(handler) { // TODO make cross-browser implementation more efficient
+	for (var n=this.handlers.length, i=0; i<n; i++) {
+		var handler = this.handlers[i];
 		// Event Filtering:
 
 		// type
@@ -542,27 +638,27 @@ XBLBinding.prototype.handleEvent = function(event) {
 		var xblMutationEvents = { DOMAttrModified: true }; // TODO
 		var xblHTMLEvents = { load: true, unload: true, abort: true, error: true, select: true, change: true, submit: true, reset: true, resize: true, scroll: true };
 
-		if (event.type != handler.event) return;
+		if (event.type != handler.event) continue;
 
 		// phase
 		if (handler.phase && event.eventPhase != handler.phase) return;
 		else {
-			if (Event.BUBBLING_PHASE != event.eventPhase && Event.AT_TARGET != event.eventPhase) return;
+			if (Event.BUBBLING_PHASE != event.eventPhase && Event.AT_TARGET != event.eventPhase) continue;
 		}
 
 		// MouseEvents
 		if (handler.event in xblMouseEvents) { // FIXME probably wrong here
 			if (handler.button && handler.button.length) { // TODO fix for Safari2
-				if (handler.button.indexOf(event.button) == -1) return;
+				if (handler.button.indexOf(event.button) == -1) continue;
 			}
 			if (handler.clickCount && handler.clickCount.length) { // TODO cross-platform testing, esp dblclick
 				var count = 1;
 				if ("dblclick" == event.type) count = 2;
 				if ("click" == event.type) count = (event.detail) ? event.detail : 1;
-				if (handler.clickCount.indexOf(count) == -1) return;
+				if (handler.clickCount.indexOf(count) == -1) continue;
 			}
 			if (handler.modifiers) {
-				if (!this.filterEventByModifiers(event, handler.modifiers)) return;
+				if (!this.filterEventByModifiers(event, handler.modifiers)) continue;
 			}
 		}
 
@@ -579,34 +675,34 @@ XBLBinding.prototype.handleEvent = function(event) {
 				if (/^U\+00....$/.test(keyId)) { // TODO it would be great if this test could be done in eventSystem
 					keyId = keyId.replace(/^U\+00/, "U+");
 				}
-				if (handler.key != keyId && ourKeyIdentifiers[handler.key] != keyId) return;
+				if (handler.key != keyId && ourKeyIdentifiers[handler.key] != keyId) continue;
 			}
 
 			// TODO key, key-location
 			
 			if (handler.modifiers || handler.key) {
-				if (!this.filterEventByModifiers(event, handler.modifiers || [ "none" ])) return;
+				if (!this.filterEventByModifiers(event, handler.modifiers || [ "none" ])) continue;
 			}
 		}
 
 		// TextEvents
 		if (handler.event in xblTextEvents) {
-			if (handler.text && handler.text != event.data) return;
+			if (handler.text && handler.text != event.data) continue;
 		}
 
 		// MutationEvents
 		if (handler.event in xblMutationEvents) {
 			if (handler.attrName) {
 				// mutation attribute name
-				if (handler.attrName != event.attrName) return;
+				if (handler.attrName != event.attrName) continue;
 				// mutation type
-				if (handler.attrChange.length > 0 && handler.attrChange.indexOf(event.attrChange) < 0) return;
+				if (handler.attrChange.length > 0 && handler.attrChange.indexOf(event.attrChange) < 0) continue;
 				// previous value
 				if (MutationEvent.MODIFICATION == event.attrChange || MutationEvent.REMOVAL == event.attrChange)
-					if (null != handler.prevValue && handler.prevValue != event.prevValue) return;
+					if (null != handler.prevValue && handler.prevValue != event.prevValue) continue;
 				// new value
 				if (MutationEvent.MODIFICATION == event.attrChange || MutationEvent.ADDITION == event.attrChange)
-					if (null != handler.newValue && handler.newValue != event.newValue) return;
+					if (null != handler.newValue && handler.newValue != event.newValue) continue;
 			}
 		}
 			
@@ -626,7 +722,7 @@ XBLBinding.prototype.handleEvent = function(event) {
 		
 		if (handler.defaultPrevented) event.preventDefault();
 		if (handler.propagationStopped) event.stopPropagation();
-	}, this);
+	}
 
 }
 
@@ -711,52 +807,50 @@ var parseUri = function(uri, baseURI) {
 	return location;
 }
 
+var XBLLocalSystem = (function() {
 
-var xblInternalSystem = (function() {
-
-var system = new function() {
+var XBLLocalSystem = function() {
 	this.xblDocument = null;
-	this.documentXBL = null;
+	this.readyState = "uninitialized";
+	ProgressEvent.apply(this);
 }
 
-ProgressEvent.apply(system);
-return system;
-
-})();
-
-Meeko.stuff.domSystem.registerSystem(xblInternalSystem);
-
-xblInternalSystem.init = function() {
-	this.documentXBL = DocumentXBL(document);
-	this.documentXBL.init();	
+XBLLocalSystem.prototype.request = function(uri) {
+	var xblSystem = this;
+	this.notifyProgress("loadstart");
+	requestFile(uri, function(rq) {
+		xblSystem._init(rq.responseXML, uri);
+	})
 }
-
-xblInternalSystem._init = function(doc, uri) {
+XBLLocalSystem.prototype.init = function(doc, uri) {
+	this.notifyProgress("loadstart");
+	this._init(doc, uri);
+}
+XBLLocalSystem.prototype._init = function(doc, uri) {
 	var xblSystem = this;
 	if (!uri) uri = doc.documentURI;
-	if (uri != document.documentURI) {
-		Meeko.stuff.xplSystem.documentURI = uri; // FIXME orthogonality
-	}
-	this.notifyProgress("loadstart");
 	this.xblDocument = XBLDocument(doc, uri);
 	this.xblDocument.init(function() {
-		xblSystems[uri] = xblSystem;
 		xblSystem.notifyProgress("load");
 	});
 }
 
-xblInternalSystem.getXBLDocument = function() {
+XBLLocalSystem.prototype.getXBLDocument = function() {
 	return this.xblDocument;
 }
-xblInternalSystem.getBindings = function() {
+XBLLocalSystem.prototype.getBindings = function() {
 	return this.xblDocument.bindings;
 }
 
-xblInternalSystem.getBindingById = function(id) {
+XBLLocalSystem.prototype.getBindingById = function(id) {
 	return this.xblDocument.namedBindings[id];
 }
 
-var XBLExternalSystem = function() {
+return XBLLocalSystem;
+
+})();
+
+var XBLRemoteSystem = function() {
 	var iframe = document.createElement("iframe");
 	iframe.style.height = "0";
 	iframe.style.width = "0";
@@ -767,7 +861,7 @@ var XBLExternalSystem = function() {
 	ProgressEvent.apply(this);
 }
 
-XBLExternalSystem.prototype.assign = function(href) {
+XBLRemoteSystem.prototype.assign = function(href) {
 	this.notifyProgress("loadstart");
 	this.documentURI = href;
 	var xblSystem = this;
@@ -798,7 +892,7 @@ XBLExternalSystem.prototype.assign = function(href) {
 	});
 }
 
-XBLExternalSystem.prototype._connect = function() {
+XBLRemoteSystem.prototype._connect = function() {
 	var xblSystem = this;
 	if (this._connected) return;
 	var iframe = this.iframe;
@@ -814,7 +908,7 @@ XBLExternalSystem.prototype._connect = function() {
 }
 
 
-XBLExternalSystem.prototype.getXBLDocument = function() {
+XBLRemoteSystem.prototype.getXBLDocument = function() {
 	if (!this._connected) this._connect();
 	if (this.queryProgress() != "load") throw "Bindings not ready";
 	var win = this.iframe.contentWindow;
@@ -822,7 +916,7 @@ XBLExternalSystem.prototype.getXBLDocument = function() {
 	return xblSystem.getXBLDocument();
 }
 
-XBLExternalSystem.prototype.getBindings = function() {
+XBLRemoteSystem.prototype.getBindings = function() {
 	if (!this._connected) this._connect();
 	if (this.queryProgress() != "load") throw "Bindings not ready";
 	var win = this.iframe.contentWindow;
@@ -830,7 +924,7 @@ XBLExternalSystem.prototype.getBindings = function() {
 	return xblSystem.getBindings();
 }
 
-XBLExternalSystem.prototype.getBindingById = function(id) {
+XBLRemoteSystem.prototype.getBindingById = function(id) {
 	if (!this._connected) this._connect();
 	if (this.queryProgress() != "load") throw "Bindings not ready";
 	var win = this.iframe.contentWindow;
@@ -872,7 +966,6 @@ var XBLDocument = function(_document, documentURI) { // TODO documentURI is avai
 
 	this.documentURI = documentURI;
 
-	this.srcDocuments = [];
 	this.srcXBLElements = [];
 	this.srcHTMLStyleElements = [];
 	this.xblElements = [];
@@ -885,23 +978,9 @@ XBLDocument.prototype.init = function(callback) {
 	this._callback = callback;
 	var _document = this._target;
 
-	var xblDoc = this;	
-	xblDoc.srcDocuments.push(_document); // NOTE only useful for an XBL document or an XML compound document containing XBL trees
-	if (_document == document) { // i.e. this is a HTMLDocument
-		var xblCapsules = _document.getElementsByTagName("style"); // TODO only allow children of head??
-		forEach(xblCapsules, function(elt) {
-			switch (elt.type) { case "application/xml": case "text/xml": break; default: return; };
-			var text = elt.textContent || elt.innerHTML; // TODO standardize??
-			var xml = (new DOMParser).parseFromString(text, "application/xml"); // TODO catch errors
-			xblDoc.srcDocuments.push(xml);
-		});
-	}
-	
-	forEach(xblDoc.srcDocuments, function(xmlDoc) {
-		forEach(xmlDoc.getElementsByTagName("xbl"), function(node) { // TODO xbl-namespace
-			xblDoc.srcXBLElements.push(node);
-		});
-	});
+	Array.forEach(_document.getElementsByTagName("xbl"), function(node) { // TODO xbl-namespace
+		this.srcXBLElements.push(node);
+	}, this);
 
 	this._init();
 }
@@ -926,7 +1005,7 @@ XBLDocument.prototype._addXBLTree = function(elt, callback) {
 	this.xblElements.push(xblElt);
 	xblElt.init(function() {
 		xblDoc.bindings = xblDoc.bindings.concat(xblElt.bindings);
-		forEach (xblElt.bindings, function(binding) {
+		Array.forEach (xblElt.bindings, function(binding) {
 			if (binding.id && !xblDoc.namedBindings[binding.id]) xblDoc.namedBindings[binding.id] = binding;
 		});	
 		
@@ -937,12 +1016,12 @@ XBLDocument.prototype._addXBLTree = function(elt, callback) {
 XBLDocument.prototype.getStyleSheets = function() {
 	var sheets = [];
 	var xblDoc = this;
-	forEach(this.xblElements, function(xblElt) {
-		forEach(xblElt.srcHTMLStyleElements, function(styleElt) {
+	Array.forEach(this.xblElements, function(xblElt) {
+		Array.forEach(xblElt.srcHTMLStyleElements, function(styleElt) {
 			var text = getTextContent(styleElt);
-			sheets.push({ cssText: text, href: xblDoc.documentURI });
-		});
-	});
+			sheets.push({ cssText: text, href: this.documentURI });
+		}, this);
+	}, this);
 	return sheets;
 }
 
@@ -1174,7 +1253,7 @@ XBLHandlerElement.prototype.init = function() {
 		if (!attrText) return null;
 		var result = [];
 		var strings = attrText.split(/\s+/);
-		forEach (strings, function(text) {
+		Array.forEach (strings, function(text) {
 			var num = Number(text);
 			if (NaN != num && Math.floor(num) == num) result.push(num);
 		});
@@ -1192,7 +1271,7 @@ XBLHandlerElement.prototype.init = function() {
 	this.keyLocation = [];
 	var keyLocationText = _element.getAttribute("key-location");
 	var keyLocationStrings =  (keyLocationText) ? keyLocationText.split(/\s+/) : [];
-	forEach(keyLocationStrings, function(text) {
+	Array.forEach(keyLocationStrings, function(text) {
 		switch (text) {
 			case "standard": this.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_STANDARD); break;
 			case "left": this.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_LEFT); break;
@@ -1212,7 +1291,7 @@ XBLHandlerElement.prototype.init = function() {
 	this.attrChange = [];
 	var attrChangeText = _element.getAttribute("attr-change");
 	var attrChangeStrings =  (attrChangeText) ? attrChangeText.split(/\s+/) : [];
-	forEach(attrChangeStrings, function(text) {
+	Array.forEach(attrChangeStrings, function(text) {
 		switch (text) {
 			case "modification": this.attrChange.push(MutationEvent.MODIFICATION); break;
 			case "addition": this.attrChange.push(MutationEvent.ADDITION); break;
@@ -1228,7 +1307,7 @@ XBLHandlerElement.prototype.init = function() {
 		this.modifiers = [];
 		var modifiersText = _element.getAttribute("modifiers");
 		var modifiersStrings = (modifiersText) ? modifiersText.split(/\s+/) : [];
-		forEach (modifiersStrings, function(text) { // TODO check parser
+		Array.forEach (modifiersStrings, function(text) { // TODO check parser
 			var m;
 			m = /^([+-]?)([a-z]+)(\??)$/.exec(text);
 			if (m) {
@@ -1256,8 +1335,6 @@ XBLHandlerElement.prototype.init = function() {
 }
 
 var cssParser = new Meeko.CSS.Parser();
-
-Meeko.stuff.xblSystem = xblInternalSystem;
 
 ]]>
 </script>
