@@ -43,94 +43,17 @@ thead th button {
 	text-align: left;
 	font-size: 80%;
 }
+  </style>
+  <xbl xmlns="http://www.w3.org/ns/xbl" xmlns:html="http://www.w3.org/1999/xhtml">
+	<html:style>
 thead th.sorted button {
 	background-image: url(arrow-dn.gif);
 }
 thead th.reversed button {
 	background-image: url(arrow-up.gif);
 }
-  </style>
-  <xbl xmlns="http://www.w3.org/ns/xbl">
-	<binding element="table">
-	  <implementation>
-<![CDATA[({
-getColumns: function() {
-	var element = this.boundElement;
-	return element.tHead.rows[0].cells;
-},
-_sort: function(column, type, reverse) {
-	var element = this.boundElement;
-	var document = element.ownerDocument;
-	forEach (element.tBodies, function(tBody) {
-		var clone = tBody.cloneNode(true);
-		var rows = [];
-		var row;
-		while (row = clone.firstChild) { // NOTE assumes tBody only contains rows
-			clone.removeChild(row);
-			if (Node.ELEMENT_NODE == row.nodeType) rows.push(row);
-		}
-		var values = [];
-		for (var i=0, n=rows.length; i<n; i++) {
-			var row = rows[i]; var cell = (row.cells && row.cells.length) ? row.cells[column] : row.getElementsByTagName("td")[column];
-			var val = new String(cell.firstChild.nodeValue);
-			val.rowIndex = i;
-			values.push(val);
-		}
-		switch (type) {
-			case "string":
-				values = values.sort();
-				break;
-			case "number":
-				values = values.sort(function(a, b) { return Number(a) - Number(b); });
-				break;
-			default:
-				throw "Unrecognized sort type: " + type;
-				break;
-		}
-		if (reverse) values = values.reverse();
-		forEach (values, function(val) {
-			clone.appendChild(rows[val.rowIndex]);
-		});
-
-		var parent = tBody.parentNode;
-		var next = tBody.nextSibling;
-		parent.removeChild(tBody);
-		parent.insertBefore(clone, next);
-	});
-},
-toggleColumnSortState: function(column) {
-	var type = "string";
-	var cols = this.getColumns();
-	var col = cols[column];
-	var classList = col.classList;
-	if (classList.has("number")) type = "number";
-	if (classList.has("string")) type = "string";
-	var sortable = classList.has("sortable");
-	var sorted = classList.has("sorted");
-	var reversed = classList.has("reversed");
-	if (!sortable) return;
-	if (!sorted) {
-		this._sort(column, type, false);
-		classList.add("sorted");
-		classList.remove("reversed");
-	}
-	else {
-		this._sort(column, type, !reversed);
-		if (reversed) classList.remove("reversed");
-		else classList.add("reversed");
-	}
-	forEach (cols, function(col, i) {
-		if (column != i) {
-			var classList = col.classList;
-			classList.remove("sorted");
-			classList.remove("reversed");
-		}
-	});
-}
-})]]>
-	  </implementation>
-	</binding>
-	
+	</html:style>
+	<binding element="table" extends="{pkgdefaultlibdir}/UI.xml#table"/>
 	<binding element="thead > tr > th > button">
 		<handlers>
 			<handler event="click" default-action="cancel">
@@ -238,7 +161,7 @@ table.toggleColumnSortState(cell.cellIndex);
       <td>119.61</td>
       <td>50</td>
     </tr>
-    <tr id='final-8'>
+    <tr>
       <td>Adelaide</td>
       <td>22</td>
       <td>12</td>
