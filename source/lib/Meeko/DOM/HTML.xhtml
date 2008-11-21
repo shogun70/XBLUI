@@ -8,7 +8,11 @@
 
 Meeko.stuff.xplSystem.createNamespace("Meeko.DOM.HTML");
 Meeko.DOM.HTML = (function() {
-	
+
+// make abbr and output parse on Internet Explorer
+document.createElement("abbr");
+document.createElement("output");
+
 var HTMLCollection = function() {}
 var HTMLOptionsCollection = function() {}
 var HTMLDocument = function() {};
@@ -16,12 +20,12 @@ var HTMLElement = function() {}
 
 if (document.documentElement.classList == null) {{
 
-var ClassListBinding = function(target) {
+var HTML5Element = function(target) {
 	if (null == target) return null; // TODO throw ??
 	if (this == window) return null;
 	else arguments.callee.prototype.CREATE.call(this, target);
 }
-ClassListBinding.prototype.CREATE = function(target) {
+HTML5Element.prototype.CREATE = function(target) {
 	this.boundElement = target;
 	this.getClassName = function() { return this.boundElement.className; };
 	this.setClassName = function(val) { this.boundElement.className = val; };
@@ -29,14 +33,14 @@ ClassListBinding.prototype.CREATE = function(target) {
 	this.classList = new DOMTokenList(function() { return binding.getClassName(); }, function(val) { binding.setClassName(val); });
 	Meeko.stuff.domSystem.bindInterface(target, this, ["classList"]);
 }
-ClassListBinding.prototype.DESTROY = function(target) {
+HTML5Element.prototype.DESTROY = function(target) {
 	// FIXME Meeko.stuff.domSystem.unbindInterface()
 	this.boundElement.classList = null;
 	this.classList.DESTROY(); // FIXME is this necessary
 	this.boundElement = null;
 }
 
-Meeko.stuff.domSystem.addImplementation("HTMLElement", ClassListBinding);
+Meeko.stuff.domSystem.addImplementation("HTMLElement", HTML5Element);
 }}
 
 

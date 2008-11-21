@@ -12,10 +12,6 @@
 // TODO complete binding removal - delete object.x or object.x = null ??
 // TODO proper DOM errors
 
-if (!this.Meeko) this.Meeko = {
-	stuff: {}
-};
-
 var ProgressEvent = (function() { // FIXME consolidate this with EventTarget in DOM Events??
 
 var ProgressEvent = function(target) { // NOTE meant to be called by ProgressEvent.apply() - which overrides Function.prototype.apply()
@@ -104,6 +100,37 @@ return ProgressEvent;
 
 })();
 
+
+var parseUri = function(uri, baseURI) {
+	var location = Meeko.Net.URIParser.parseUri(uri, baseURI);
+	return location;
+}
+
+var cache = {};
+var requestFile = function(uri, callback) { // TODO error-handling
+	var prefetched = cache[uri];
+	if (prefetched) {
+		if ("function" == typeof callback) window.setTimeout(function() { callback(prefetched); }, 10);
+		return prefetched;
+	}
+
+	var rq = new XMLHttpRequest();
+	rq.open("GET", uri, true);
+	rq.onreadystatechange = function() {
+		if (rq.readyState != 4) return null;
+		cache[uri] = rq;
+		if ("function" == typeof callback) callback(rq);
+	}
+	rq.send("");
+	return rq;
+}
+
+
+/*
+ DocumentXBL
+ ElementXBL
+ xblManager (FIXME remove this)
+*/
 var xblSystems = [];
 var bindingSystems = [];
 var xblManager = {};
@@ -779,31 +806,9 @@ XBLBinding.prototype.filterEventByModifiers = function(event, modifiers) {
 	return true;
 }
 
-var cache = {};
-var requestFile = function(uri, callback) { // TODO error-handling
-	var prefetched = cache[uri];
-	if (prefetched) {
-		if ("function" == typeof callback) window.setTimeout(function() { callback(prefetched); }, 10);
-		return prefetched;
-	}
-
-	var rq = new XMLHttpRequest();
-	rq.open("GET", uri, true);
-	rq.onreadystatechange = function() {
-		if (rq.readyState != 4) return null;
-		cache[uri] = rq;
-		if ("function" == typeof callback) callback(rq);
-	}
-	rq.send("");
-	return rq;
-}
-
-
-var parseUri = function(uri, baseURI) {
-	var location = Meeko.Net.URIParser.parseUri(uri, baseURI);
-	return location;
-}
-
+/*
+ XBLLocalSystem & XBLRemoteSystem are wrappers for XBLDocument. Loading a document in a remote system is the safe but slow way (and doesn't work at the moment)
+*/
 var XBLLocalSystem = (function() {
 
 var XBLLocalSystem = function() {
@@ -937,6 +942,8 @@ XBLRemoteSystem.prototype.getBindingById = function(id) {
 	TODO: clean up the process of adding xblDocument property to XBLBindingElements
 	TODO: tight binding of wrappers?? Won't work in IE
 */
+
+var cssParser = new Meeko.CSS.Parser();
 
 function getTextContent(element) {
 	var text = "";
@@ -1331,7 +1338,6 @@ XBLHandlerElement.prototype.init = function() {
 	return this;
 }
 
-var cssParser = new Meeko.CSS.Parser();
 
 ]]>
 </script>
