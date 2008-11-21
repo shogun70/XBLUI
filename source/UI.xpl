@@ -123,7 +123,7 @@ All rights reserved
 	var items = this.getItems();
 	var n = items.length;
 	for (var i=0; i<n; i++) {
-		if (items[i].classList.has("current") return items[i];
+		if (items[i].classList.has("current")) return items[i];
 	}
 	return null;
 ]]>
@@ -173,7 +173,7 @@ All rights reserved
 	this._init = function() {
 		binding.ondocumentready();
 	}
-	this.boundElement.ownerDocument.parentWindow.addEventListener("load", this._init, false);
+	this.boundElement.ownerDocument.addEventListener("load", this._init, false);
 			</body>
 		</method>
 	</instance>
