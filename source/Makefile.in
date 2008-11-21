@@ -25,7 +25,7 @@ destpkgdemodir ?= @destpkgdemodir@
 .SUFFIXES :
 .SUFFIXES : .html .xhtml .js .xml .xpl .xbl .xbl_xpl 
 
-UI_TARGETS = WF2.xml UI.xml UI.js WF2.js
+UI_TARGETS = WF2.xml UI.xml UI.js
 TARGETS = ${UI_TARGETS} XBL.js XBLUI.js DOM.js
 INSTALL_FILES = ${UI_TARGETS} XBL.js XBLUI.js DOM.js
 
@@ -66,14 +66,11 @@ install: build
 clean : 
 	-rm ${TARGETS}
 
-UI.xml : UI.xbl_xpl
+UI.xml : UI.xbl
 
-#WF2.xml : WF2.xbl_xpl
-WF2.xml : WF2.xbl WF2.js
+WF2.xml : WF2.xbl 
 
 UI.js : UI.xpl
-
-WF2.js : WF2.xpl
 
 XBLUI.js : XBLUI.xhtml ${srcdir}/lib/Meeko/XBL.xhtml ${UI_TARGETS}
 	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} > ${.TARGET}
