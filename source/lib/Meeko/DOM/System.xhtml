@@ -439,12 +439,12 @@ logger.debug("complete");
 	logger.debug("Dispatching compat progress event");
 	var event = document.createEvent("Event");
 	event.initEvent("progress", true, true);
-	window.dispatchEvent(event);
+	document.dispatchEvent(event);
 	if (readyState == "complete") {
 		logger.debug("Dispatching compat load event");
 		var event = document.createEvent("Event");
 		event.initEvent("load", true, true);
-		window.dispatchEvent(event);
+		document.dispatchEvent(event);
 		window.clearTimeout(timerId);
 	}
 }
