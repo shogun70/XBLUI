@@ -98,8 +98,9 @@ for (var i=0; i<=15; i++) {
 	}
 }
 
-var safari2bouncyKeys; 
-if (/AppleWebKit/.test(navigator.userAgent) && Number(navigator.userAgent.match(/[0-9]+\.[0-9]+$/)) < 500) { // FIXME is this correct?
+var AppleWebKit = (/AppleWebKit/.test(navigator.userAgent)) ? Number(navigator.userAgent.match(/AppleWebKit\/([0-9]+\.[0-9]+)/)[1]) : null;
+var safari2bouncyKeys;
+if (AppleWebKit && AppleWebKit < 500) {
 	safari2bouncyKeys = Object.copy({}, w3cKeyIdentifiers);
 	delete safari2bouncyKeys["U+0008"];	
 }
@@ -110,6 +111,8 @@ EventState.DEFAULT_PREVENTED = 0x01;
 EventState.PROPAGATION_STOPPED = 0x02;
 EventState.FAKE_EVENT = 0x04;
 EventState.COMPATIBILITY_EVENT = 0x08;
+EventState.FIXED_WINDOW_CAPTURING = 0x10;
+EventState.FIXED_WINDOW_BUBBLING = 0x10;
 
 var EventSystem = function() {
 	var eventSystem = this;
@@ -119,36 +122,62 @@ var EventSystem = function() {
 		for (var type in EventSystem.handlers) (function(system, evType, handlers) {
 			window.addEventListener(evType, function(event) { handlers[evType].call(system, event); }, true);
 		})(this, type, EventSystem.handlers);
+		for (var type in {"DOMContentLoaded": true, "load": true}) (function(system, evType, handlers) {
+			document.addEventListener(evType, function(event) { handlers[evType].call(system, event); }, true);
+			document.addEventListener(evType, function(event) { handlers[evType].call(system, event); }, false);
+		})(this, type, EventSystem.handlers);
 	}
 }
 
+EventSystem.prototype.handleEvent = function(event, currentTarget) {
+	var target = currentTarget || event.currentTarget;
+	var eventTarget = EventTarget(target);
+	var rc = (eventTarget) ? eventTarget.handleEvent(event) : null;
+	logger.debug((event.eventStatus & EventState.FAKE_EVENT ? "Compatibility" : "Browser") + " " + event.type + " event received" + (target == window ? " on window" : "") +
+		" during " + (event.eventPhase == 1 ? "capture" : "bubbling") + " phase" + (eventTarget ? " and forwarded" : ""));
+	return rc;
+}
+// FIXME the key-event handling is all a bit dodgy, relying on faked events and handling those properly
 var keyEventFields = [ "type", "keyCode", "charCode", "keyIdentifier" ];
-EventSystem.handlers = {
-	"DOMContentLoaded": function(event) {
+EventSystem.handlers = { // these handlers must always be called as handler.call(eventSystem, event)
+	"load": function(event) {
 		if (event.eventStatus & EventState.FAKE_EVENT) { // only let fake events thru
-			var eventTarget = EventTarget(event.currentTarget);
-			if (eventTarget) eventTarget.handleEvent(event);
-			logger.debug("Compat DOMContentLoaded event received" + (eventTarget ? " and forwarded" : ""));
+			if (event.eventPhase == 1) { // CAPTURE
+				if (!(event.eventStatus & EventState.FIXED_WINDOW_CAPTURING)) { // re-route thru window unless already done
+					this.handleEvent(event, window);
+					event.eventStatus |= EventState.FIXED_WINDOW_CAPTURING;
+				}
+				var current = event.currentTarget || window;
+				if (current != window) this.handleEvent(event, current);
+			}
+			else { // TARGET or BUBBLING
+				var current = event.currentTarget || window;
+				if (current != window) this.handleEvent(event, current);
+				if (!(event.eventStatus & EventState.FIXED_WINDOW_BUBBING)) { // re-route thru window unless already done
+					this.handleEvent(event, window);
+					event.eventStatus |= EventState.FIXED_WINDOW_BUBBLING;
+				}
+			}
 		}
 		else {
-			logger.debug("Browser DOMContentLoaded event received.");
+			logger.debug("Browser load event received and blocked.");
 			event.stopPropagation();				
 		}
 		return false;
 	},
-	"load": function(event) {
+	"DOMContentLoaded": function(event) {
 		if (event.eventStatus & EventState.FAKE_EVENT) { // only let fake events thru
-			var eventTarget = EventTarget(event.currentTarget);
-			if (eventTarget) eventTarget.handleEvent(event);
-			logger.debug("Compat load event received" + (eventTarget ? " and forwarded" : ""));
+			var current = event.currentTarget || window;
+			this.handleEvent(event, current);
 		}
 		else {
-			logger.debug("Browser load event received.");
+			logger.debug("Browser DOMContentLoaded event received and blocked.");
 			event.stopPropagation();				
 		}
 		return false;
 	},
 	"keydown": function(event) {
+		var current = event.currentTarget || window;
 		var keyId;
 		if (event.keyIdentifier) keyId = event.keyIdentifier;
 		else {
@@ -173,10 +202,11 @@ EventSystem.handlers = {
 			event.stopPropagation();
 		}
 		else {
-			EventTarget(window).handleEvent(event);
+			this.handleEvent(event, current);
 		}		
 	},
 	"keypress": function(event) {
+		event.stopPropagation(); // NOTE there are no keypress events in DOM3 Events
 		var keyId;
 		if (event.keyIdentifier) keyId = event.keyIdentifier;
 		else {
@@ -196,47 +226,32 @@ EventSystem.handlers = {
 		else if (prev && prev.type == "keypress") repeat = prev.repeat + delta;
 		
 		if (!(prev && prev.type == "keydown")) {
-			event.stopPropagation();
-			var newEvent;
-			try { // FIXME does this work on all platforms?? In any case, it should be moved into document.createEvent, etc
-				newEvent = document.createEvent("KeyboardEvent");
-				if (newEvent.initKeyboardEvent) {
-					newEvent.initKeyboardEvent("keydown", true, true, window, keyId, 0, "");						
-				}
-				else if (newEvent.initKeyEvent) {
-					newEvent.initKeyEvent("keydown", true, true, window, false, false, false, false, event.keyCode, event.charCode);
-				}
-			}
-			catch (error) {
-				newEvent = document.createEvent("UIEvent");
-				newEvent.initEvent("keydown", true, true);
-				newEvent.keyIdentifier = keyId;
-				newEvent.keyCode = event.keyCode;
-			}
-			newEvent.eventStatus = 0x01 | 0x08; // signal to handler to prevent default
+			var newEvent = document.createEvent("KeyboardEvent");
+			newEvent.initKeyboardEvent("keydown", true, true, window, keyId, 0, "");						
+			newEvent.eventStatus = 0x01 | 0x04 | 0x08; // DEFAULT_PREVENTED | FAKE_EVENT | COMPATIBILITY_EVENT: signal to keypress handler to prevent default
 			event.target.dispatchEvent(newEvent);
 		}
-		if (keyId in w3cKeyIdentifiers) {
-			event.stopPropagation();
-		}
-		else {
-			event.stopPropagation();
-			var newEvent = document.createEvent("TextEvent");
-			newEvent.initTextEvent("textInput", true, true, window, String.fromCharCode(event.keyCode));
-			event.target.dispatchEvent(newEvent);
+		if (!(keyId in w3cKeyIdentifiers)) {
+			if (!AppleWebKit || AppleWebKit < 500) { // FIXME won't work when other browsers implement textInput events
+				var newEvent = document.createEvent("TextEvent");
+				newEvent.initTextEvent("textInput", true, true, window, String.fromCharCode(event.keyCode));
+				event.target.dispatchEvent(newEvent);
+			}
 		}
 		hist.push(Object.copy({ type: "keypress", repeat: repeat }, event, keyEventFields));			
 	},
 	"textInput": function(event) {
+		var current = event.currentTarget || window;
 		var hist = this.keyEventHistory;
 		var n = hist.length;
 		var prev = (n) ? hist[n-1] : null;
 		if (prev && prev.type == "keydown") {
-			EventTarget(window).handleEvent(event);
+			this.handleEvent(event, current);
 			hist.push(Object.copy({ type: "textInput" }, event, keyEventFields));
 		}			
 	},
 	"keyup": function(event) {
+		var current = event.currentTarget || window;
 		var keyId;
 		if (event.keyIdentifier) keyId = event.keyIdentifier;
 		else {
@@ -248,7 +263,7 @@ EventSystem.handlers = {
 		var prev = hist[n-1];
 		if (prev && (prev.type != "keyup" || prev.keyIdentifier != keyId)) {
 			hist.push(Object.copy({ type: "keyup" }, event, keyEventFields));
-			EventTarget(window).handleEvent(event);
+			this.handleEvent(event, current);
 		}			
 	}
 }
@@ -555,8 +570,12 @@ DocumentEvent.prototype.createEvent = function(module) {
 	if (!event) throw "Could not create event in " + module;
 	Object.copy(event, tmp);
 	event.eventStatus |= EventState.FAKE_EVENT;
-	event.preventDefault = function() { Event.prototype.preventDefault.call(this); window.Event.prototype.preventDefault.call(this); }
-	event.stopPropagation = function() { Event.prototype.stopPropagation.call(this); window.Event.prototype.stopPropagation.call(this); }
+//	event.preventDefault = function() { Event.prototype.preventDefault.call(this); window.Event.prototype.preventDefault.call(this); }
+//	event.stopPropagation = function() { Event.prototype.stopPropagation.call(this); window.Event.prototype.stopPropagation.call(this); }
+	event._preventDefault = event.preventDefault;
+	event._stopPropagation = event.stopPropagation;
+	event.preventDefault = function() { Event.prototype.preventDefault.call(this); this._preventDefault(); }
+	event.stopPropagation = function() { Event.prototype.stopPropagation.call(this); this._stopPropagation(); }
 	return event;
 }
 
@@ -689,6 +708,7 @@ EventTarget.prototype.handleEvent = function(event) {
 
 if (window.addEventListener) {{
 EventTarget.interfaceLookup[0] = Meeko.stuff.domSystem.addImplementation("Window", EventTarget);
+EventTarget.interfaceLookup[Node.DOCUMENT_NODE] = Meeko.stuff.domSystem.addImplementation("Document", EventTarget);
 EventTarget.prototype.addEventListener = function(type, listener, useCapture) {
 	if (!this.baseBinding.hasEventListener(type, null, useCapture)) {
 		if (!EventSystem.handlers[type]) this.target._addEventListener(type, this.eventListener, useCapture);
@@ -701,8 +721,9 @@ EventTarget.prototype.removeEventListener = function(type, listener, useCapture)
 		if (!EventSystem.handlers[type]) this.target._removeEventListener(type, this.eventListener, useCapture);
 	}
 }
-EventTarget.prototype.dispatchEvent = function(event) {
-	eventSystem.dispatchEvent(this.target, event);
+EventTarget.prototype.dispatchEvent = function(event) { // FIXME this assumes that EventTarget is only attached to window or document
+	if (this.target._dispatchEvent) this.target._dispatchEvent(event);
+	else document.dispatchEvent(event);
 }
 }}
 else if (window.attachEvent) {{
