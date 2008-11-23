@@ -265,6 +265,21 @@ EventSystem.handlers = { // these handlers must always be called as handler.call
 			hist.push(Object.copy({ type: "keyup" }, event, keyEventFields));
 			this.handleEvent(event, current);
 		}			
+	},
+	"DOMMouseScroll": function(event) {
+		event.stopPropagation(); // NOTE no DOMMouseScroll events in DOM3 spec
+		var newEvent = document.createEvent("MouseWheelEvent");
+		var xplParams = [ "type", "bubbles", "cancelable", "view", "detail", "screenX", "screenY", "clientX", "clientY", "ctrlKey", "altKey", "shiftKey", "metaKey", "button", "relatedTarget", "wheelDelta" ]
+		var n=xplParams.length;
+		var eventArgs = [];
+		eventArgs[0] = "mousewheel";
+		for (var i=1; i<n-1; i++) {
+			var name = xplParams[i];
+			eventArgs[i] = event[name];
+		}
+		eventArgs[n-1] = -40 * event.detail; // FIXME is this valid?
+		newEvent.initMouseWheelEvent.apply(newEvent, eventArgs);
+		return event.target.dispatchEvent(newEvent);
 	}
 }
 
@@ -330,8 +345,8 @@ EventSystem.prototype.registerEvent = function(type) {
 		},
 		"mouseover": function() {
 			document.attachEvent("onmouseover", function(srcEvent) {
-				var event = document.createEvent("UIEvent");
-				event.initEvent("mouseover", true, true);
+				var event = document.createEvent("MouseEvent");
+				MouseEvent.copyMouseEvent(event, srcEvent);
 				event.relatedTarget = srcEvent.fromElement;
 				srcEvent.returnValue = eventSystem.dispatchEvent(srcEvent.srcElement, event);
 				event.relatedTarget = null;
@@ -339,8 +354,8 @@ EventSystem.prototype.registerEvent = function(type) {
 		},
 		"mouseout": function() {
 			document.attachEvent("onmouseout", function(srcEvent) {
-				var event = document.createEvent("UIEvent");
-				event.initEvent("mouseout", true, true);
+				var event = document.createEvent("MouseEvent");
+				MouseEvent.copyMouseEvent(event, srcEvent);
 				event.relatedTarget = srcEvent.toElement;
 				srcEvent.returnValue = eventSystem.dispatchEvent(srcEvent.srcElement, event);
 				event.relatedTarget = null;
@@ -348,19 +363,26 @@ EventSystem.prototype.registerEvent = function(type) {
 		},
 		"click": function() {
 			document.attachEvent("onclick", function(srcEvent) {
-				var event = document.createEvent("UIEvent");
-				event.initEvent("click", true, true);
+				var event = document.createEvent("MouseEvent");
+				MouseEvent.copyMouseEvent(event, srcEvent);
 				event.button = ([ null, 0, 2, null, 1 ])[srcEvent.button];
-				event.detail = 1;
+				event.detail = 1; // FIXME
 				srcEvent.returnValue = eventSystem.dispatchEvent(srcEvent.srcElement, event);
 			});
 		},
 		"dblclick": function() {
 			document.attachEvent("ondblclick", function(srcEvent) {
-				var event = document.createEvent("UIEvent");
-				event.initEvent("dblclick", true, true);
+				var event = document.createEvent("MouseEvent");
+				MouseEvent.copyMouseEvent(event, srcEvent);
 				event.button = ([ null, 0, 2, null, 1 ])[srcEvent.button];
-				event.detail = 2;
+				event.detail = 2; // FIXME
+				srcEvent.returnValue = eventSystem.dispatchEvent(srcEvent.srcElement, event);
+			});
+		},
+		"mousewheel": function() {
+			document.attachEvent("onmousewheel", function(srcEvent) {
+				var event = document.createEvent("MouseWheelEvent");
+				MouseWheelEvent.copyMouseWheelEvent(event, srcEvent);
 				srcEvent.returnValue = eventSystem.dispatchEvent(srcEvent.srcElement, event);
 			});
 		}
@@ -503,10 +525,23 @@ var MouseEvent = function(key) {
 	if (key != privateKey) throw "MouseEvent is not a constructor";
 };
 MouseEvent.prototype = new UIEvent(privateKey);
-MouseEvent.prototype.initMouseEvent = function(type, bubbles, cancelable, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
-	var xplParams = [ "type", "bubbles", "cancelable", "view", "detail", "screenX", "screenY", "clientX", "clientY", "ctrlKey", "altKey", "shiftKey", "metaKey", "button", "relatedTarget" ]
+MouseEvent.initArgs = [ "type", "bubbles", "cancelable", "view", "detail", "screenX", "screenY", "clientX", "clientY", "ctrlKey", "altKey", "shiftKey", "metaKey", "button", "relatedTarget" ];
+MouseEvent.copyMouseEvent = function(dst, src) {
+	var xplParams = MouseEvent.initArgs;
 	var n = xplParams.length;
-	if (arguments.length < n) throw "Improper argument list in call to initMouseEvent"; // FIXME
+	var bubbles = (null != src.bubbles) ? src.bubbles : "true";
+	var cancelable = (null != src.cancelable) ? src.cancelable : "true";
+	var view = (null != src.view) ? src.view : window; // FIXME is this right?
+	dst.initUIEvent(src.type, bubbles, cancelable, view, src.detail);
+	for (var i=5; i<n; i++) {
+		var name = xplParams[i];
+		dst[name] = src[name];
+	}
+}
+MouseEvent.prototype.initMouseEvent = function(type, bubbles, cancelable, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
+	var xplParams = MouseEvent.initArgs;
+	var n = xplParams.length;
+	if (arguments.length < n) throw "Improper argument list in call to initMouseEvent";
 	this.initUIEvent(type, bubbles, cancelable, view, detail);
 	for (var i=5; i<n; i++) {
 		var name = xplParams[i];
@@ -514,7 +549,33 @@ MouseEvent.prototype.initMouseEvent = function(type, bubbles, cancelable, view, 
 	}
 }
 
-
+var MouseWheelEvent = function(key) {
+	if (key != privateKey) throw "MouseWheelEvent is not a constructor";
+};
+MouseWheelEvent.initArgs = [ "type", "bubbles", "cancelable", "view", "detail", "screenX", "screenY", "clientX", "clientY", "ctrlKey", "altKey", "shiftKey", "metaKey", "button", "relatedTarget", "wheelDelta" ];
+MouseWheelEvent.copyMouseWheelEvent = function(dst, src) {
+	var xplParams = MouseWheelEvent.initArgs;
+	var n = xplParams.length;
+	var bubbles = (null != src.bubbles) ? src.bubbles : "true";
+	var cancelable = (null != src.cancelable) ? src.cancelable : "true";
+	var view = (null != src.view) ? src.view : window; // FIXME is this right?
+	dst.initUIEvent(src.type, bubbles, cancelable, view, src.detail);
+	for (var i=5; i<n; i++) {
+		var name = xplParams[i];
+		dst[name] = src[name];
+	}
+}
+MouseWheelEvent.prototype = new MouseEvent(privateKey);
+MouseWheelEvent.prototype.initMouseWheelEvent = function(type, bubbles, cancelable, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget, wheelDelta) {
+	var xplParams = MouseWheelEvent.initArgs;
+	var n = xplParams.length;
+	if (arguments.length < n) throw "Improper argument list in call to initMouseWheelEvent"; // FIXME
+	this.initUIEvent(type, bubbles, cancelable, view, detail);
+	for (var i=5; i<n; i++) {
+		var name = xplParams[i];
+		this[name] = arguments[i];
+	}
+}
 
 var MutationEvent = function(key) {
 	if (key != privateKey) throw "MutationEvent is not a constructor";
@@ -542,6 +603,7 @@ var eventTemplates = {
 	TextEvent: new TextEvent(privateKey),
 	KeyboardEvent: new KeyboardEvent(privateKey),
 	MouseEvent: new MouseEvent(privateKey),
+	MouseWheelEvent: new MouseWheelEvent(privateKey),
 	MutationEvent: new MutationEvent(privateKey)	
 }
 
@@ -600,7 +662,7 @@ DocumentEvent.prototype.createEvent = function(module) {
 	var dom3Module = eventModuleMap[module] || module;
 	var tmp = eventTemplates[dom3Module];
 	if (!tmp) throw "Invalid event module: " + module;
-	var event = document.createEventObject();
+	var event = {}; // document.createEventObject(); TODO do we ever need IE event objects??
 	Object.copy(event, tmp);
 	event.eventStatus |= EventState.FAKE_EVENT;
 	event.preventDefault = function() { Event.prototype.preventDefault.call(this); this.returnValue = false; }
@@ -774,17 +836,8 @@ DOMMutation.prototype.CREATE = function(element) {
 DOMMutation.prototype.DESTROY = function() {
 	var element = this.boundElement;
 	element.detachEvent("onpropertychange", this.domMutation_listener);
-	// FIXME Meeko.stuff.domSystem.unbindInterface(element, this, DOMMutation.methods);
-	element.insertBefore = element._insertBefore;
-	element._insertBefore = null;
-	element.replaceChild = element._replaceChild;
-	element._replaceChild = null;
-	element.removeChild = element._removeChild;
-	element._removeChild = null;
-	element.appendChild = element._appendChild;
-	element._appendChild = null;
-	element.cloneNode = element._cloneNode;
-	element._cloneNode = null;
+	Meeko.stuff.domSystem.releaseInterface(element, this, DOMMutation.methods, true);
+	Meeko.stuff.domSystem.restoreInterface(element, DOMMutation.methods);
 }
 
 DOMMutation.prototype.cloneNode = function(deep) {
@@ -858,8 +911,39 @@ DOMMutation.prototype.notify = function(type, node) {
 	eventSystem.dispatchEvent(node, event);
 }
 
+}}
+
+
+if (!document.addEventListener && document.attachEvent) {{ // EventBubbler is only required on IE
+
+var EventBubbler = function(target) {
+	if (null == target) return null; // TODO throw ??
+	if (this == window) return arguments.callee.getInterface(target);
+	else arguments.callee.prototype.CREATE.call(this, target);
+}
+
+EventBubbler.getInterface = Meeko.stuff.domSystem.addImplementation("HTMLFormElement", EventBubbler);
+EventBubbler.prototype.CREATE = function(target) {
+	this.target = target;
+	var bubbler = this;
+	this.eventBubbler_listener = function(srcEvent) {
+		var event = document.createEvent("Event");
+		event.initEvent(srcEvent.type, true, true);
+		return eventSystem.dispatchEvent(srcEvent.srcElement, event);
+	}
+	target.attachEvent("onsubmit", this.eventBubbler_listener);
+	target.attachEvent("onreset", this.eventBubbler_listener);
+}
+
+EventBubbler.prototype.DESTROY = function(target) {
+	target.detachEvent("onsubmit", this.eventBubbler_listener);
+	target.detachEvent("onreset", this.eventBubbler_listener);
+	this.eventBubbler_listener = null;
+	this.target = null;
+}
 
 }}
+
 
 Meeko.stuff.eventSystem = eventSystem; // FIXME back-door to virtually everything
 
