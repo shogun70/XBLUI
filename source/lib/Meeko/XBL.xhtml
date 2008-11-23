@@ -656,7 +656,7 @@ XBLBinding.prototype.handleEvent = function(event) {
 		var xblEvents = { click: true, dblclick: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true,
 			keydown: true, keyup: true, textInput: true, DOMAttrModified: true,
 			load: true, unload: true, abort: true, error: true, select: true, change: true, submit: true, reset: true, resize: true, scroll: true };
-		var xblMouseEvents = { click: true, dblclick: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true };
+		var xblMouseEvents = { click: true, dblclick: true, mousedown: true, mouseup: true, mouseover: true, mouseout: true, mousemove: true, mousewheel: true };
 		var xblKeyboardEvents = { keydown: true, keyup: true };
 		var xblTextEvents = { textInput: true };
 		var xblMutationEvents = { DOMAttrModified: true }; // TODO
@@ -852,6 +852,7 @@ return XBLLocalSystem;
 
 })();
 
+/*
 var XBLRemoteSystem = function() {
 	var iframe = document.createElement("iframe");
 	iframe.style.height = "0";
@@ -933,6 +934,7 @@ XBLRemoteSystem.prototype.getBindingById = function(id) {
 	var xblSystem = win.Meeko.stuff.xblSystem;
 	return xblSystem.getBindingById(id);
 }
+*/
 
 /*
 	XBL document & element wrappers
