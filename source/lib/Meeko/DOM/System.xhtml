@@ -65,11 +65,12 @@ for (var name in interfacesByName) {
 }
 
 function getLocalName(element) {
-	return (element.localName) ? element.localName : element.tagName.replace(element.prefix+":", "");	
+	return (element.localName) ? element.localName : element.tagName.toLowerCase().replace(element.prefix+":", "");	
 }
 var htmlElementRulesTree = {
 	_test: function(node) { return getLocalName(node) },
-	_default: "HTMLElement"	
+	"form": "HTMLFormElement",
+	_default: "HTMLElement"
 }
 
 var interfaceRulesTree = {
@@ -79,7 +80,7 @@ var interfaceRulesTree = {
 		_test: function(node) { return node.namespaceURI },
 		"http://www.w3.org/1999/xhtml" : htmlElementRulesTree,
 		_null: htmlElementRulesTree,
-		_default: "Element"		
+		_default: "Element"
 	},
 	9: { // Node.DOCUMENT_NODE
 		_test: function(node) { return node.namespaceURI },
@@ -121,20 +122,19 @@ function bind(dest, source, fields, override) {
 	return dest;
 }
 
-function release(dest, source, fields, override) {
-	function _release(dst, src, name, force) {
+function release(dest, source, fields) {
+	function _release(dst, src, name) {
 		if (dst[name] == null) return;
-		if (!force && (src.hasOwnProperty && !src.hasOwnProperty(name) || src[name] == null)) return;
 		dst[name] = null;
 	}
 	if (fields && fields.length) {
 		for (var n=fields.length, i=0; i<n; i++) {
 			var name = fields[i];
-			_release(dest, source, name, override);
+			_release(dest, source, name);
 		}
 	}
 	else {
-		for (var name in source) _release(dest, source, name, override);
+		for (var name in source) _release(dest, source, name);
 	}
 	return dest;
 }
