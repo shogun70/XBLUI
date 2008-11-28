@@ -404,10 +404,6 @@ logger.debug("Beginning exit process");
 	nodeManager.releaseNodesByType(0, detachDOMBindings); // Window
 
 logger.debug("DOMBindings detached");
-	for (var n=registeredSystems.length, i=0; i<n; i++) { 
-		var system = registeredSystems[i];
-		if (system.exit) system.exit();
-	}
 
 	if (window.removeEventListener) window.removeEventListener("unload", exit, false);
 	if (window.detachEvent) window.detachEvent("onunload", exit);
