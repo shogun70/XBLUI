@@ -45,6 +45,8 @@ var interfaceTable = [
 	{ name: "HTMLDocument", base: "Document", nodeType: 9 }, // Node.DOCUMENT_NODE },
 	{ name: "Element", base: "Node", nodeType: 1 }, // Node.ELEMENT_NODE },
 	{ name: "HTMLElement", base: "Element", nodeType: 1 }, // Node.ELEMENT_NODE },
+	{ name: "HTMLLinkElement", element: "link", base: "HTMLElement", nodeType: 1 }, // Node.ELEMENT_NODE },
+	{ name: "HTMLStyleElement", element: "style", base: "HTMLElement", nodeType: 1 }, // Node.ELEMENT_NODE },
 	{ name: "HTMLFormElement", element: "form", base: "HTMLElement", nodeType: 1 } // Node.ELEMENT_NODE }
 ];
 
@@ -65,16 +67,21 @@ for (var name in interfacesByName) {
 }
 
 function getLocalName(element) {
-	return (element.localName) ? element.localName : element.tagName.toLowerCase().replace(element.prefix+":", "");	
+	return (element.localName) ? element.localName : element.tagName.replace(element.prefix+":", "");	
 }
 var htmlElementRulesTree = {
 	_test: function(node) { return getLocalName(node) },
+	"link": "HTMLLinkElement",
+	"style": "HTMLStyleElement",
 	"form": "HTMLFormElement",
+	"LINK": "HTMLLinkElement", // FIXME either change getLocalName() or generate upper-case rules
+	"STYLE": "HTMLStyleElement",
+	"FORM": "HTMLFormElement",
 	_default: "HTMLElement"
 }
 
 var interfaceRulesTree = {
-	_test: function(node) { return (node == window) ? 0 : node.nodeType; },
+	_test: function(node) { return (node != window) ? node.nodeType : 0; },
 	0: "Window",
 	1: { // Node.ELEMENT_NODE
 		_test: function(node) { return node.namespaceURI },
@@ -90,6 +97,38 @@ var interfaceRulesTree = {
 	}
 }
 
+var nodeTable = new Array(13);
+for (var i=0; i<13; i++) {
+	nodeTable[i] = [];
+}
+var nodeManager = {};
+nodeManager.getStorage = function(node) {
+	return node._domBindings;
+}
+nodeManager.addNode = function(node, callback, context) {
+	if (this.getStorage(node)) { // FIXME why?
+		logger.error("Failure in addNode(): node already being managed " + node.tagName);
+		return;
+		// throw "Failure in addNode()";
+	}
+	var nodeType = (node != window) ? node.nodeType : 0;
+	var nodeList = nodeTable[nodeType];
+	nodeList.push(node);
+	var store = {};
+	node._domBindings = store;
+	if (callback) callback.call(context, node);
+	return true;
+}
+nodeManager.releaseNodesByType = function(type, callback, context) {
+	var nodeList = nodeTable[type];
+	for (var i=nodeList.length-1; i>=0; i--) {
+		var node = nodeList[i];
+		if (callback) callback.call(context, node);
+		delete nodeList[i];
+		var store = node._domBindings;
+		node._domBindings = null;
+	}
+}
 
 /*
 elementBinding = function() {}
@@ -139,81 +178,94 @@ function release(dest, source, fields) {
 	return dest;
 }
 
-function hide(target, fields) {
+function hide(node, fields) {
 	for (var n=fields.length, i=0; i<n; i++) {
 		var name = fields[i];
 		var _name = "_" + name;
-		if (target[name]) {
-			target[_name] = target[name];
-			// delete target[name];
-			target[name] = null;
+		if (node[name]) {
+			node[_name] = node[name];
+			// delete node[name];
+			node[name] = null;
 		}
 	}
 }
 
-function restore(target, fields) {
+function restore(node, fields) {
 	for (var n=fields.length, i=0; i<n; i++) {
 		var name = fields[i];
 		var _name = "_" + name;
-		if (target[_name]) {
-			target[name] = target[_name];
-			// delete target[name];
-			target[_name] = null;
+		if (node[_name]) {
+			node[name] = node[_name];
+			// delete node[name];
+			node[_name] = null;
 		}
 	}
 }
 
+/*
+ DOMBinding is a ClassFactory for dom-binding classes. Usage:
+   var HTMLElement = new DOMBinding("HTMLElement");
+ The DOMBinding class is then attached to a node with:
+   HTMLElement.attach(node);
+*/
 var DOMBinding = function(name) {
 	this.name = name;
 	this.prototype = {};
 	this.interfaces = [];
 	this.mergedInterfaces = [];
-	this.implementation = function(target) {};
+	this.implementation = function(node) {};
 }
-DOMBinding.prototype.apply = function(target) {
-	if (this.baseBinding) this.baseBinding.apply(target);
-	Object.copy(target, this.prototype); // TODO optimize
-	var internal = new this.implementation(target);
+DOMBinding.prototype.attach = function(node) {
+	if (this.baseBinding) this.baseBinding.attach(node);
+	Object.copy(node, this.prototype); // TODO optimize
+	var internal = new this.implementation(node);
 	for (var n=this.mergedInterfaces.length, i=0; i<n; i++) {
 		var iface = this.mergedInterfaces[i];
-		if (iface.prototype.CREATE) iface.prototype.CREATE.call(internal, target);
+		if (iface.prototype.xblCreate) iface.prototype.xblCreate.call(internal, node);
 	}
 	for (var n=this.interfaces.length, i=0; i<n; i++) {
 		var iface = this.interfaces[i];
-		if (iface) internal[i] = new iface(target);
+		if (iface) internal[i] = new iface(node);
 	}
 	var ifName = "_" + this.name;
-	target[ifName] = internal;
+	nodeManager.getStorage(node)[ifName] = internal;
 }
-DOMBinding.prototype.remove = function(target) { // FIXME
+DOMBinding.prototype.detach = function(node) { // FIXME
 	var ifName = "_" + this.name;
-	var internal = target[ifName];
-	// delete target[ifName]
-	target[ifName] = null;
+	var store = nodeManager.getStorage(node);
+	var internal = store[ifName];
+	// delete node[ifName]
+	store[ifName] = null;
 	if (!internal) {
-		logger.warn("Failure removing non-existant "+this.name+" interface from "+target.tagName);
+		logger.warn("Failure removing non-existant "+this.name+" interface from "+node.tagName);
 		return;
 	}
 	for (var n=this.interfaces.length, i=n-1; i>=0; i--) {
-		if (internal[i] && internal[i].DESTROY) internal[i].DESTROY(target);
+		if (internal[i] && internal[i].xblDestroy) internal[i].xblDestroy(node);
 		internal[i] = null;
 	}
-	// FIXME Object.uncopy(target, this.prototype);
+	// FIXME Object.uncopy(node, this.prototype);
 	for (var field in this.prototype) {
-		if (target[field] === this.prototype[field]) target[field] = null;
+		if (node[field] === this.prototype[field]) node[field] = null;
 	}
-	if (this.baseBinding) this.baseBinding.remove(target);
+	if (this.baseBinding) this.baseBinding.detach(node);
 }
 DOMBinding.prototype.addImplementation = function(impl) {
 	this.interfaces.push(impl);
 	var ifName = "_" + this.name;
 	var index = this.interfaces.length - 1;
-	return Function("target", "var domBinding = target['"+ifName+"']; return (domBinding) ? domBinding["+index+"] : null;"); // FIXME shouldn't need the check
+	return function(node) {
+		var store = nodeManager.getStorage(node);
+		if (!store) return;
+		var domBinding = store[ifName];
+		if (!domBinding) return;
+		return domBinding[index];
+	};
 }
 DOMBinding.prototype.mergeImplementation = function(impl) {
 	this.mergedInterfaces.push(impl);
 	var ifName = "_" + this.name;
-	return Function("target", "return target['"+ifName+"']; ");
+	return Function("node", "return node['"+ifName+"']; ");
 }
 DOMBinding.init = function(domBinding, interfaces, mergedInterfaces) {
 	for (var n=mergedInterfaces.length, i=0; i<n; i++) {
@@ -245,29 +297,29 @@ var DOMBindingChain = function(name) {
 	this.interfaces = [];
 	this.mergedInterfaces = [];
 }
-DOMBindingChain.prototype.apply = function(target) {
-	Object.copy(target, this.prototype);
+DOMBindingChain.prototype.attach = function(node) {
+	Object.copy(node, this.prototype);
 	var internal = new this.implementation;
 	for (var n=this.mergedInterfaces.length, i=0; i<n; i++) {
 		var iface = this.mergedInterfaces[i];
-		if (iface.prototype.CREATE) iface.prototype.CREATE.call(internal, target);
+		if (iface.prototype.xblCreate) iface.prototype.xblCreate.call(internal, node);
 	}
 	// FIXME forEach(this.interfaces, function() {});
 	var ifNames = interfaceInheritanceChains[this.name];
 	for (var n=ifNames.length, i=0; i<n; i++) {
 		var ifName = "_" + ifNames[i];
-		target[ifName] = internal;
+		node[ifName] = internal;
 	}
 }
-DOMBindingChain.prototype.remove = function(target) { // FIXME
-	var internal = target["_" + this.name];
+DOMBindingChain.prototype.detach = function(node) { // FIXME
+	var internal = node["_" + this.name];
 	var ifNames = interfaceInheritanceChains[this.name];
 	for (var n=ifNames.length, i=0; i<n; i++) {
 		var ifName = "_" + ifNames[i];
-		target[ifName] = null;
+		node[ifName] = null;
 	}
 	// FIXME forEach(this.interfaces, function() {});
-	if (internal.DESTROY) internal.DESTROY();
+	if (internal.xblDestroy) internal.xblDestroy();
 }
 DOMBindingChain.prototype.init = function() {
 	var ifNames = interfaceInheritanceChains[this.name];
@@ -289,48 +341,37 @@ for (var name in interfacesByName) {
 	domBindingChains[name] = chain;
 }
 
-
-function applyDOMBindings(node) {
-	if (node["_Element"]) return; // FIXME optimization for element insertion
+function lookupDOMBinding(node) {
 	var rule = interfaceRulesTree;
 	while ("string" != typeof rule) {
 		var rc = rule._test(node);
 		if (rc != null) rule = rule[rc] || rule._default || "";
 		else rule = rule._null || "";
 	}
-	var domBinding = domBindings[rule];
-//	var domBinding = domBindingChains[rule];
+	return domBindings[rule];
+//	return domBindingChains[rule];
+}
+function attachDOMBindings(node) { // MUST be called with nodeManager.addNode(node, attachDOMBindings)
+	var domBinding = lookupDOMBinding(node);
 	if (!domBinding) {
 		logger.error("Could not find DOMBinding for nodeType: " + node.nodeType);
-		throw "Error applying DOMBindings";
+		throw "Error attaching DOMBindings";
 	}
-	domBinding.apply(node);
+	domBinding.attach(node);
 }
 
-function removeDOMBindings(node) { // FIXME
-	var rule = interfaceRulesTree;
-	while ("string" != typeof rule) {
-		var rc = rule._test(node);
-		if (rc != null) rule = rule[rc] || rule._default || "";
-		else rule = rule._null || "";
-	}
-	var domBinding = domBindings[rule];
-//	var domBinding = domBindingChains[rule];
+function detachDOMBindings(node) { // MUST be called with nodeManager.releaseNodesByType(nodeType, detachDOMBindings)
+	var domBinding = lookupDOMBinding(node);
 	if (!domBinding) {
 		logger.error("Could not find DOMBinding for nodeType: " + node.nodeType);
-		throw "Error removing DOMBindings";
+		throw "Error detaching DOMBindings";
 	}
-	domBinding.remove(node);
+	domBinding.detach(node);
 }
 
-function applyToTree(node) { 
+function attachToTree(node) { 
 	var localWalker = new DOMWalker(node);
-	localWalker.forEach(applyDOMBindings); // FIXME some elements will already have bindings applied
-}
-
-function removeFromTree(node) {
-	var localWalker = new DOMWalker(node);
-	localWalker.forEach(removeDOMBindings); // FIXME some elements will already have bindings applied	
+	localWalker.forEach(function(node) { nodeManager.addNode(node, attachDOMBindings) }); // FIXME some elements will already have bindings applied
 }
 
 var registeredSystems = [];
@@ -358,12 +399,15 @@ function init() {
 
 function exit() { // FIXME
 logger.debug("Beginning exit process");
-	var domWalker = new DOMWalker(document.documentElement);
-	domWalker.forEach(removeDOMBindings);
-	removeDOMBindings(document);
-	removeDOMBindings(window);
+//	var domWalker = new DOMWalker(document.documentElement);
+//	domWalker.forEach(detachDOMBindings);
+//	detachDOMBindings(document);
+//	detachDOMBindings(window);
+	nodeManager.releaseNodesByType(Node.ELEMENT_NODE, detachDOMBindings);
+	nodeManager.releaseNodesByType(Node.DOCUMENT_NODE, detachDOMBindings);
+	nodeManager.releaseNodesByType(0, detachDOMBindings); // Window
 
-logger.debug("DOMBindings removed");
+logger.debug("DOMBindings detached");
 	for (var n=registeredSystems.length, i=0; i<n; i++) { 
 		var system = registeredSystems[i];
 		if (system.exit) system.exit();
@@ -394,12 +438,12 @@ function _init() {
 				domBindings[name].init();
 				domBindingChains[name].init();
 			}
-			applyDOMBindings(window);
-			applyDOMBindings(document);
+			nodeManager.addNode(window, attachDOMBindings);
+			nodeManager.addNode(document, attachDOMBindings);
 			window.addEventListener("DOMNodeInserted", function(event) {
 				if (event.target.nodeType == 1) { // Node.ELEMENT_NODE) {
 					var localWalker = new DOMWalker(event.target);
-					localWalker.forEach(applyDOMBindings); // FIXME some elements will already have bindings applied
+					localWalker.forEach(function(node) { nodeManager.addNode(node, attachDOMBindings); }); // FIXME some elements will already have bindings applied
 				}
 			}, true);
 			for (var n=registeredSystems.length, i=0; i<n; i++) {
@@ -410,7 +454,7 @@ function _init() {
 			readyState = "loading";
 		case "loading":
 ;;;logger.debug("loading");
-			domWalker.forEach(applyDOMBindings);
+			domWalker.forEach(function (node) { nodeManager.addNode(node, attachDOMBindings); });
 			// FIXME if document.readyState is updated while this thread is running then there could be a failure here.
 			switch (document.readyState) {
 				case "loaded": case "interactive": case "complete":
@@ -455,8 +499,8 @@ return {
 	releaseInterface: release,
 	hideInterface: hide,
 	restoreInterface: restore,
-	applyToTree: applyToTree,
-	removeFromTree: removeFromTree
+	attachToTree: attachToTree,
+	document: {} // FIXME implement this
 }
 
 })();
