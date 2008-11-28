@@ -680,7 +680,7 @@ var GenericEventTarget = function(target, eventSystem) {
 	this.eventSystem = eventSystem;
 	this.listenerTable = {}; // lookup by this.listenerTable[type][Boolean(capture)][index]	
 }
-GenericEventTarget.prototype.DESTROY = function(target) {
+GenericEventTarget.prototype.xblDestroy = function(target) {
 	this.target = null;
 	this.eventSystem = null;
 	this.listenerTable = null;
@@ -738,7 +738,7 @@ GenericEventTarget.prototype.dispatchEvent = function(event) {
 var EventTarget = function(target) {
 	if (null == target) return null; // TODO throw ??
 	if (this == window) return arguments.callee.getInterface(target);
-	else arguments.callee.prototype.CREATE.call(this, target);
+	else arguments.callee.prototype.xblCreate.call(this, target);
 }
 EventTarget.interfaceLookup = new Array(13); // NOTE potentially one for every node type + Window
 EventTarget.getInterface = function(target) {
@@ -747,7 +747,7 @@ EventTarget.getInterface = function(target) {
 	return (lookup) ? lookup(target) : null;	
 }
 EventTarget.methods = ["addEventListener", "removeEventListener", "dispatchEvent"];
-EventTarget.prototype.CREATE = function(target) {
+EventTarget.prototype.xblCreate = function(target) {
 	this.target = target;
 	var xblPublic = EventTarget.methods;
 	Meeko.stuff.domSystem.hideInterface(target, xblPublic);
@@ -756,10 +756,10 @@ EventTarget.prototype.CREATE = function(target) {
 	var eventTarget = this;
 	this.eventListener = function(event) { eventTarget.handleEvent(event); }
 }
-EventTarget.prototype.DESTROY = function(target) {
+EventTarget.prototype.xblDestroy = function(target) {
 	this.target = null;
 	this.eventListener = null;
-	this.baseBinding.DESTROY(target);
+	this.baseBinding.xblDestroy(target);
 	var xblPublic = EventTarget.methods;
 	Meeko.stuff.domSystem.releaseInterface(target, this, xblPublic, true);
 	Meeko.stuff.domSystem.restoreInterface(target, xblPublic);
@@ -811,7 +811,7 @@ if (!document.addEventListener && document.attachEvent) {{ // DOMMutation is onl
 var DOMMutation = function(target) {
 	if (null == target) return null; // TODO throw ??
 	if (this == window) return arguments.callee.getInterface(target);
-	else arguments.callee.prototype.CREATE.call(this, target);
+	else arguments.callee.prototype.xblCreate.call(this, target);
 }
 
 DOMMutation.interfaceLookup = new Array(13); // NOTE potentially one for every node type + Window
@@ -825,7 +825,7 @@ DOMMutation.getInterface = function(target) {
 }
 DOMMutation.methods = ["insertBefore", "replaceChild", "removeChild", "appendChild", "cloneNode"];
 
-DOMMutation.prototype.CREATE = function(element) {
+DOMMutation.prototype.xblCreate = function(element) {
 	var domMutation = this;
 	this.boundElement = element;
 	Meeko.stuff.domSystem.hideInterface(element, DOMMutation.methods);
@@ -833,7 +833,7 @@ DOMMutation.prototype.CREATE = function(element) {
 	this.domMutation_listener = function(event) { domMutation.onpropertychange(event); }
 	element.attachEvent("onpropertychange", this.domMutation_listener);
 }
-DOMMutation.prototype.DESTROY = function() {
+DOMMutation.prototype.xblDestroy = function() {
 	var element = this.boundElement;
 	element.detachEvent("onpropertychange", this.domMutation_listener);
 	Meeko.stuff.domSystem.releaseInterface(element, this, DOMMutation.methods, true);
@@ -919,11 +919,11 @@ if (!document.addEventListener && document.attachEvent) {{ // EventBubbler is on
 var EventBubbler = function(target) {
 	if (null == target) return null; // TODO throw ??
 	if (this == window) return arguments.callee.getInterface(target);
-	else arguments.callee.prototype.CREATE.call(this, target);
+	else arguments.callee.prototype.xblCreate.call(this, target);
 }
 
 EventBubbler.getInterface = Meeko.stuff.domSystem.addImplementation("HTMLFormElement", EventBubbler);
-EventBubbler.prototype.CREATE = function(target) {
+EventBubbler.prototype.xblCreate = function(target) {
 	this.target = target;
 	var bubbler = this;
 	this.eventBubbler_listener = function(srcEvent) {
@@ -935,7 +935,7 @@ EventBubbler.prototype.CREATE = function(target) {
 	target.attachEvent("onreset", this.eventBubbler_listener);
 }
 
-EventBubbler.prototype.DESTROY = function(target) {
+EventBubbler.prototype.xblDestroy = function(target) {
 	target.detachEvent("onsubmit", this.eventBubbler_listener);
 	target.detachEvent("onreset", this.eventBubbler_listener);
 	this.eventBubbler_listener = null;
