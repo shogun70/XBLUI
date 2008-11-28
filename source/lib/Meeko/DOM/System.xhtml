@@ -202,6 +202,8 @@ function restore(node, fields) {
 	}
 }
 
+var incompleteBindings = []; // domBindings with xblReadyState() != "complete"
+
 /*
  DOMBinding is a ClassFactory for dom-binding classes. Usage:
    var HTMLElement = new DOMBinding("HTMLElement");
@@ -220,12 +222,14 @@ DOMBinding.prototype.attach = function(node) {
 	Object.copy(node, this.prototype); // TODO optimize
 	var internal = new this.implementation(node);
 	for (var n=this.mergedInterfaces.length, i=0; i<n; i++) {
-		var iface = this.mergedInterfaces[i];
-		if (iface.prototype.xblCreate) iface.prototype.xblCreate.call(internal, node);
+		var ifaceSpec = this.mergedInterfaces[i];
+		if (ifaceSpec.prototype.xblCreate) ifaceSpec.prototype.xblCreate.call(internal, node);
 	}
 	for (var n=this.interfaces.length, i=0; i<n; i++) {
-		var iface = this.interfaces[i];
-		if (iface) internal[i] = new iface(node);
+		var ifaceSpec = this.interfaces[i];
+		var iface = new ifaceSpec(node);
+		internal[i] = iface;
+		if (iface.xblReadyState && iface.xblReadyState() != "complete") incompleteBindings.push(iface);
 	}
 	var ifName = "_" + this.name;
 	nodeManager.getStorage(node)[ifName] = internal;
@@ -241,7 +245,8 @@ DOMBinding.prototype.detach = function(node) { // FIXME
 		return;
 	}
 	for (var n=this.interfaces.length, i=n-1; i>=0; i--) {
-		if (internal[i] && internal[i].xblDestroy) internal[i].xblDestroy(node);
+		var iface = internal[i];
+		if (iface && iface.xblDestroy) iface.xblDestroy(node);
 		internal[i] = null;
 	}
 	// FIXME Object.uncopy(node, this.prototype);
@@ -374,11 +379,6 @@ function attachToTree(node) {
 	localWalker.forEach(function(node) { nodeManager.addNode(node, attachDOMBindings) }); // FIXME some elements will already have bindings applied
 }
 
-var registeredSystems = [];
-function registerSystem(sys) {
-	registeredSystems.push(sys);
-}
-
 var timerId = null,
 	readyState = "uninitialized",
 	_initializing = false,
@@ -399,10 +399,6 @@ function init() {
 
 function exit() { // FIXME
 logger.debug("Beginning exit process");
-//	var domWalker = new DOMWalker(document.documentElement);
-//	domWalker.forEach(detachDOMBindings);
-//	detachDOMBindings(document);
-//	detachDOMBindings(window);
 	nodeManager.releaseNodesByType(Node.ELEMENT_NODE, detachDOMBindings);
 	nodeManager.releaseNodesByType(Node.DOCUMENT_NODE, detachDOMBindings);
 	nodeManager.releaseNodesByType(0, detachDOMBindings); // Window
@@ -446,10 +442,6 @@ function _init() {
 					localWalker.forEach(function(node) { nodeManager.addNode(node, attachDOMBindings); }); // FIXME some elements will already have bindings applied
 				}
 			}, true);
-			for (var n=registeredSystems.length, i=0; i<n; i++) {
-				var system = registeredSystems[i];
-				if (system.init) system.init();
-			}
 			domWalker = new DOMWalker(document.documentElement);
 			readyState = "loading";
 		case "loading":
@@ -468,9 +460,10 @@ function _init() {
 			}
 		case "loaded":
 ;;;logger.debug("loaded");
-			for (var n=registeredSystems.length, i=0; i<n; i++) {
-				if ("complete" != registeredSystems[i].getReadyState()) break MAIN;
+			for (var i=incompleteBindings.length-1; i>=0; i--) {
+				if ("complete" == incompleteBindings[i].xblReadyState()) incompleteBindings.splice(i,1);
 			}
+			if (incompleteBindings.length) break MAIN;
 			readyState = "complete";
 ;;;logger.debug("complete");
 	}
@@ -492,7 +485,6 @@ function _init() {
 init();
 
 return {
-	registerSystem: registerSystem,
 	addImplementation: function(name, impl) { return domBindings[name].addImplementation(impl); },
 	mergeImplementation: function(name, impl) { return domBindings[name].mergeImplementation(impl); },
 	bindInterface: bind,

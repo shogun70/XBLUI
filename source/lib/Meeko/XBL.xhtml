@@ -133,23 +133,6 @@ var requestFile = function(uri, callback) { // TODO error-handling
 */
 var xblSystems = [];
 var bindingSystems = [];
-var xblManager = {};
-xblManager.getReadyState = function() {
-	var n = xblSystems.length;
-	var nComplete = 0;
-	for (var i=0; i<n; i++) {
-		var system = xblSystems[i];
-		if (system.queryProgress() == "load") nComplete++;
-	}
-	return (!n) ? "uninitialized" : 
-		(n == nComplete) ? "complete" : "loading";
-}
-xblManager.init = function() {
-//	DocumentXBL(document).init();
-}
-
-Meeko.stuff.domSystem.registerSystem(xblManager);
-
 
 function getBindingSystems() {
 	return bindingSystems.filter(function(system) { return system.queryProgress() == "load"; })
@@ -177,6 +160,16 @@ var DocumentXBL = function(target) {
 	if (this == window) return arguments.callee.getInterface(target);
 }
 DocumentXBL.getInterface = Meeko.stuff.domSystem.addImplementation("Document", DocumentXBL);
+DocumentXBL.prototype.xblReadyState = function() {
+	var n = xblSystems.length;
+	var nComplete = 0;
+	for (var i=0; i<n; i++) {
+		var system = xblSystems[i];
+		if (system.queryProgress() == "load") nComplete++;
+	}
+	return (!n) ? "uninitialized" : 
+		(n == nComplete) ? "complete" : "loading";
+}
 DocumentXBL.prototype.createXBLSystem = function(uri) {
 	var documentXBL = this;
 	var xblSystem = new XBLLocalSystem();
