@@ -281,8 +281,7 @@ All rights reserved
 			<parameter name="reverse"/>
 			<body>
 <![CDATA[
-	var element = this.boundElement;
-	forEach (element.tBodies, function(tBody) {
+	forEach (this.boundElement.tBodies, function(tBody) {
 		var clone = tBody.cloneNode(true);
 		var rows = [];
 		var row;
