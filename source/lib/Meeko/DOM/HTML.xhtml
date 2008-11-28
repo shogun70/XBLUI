@@ -23,9 +23,9 @@ if (document.documentElement.classList == null) {{
 var HTML5Element = function(target) {
 	if (null == target) return null; // TODO throw ??
 	if (this == window) return null;
-	else arguments.callee.prototype.CREATE.call(this, target);
+	else arguments.callee.prototype.xblCreate.call(this, target);
 }
-HTML5Element.prototype.CREATE = function(target) {
+HTML5Element.prototype.xblCreate = function(target) {
 	this.boundElement = target;
 	this.getClassName = function() { return this.boundElement.className; };
 	this.setClassName = function(val) { this.boundElement.className = val; };
@@ -33,10 +33,10 @@ HTML5Element.prototype.CREATE = function(target) {
 	this.classList = new DOMTokenList(function() { return binding.getClassName(); }, function(val) { binding.setClassName(val); });
 	Meeko.stuff.domSystem.bindInterface(target, this, ["classList"]);
 }
-HTML5Element.prototype.DESTROY = function(target) {
+HTML5Element.prototype.xblDestroy = function(target) {
 	// FIXME Meeko.stuff.domSystem.unbindInterface()
 	this.boundElement.classList = null;
-	this.classList.DESTROY(); // FIXME is this necessary
+	this.classList.xblDestroy(); // FIXME is this necessary
 	this.boundElement = null;
 }
 

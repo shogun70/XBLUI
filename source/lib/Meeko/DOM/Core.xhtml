@@ -110,7 +110,7 @@ var DOMTokenList = function(getter, setter) { // TODO parameter checking
 		toString: function() { return String(this.valueOf()); }
 	};
 };
-DOMTokenList.prototype.DESTROY = function() { // FIXME is this needed??
+DOMTokenList.prototype.xblDestroy = function() { // FIXME is this needed??
 	this.valueOf = null;
 	this.toString = null;
 	this._getText = null;

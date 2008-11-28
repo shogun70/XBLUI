@@ -236,11 +236,11 @@ NodeIterator.forEach = function(iter, fn, context) {
 var DocumentTraversal = function(target) {
 	if (null == target) return null; // TODO throw ??
 	if (this == window) return arguments.callee.getInterface(target);
-	else arguments.callee.prototype.CREATE.call(this, target);
+	else arguments.callee.prototype.xblCreate.call(this, target);
 }
 
 DocumentTraversal.getInterface = Meeko.stuff.domSystem.addImplementation("Document", DocumentTraversal);
-DocumentTraversal.prototype.CREATE = function(target) {
+DocumentTraversal.prototype.xblCreate = function(target) {
 	this.target = target;
 	var xblPublic = [];
 	// Add Traversal objects if they don't exist or don't work 
