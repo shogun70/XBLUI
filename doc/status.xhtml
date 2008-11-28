@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type" />
@@ -75,12 +76,12 @@ initialize: function() {
 
 xblEnteredDocument: function() {
   this._init = (function(binding) { return function(event) { binding.initialize(); } })(this);
-  this.boundElement.ownerDocument.parentWindow.addEventListener("load", this._init, false);
+  this.boundElement.ownerDocument.addEventListener("load", this._init, false);
   this.initialize();
 },
 
 xblLeftDocument: function() {
-  this.boundElement.ownerDocument.parentWindow.removeEventListener("load", this._init, false);
+  this.boundElement.ownerDocument.removeEventListener("load", this._init, false);
 }
 })
   </implementation>
@@ -173,7 +174,7 @@ popup.style.left = "-1000px";
       <td class="level2"><code>&lt;binding element=""/&gt;</code></td>
       <td class="part"><label>Partial</label>
       <small><ul>
-        <li>Attachment only occurs when the page is first loaded. Doesn't work for inserted elements or trees.</li>
+        <li>Attachment only occurs when the element first enters the document. Attached bindings don't get updated when attributes do.</li>
       </ul></small>
       </td>
       <td></td>
@@ -376,10 +377,9 @@ popup.style.left = "-1000px";
     </tr>
     <tr>
       <td class="level2">phase</td>
-      <td class="almost"><label>Almost</label>
+      <td class="almost"><label>Partial</label>
       <small><ul>
         <li>The default-action phase is not supported. </li>
-        <li>The capture value is not supported on Internet Explorer.</li>
       </ul></small>
       </td>
     </tr>
