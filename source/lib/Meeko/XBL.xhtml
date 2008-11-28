@@ -19,7 +19,7 @@ var ProgressEvent = function(target) { // NOTE meant to be called by ProgressEve
 	var iface = target._ProgressEvent;
 	if (iface) return iface;
 	if (this instanceof arguments.callee) {
-		this.CREATE(target);
+		this.xblCreate(target);
 		return this;
 	}
 	throw "Unexpected condition in ProgressEvent() call";
@@ -36,17 +36,17 @@ ProgressEvent.remove = function(target) { // FIXME
 	// delete target._ProgressEvent;
 	target._ProgressEvent = null;
 	Meeko.stuff.domSystem.releaseInterface(target, iface, ["addEventListener", "removeEventListener", "notifyProgress", "queryProgress" ]);
-	if (iface.DESTROY) iface.DESTROY(); 
+	if (iface.xblDestroy) iface.xblDestroy(); 
 }
 
 
-ProgressEvent.prototype.CREATE = function(target) {
+ProgressEvent.prototype.xblCreate = function(target) {
 	this.target = target;
 	this.progressState = "uninitialized";
 	this.listenerTable = {}; // lookup by this.listenerTable[type][index]
 }
 
-ProgressEvent.prototype.DESTROY = function() {
+ProgressEvent.prototype.xblDestroy = function() {
 	this.target = null;
 }
 
@@ -145,7 +145,7 @@ xblManager.getReadyState = function() {
 		(n == nComplete) ? "complete" : "loading";
 }
 xblManager.init = function() {
-	DocumentXBL(document).init();
+//	DocumentXBL(document).init();
 }
 
 Meeko.stuff.domSystem.registerSystem(xblManager);
@@ -177,80 +177,6 @@ var DocumentXBL = function(target) {
 	if (this == window) return arguments.callee.getInterface(target);
 }
 DocumentXBL.getInterface = Meeko.stuff.domSystem.addImplementation("Document", DocumentXBL);
-
-DocumentXBL.prototype.init = function() {		
-	this.registerBoundDocument();
-	this.registerXBLProcessingInstructions();
-	this.registerXBLLinkElements();
-	this.registerXBLStyleElements();
-}
-DocumentXBL.prototype.registerBoundDocument = function() {
-	var documentXBL = this;
-	var xblSystem = this.createXBLSystem(document.documentURI);
-	bindingSystems.push(xblSystem);	// ASSERT bindingSystems.length == 1
-	xblSystem.addEventListener("load", function() {
-			documentXBL.applyBindingSystem(xblSystem);
-	}, false);
-	xblSystem.init(document, document.documentURI);
-}
-DocumentXBL.prototype.registerXBLProcessingInstructions = function() {
-	var node = document.firstChild;
-	do {
-		if (document.documentElement == node) break;
-		
-		if (Node.PROCESSING_INSTRUCTION_NODE != node.nodeType) continue;
-		if ("xbl" != node.target) continue;
-		var data = node.data;
-		RegExp.lastIndex = 0;
-		var r = /(\w+)="([^"]*)"/g;
-		var att;
-		while (att = r.exec(data)) {
-			var name = att[1]; var value = att[2];
-			if ("href" == name) {
-				this.registerBindingDocument(value);
-			}
-		}		 
-	} while (node = node.nextSibling);
-}
-
-DocumentXBL.prototype.registerXBLLinkElements = function() {
-	var node = document.getElementsByTagName("head")[0].firstChild;
-	do {
-		if (Node.ELEMENT_NODE != node.nodeType) continue;
-		if ("link" != node.tagName.toLowerCase()) continue;
-		if (node.rel == "bindings") this.registerBindingDocument(node.getAttribute("href"));
-	} while (node = node.nextSibling);
-}
-
-DocumentXBL.prototype.registerXBLStyleElements = function() {
-	var documentXBL = this;
-	var node = document.getElementsByTagName("head")[0].firstChild;
-	do {
-		if (Node.ELEMENT_NODE != node.nodeType) continue;
-		if ("style" != node.tagName.toLowerCase()) continue;
-		if (node.type != "application/xml" && node.type != "text/xml") continue;
-		var text = node.textContent || node.innerHTML; // TODO standardize??
-		var xml = (new DOMParser).parseFromString(text, "application/xml"); // TODO catch errors
-		var xblSystem = this.createXBLSystem(document.documentURI);
-		bindingSystems.push(xblSystem);
-		xblSystem.addEventListener("load", function() {
-			documentXBL.applyBindingSystem(xblSystem);
-		}, false);
-		xblSystem.init(xml, document.documentURI);
-	} while (node = node.nextSibling);
-}
-
-DocumentXBL.prototype.registerBindingDocument = function(uri) {
-	var documentXBL = this;
-	var absoluteURI = parseUri(uri, document.documentURI).toString(); // FIXME should registerBindingDocument receive absoluteURI?
-	var xblSystem = this.createXBLSystem(absoluteURI);
-	bindingSystems.push(xblSystem);
-	xblSystem.addEventListener("load", function() {
-		documentXBL.applyBindingSystem(xblSystem);
-	}, false);
-	xblSystem.request(absoluteURI);
-}
-
 DocumentXBL.prototype.createXBLSystem = function(uri) {
 	var documentXBL = this;
 	var xblSystem = new XBLLocalSystem();
@@ -262,7 +188,6 @@ DocumentXBL.prototype.createXBLSystem = function(uri) {
 	}, false)
 	return xblSystem;
 }
-
 DocumentXBL.prototype.applyBindingSystem = function(system) {
 	var xblDocument = system.getXBLDocument();
 	var index = bindingSystems.indexOf(system);
@@ -272,7 +197,6 @@ DocumentXBL.prototype.applyBindingSystem = function(system) {
 		if (elementXBL) elementXBL.applyBindingDocument(xblDocument, index);
 	});
 }
-
 DocumentXBL.prototype.getBindingDocuments = function() {
 	var docList = [];
 	var systems = getBindingSystems();
@@ -281,7 +205,6 @@ DocumentXBL.prototype.getBindingDocuments = function() {
 	}
 	return docList;
 }
-
 DocumentXBL.prototype.importStyleSheets = function(xblSystem) {
 	var xblDocument = xblSystem.getXBLDocument();
 	Array.forEach(xblDocument.getStyleSheets(), function(sheet) {
@@ -300,6 +223,109 @@ DocumentXBL.prototype.importStyleSheets = function(xblSystem) {
 	});
 }
 
+var BindingDocumentRef = function(target) {
+	if (null == target) return null; // TODO throw ??
+	if (this == window) return arguments.callee.getInterface(target);
+	else arguments.callee.prototype.xblCreate.call(this, target);
+}
+BindingDocumentRef.interfaceLookup = {}; // NOTE #document, ?xbl, link, style
+BindingDocumentRef.getInterface = function(target) { // FIXME is this even used??
+	var ref;
+	switch (target.nodeType) {
+		case Node.DOCUMENT_NODE: ref = "#document"; break;
+		case Node.PROCESSING_INSTRUCTION_NODE: ref = "?xbl"; break;
+		case Node.ELEMENT_NODE: ref = target.tagName.toLowerCase(); break;
+	}
+	var lookup = this.interfaceLookup[ref];
+	return (lookup) ? lookup(target) : null;	
+}
+// FIXME implement these two
+// BindingDocumentRef.interfaceLookup['#document'] = Meeko.stuff.domSystem.addImplementation("Document", BindingDocumentRef);
+// BindingDocumentRef.interfaceLookup['?xpl'] = Meeko.stuff.domSystem.addImplementation("ProcessingInstruction", BindingDocumentRef);
+BindingDocumentRef.interfaceLookup['link'] = Meeko.stuff.domSystem.addImplementation("HTMLLinkElement", BindingDocumentRef);
+BindingDocumentRef.interfaceLookup['style'] = Meeko.stuff.domSystem.addImplementation("HTMLStyleElement", BindingDocumentRef);
+
+BindingDocumentRef.prototype.xblCreate = function(target) {
+	var documentXBL = DocumentXBL(document);
+	this.target = target;
+	switch (target.nodeType) {
+		case Node.DOCUMENT_NODE:
+			this.createFromBoundDocument(target);
+			break;
+		case Node.PROCESSING_INSTRUCTION_NODE:
+			this.createFromProcessingInstruction(target);
+			break;
+		case Node.ELEMENT_NODE:
+			switch (target.tagName.toLowerCase()) { // FIXME these should be restricted to the "head" of a HTMLDocument
+				case "link":
+					this.createFromHTMLLinkElement(target);
+					break;
+				case "style":
+					this.createFromHTMLStyleElement(target);
+					break;
+			}
+			break;
+	}
+}
+BindingDocumentRef.prototype.xblDestroy = function(target) {
+	this.target = null;
+	if (this.xblSystem && this.xblSystem.xblDestroy) this.xblSystem.xblDestroy(); // FIXME why does this.xblSystem not exist at window.onunload??
+}
+BindingDocumentRef.prototype.createFromBoundDocument = function(target) {
+	// ASSERT bindingSystems.length == 1
+	if (!target) target = document;
+	this.createFromDocument(target, target.documentURI);
+}
+BindingDocumentRef.prototype.createFromProcessingInstruction = function(node) {
+	var documentXBL = DocumentXBL(document);
+	if (Meeko.stuff.domSystem.document.documentElement) return;
+	if ("xbl" != node.target) return;
+	var data = node.data;
+	RegExp.lastIndex = 0;
+	var r = /(\w+)="([^"]*)"/g;
+	var att;
+	while (att = r.exec(data)) {
+		var name = att[1]; var value = att[2];
+		if ("href" == name) {
+			thi.createFromUri(value);
+			break;
+		}
+	}
+}
+BindingDocumentRef.prototype.createFromHTMLLinkElement = function(node) {
+	var documentXBL = DocumentXBL(document);
+	if (node.rel != "bindings") return;
+	this.createFromUri(node.getAttribute("href"));
+}
+BindingDocumentRef.prototype.createFromHTMLStyleElement = function(node) {
+	var documentXBL = DocumentXBL(document);
+	if (node.type != "application/xml" && node.type != "text/xml") return;
+	var text = node.textContent || node.innerHTML; // TODO standardize??
+	var xml = (new DOMParser).parseFromString(text, "application/xml"); // TODO catch errors
+	this.createFromDocument(xml, document.documentURI);
+}
+BindingDocumentRef.prototype.createFromUri = function(uri) {
+	var documentXBL = DocumentXBL(document);
+	var absoluteURI = parseUri(uri, document.documentURI).toString(); // FIXME should this receive absoluteURI?
+	var xblSystem = this.createXBLSystem(absoluteURI);
+	bindingSystems.push(xblSystem);
+	xblSystem.addEventListener("load", function() {
+		documentXBL.applyBindingSystem(xblSystem);
+	}, false);
+	xblSystem.request(absoluteURI);
+	this.xblSystem = xblSystem;
+}
+BindingDocumentRef.prototype.createFromDocument = function(target, documentURI) {
+	if (!documentURI) documentURI = target.documentURI;
+	var documentXBL = DocumentXBL(document);
+	var xblSystem = documentXBL.createXBLSystem(documentURI);
+	bindingSystems.push(xblSystem);
+	xblSystem.addEventListener("load", function() {
+			documentXBL.applyBindingSystem(xblSystem);
+	}, false);
+	xblSystem.init(target, documentURI);
+	this.xblSystem = xblSystem;
+}
 /* TODO
 	interface ElementXBL {
 		readonly attribute XBLImplementationList xblImplementations;
@@ -309,21 +335,14 @@ DocumentXBL.prototype.importStyleSheets = function(xblSystem) {
 	}
 */
 
-function getEventPhaseMask(eventPhase) { // TODO not used. Maybe remove it
-	if (eventPhase < 0) return 0x0; // TODO warning
-	if (eventPhase == 0) return 0x6; // target or bubble
-	if (eventPhase == 0x78626C44) return 0x8000;
-	return 0x01 << (eventPhase - 1);
-}
-
 var ElementXBL = function(target) {
 	if (null == target) return null; // TODO throw ??
 	if (this == window) return arguments.callee.getInterface(target);
-	else arguments.callee.prototype.CREATE.call(this, target);
+	else arguments.callee.prototype.xblCreate.call(this, target);
 }
 ElementXBL.getInterface = Meeko.stuff.domSystem.addImplementation("Element", ElementXBL);
 
-ElementXBL.prototype.CREATE = function(element) {
+ElementXBL.prototype.xblCreate = function(element) {
 	this.boundElement = element;
 	this.documentXBL = DocumentXBL(element.ownerDocument);
 	this.bindingChains = [];
@@ -338,7 +357,7 @@ ElementXBL.prototype.CREATE = function(element) {
 	}, this);
 }
 
-ElementXBL.prototype.DESTROY = function() {
+ElementXBL.prototype.xblDestroy = function() {
 	var element = this.boundElement;
 	var bindingChains = this.bindingChains;
 	for (var i=bindingChains.length-1; i>=0; i--) {
@@ -558,7 +577,7 @@ ElementXBL.prototype.deleteBindingChain = function(index) { // FIXME this only r
 		}
 		binding.setBaseBinding(null);
 		binding.detach();
-		binding.DESTROY();
+		binding.xblDestroy();
 	}
 	this.bindingChains.splice(index, 1);
 }
@@ -619,7 +638,7 @@ XBLBinding.CSS_CONTEXT = 2;
 XBLBinding.IMMEDIATE_CONTEXT = 3;
 
 
-XBLBinding.prototype.DESTROY = function() {
+XBLBinding.prototype.xblDestroy = function() {
 	var internal = this.internal;
 	this.internal = null;
 	var external = internal.external;
