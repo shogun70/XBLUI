@@ -1,0 +1,105 @@
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+		"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!--
+XBL2 Menu Demo
+Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>Meeko XBL Menu Demo</title>
+	<script>
+var xplContext = Meeko.stuff.xplSystem.createContext(document.documentURI);
+var logger = xplContext.logger;
+	</script>
+	<style>
+html { border: none; padding: 0; margin: 0; } 
+body { width: 480px; height: 100%; }
+#menu {
+	margin: 0px;
+	padding: 0px;
+	background-color: #ffffff;
+}
+/* Reset CSS */
+.menu { margin: 0px; padding: 0px; background-color: #dddddd; }
+.menu { height: 0; overflow: hidden; }
+
+#edit { background-color: #ffffff; margin: 0px; padding: 1em; }
+	</style>
+	<xbl xmlns="http://www.w3.org/ns/xbl" xmlns:html="http://www.w3.org/1999/xhtml">
+		<html:style>
+.menu { height: auto; overflow: visible; }
+.menu ul { list-style: none outside; margin: 0px; padding: 0px; border: 1px outset #dddddd; background-color: #dddddd; }
+.menu li { list-style: none outside; margin: 0px; padding: 0px; }
+.menu li { display: inline; position: relative; top: 0px; left: 0px; }
+.menu li ul { position: absolute; top: 1em; left: 0; width: auto; _width: 0; }
+.menu li li { display: block; position: static; white-space: nowrap; _height: 0; _padding-left: 0.5em; }
+.menu button, .menu a { border: none; background-color: transparent; color: #000000; margin: 0; padding: 0.1em 0.5em; text-decoration: none; }
+
+.menu li.closed ul { height: 0; overflow: hidden; border: none; }
+.menu li.open button, .menu a:hover { background-color: #0033cc; color: #dddddd; }
+		</html:style>
+		<binding element=".menu > ul > li" extends="{pkgdefaultlibdir}/UI.xml#treeitem">
+			<handlers>
+				<handler event="mouseover">
+this.boundElement.setOpenState(true);
+				</handler>
+				<handler event="mouseout">
+<![CDATA[
+var cmp = this.boundElement.compareDocumentPosition(event.relatedTarget);
+if (cmp && !(cmp & Node.DOCUMENT_POSITION_CONTAINED_BY)) this.boundElement.setOpenState(false);
+]]>
+				</handler>
+			</handlers>
+		</binding>
+	</xbl>
+</head>
+
+<body id="menu">
+	<div class="menu">
+		<ul>
+			<li class="closed"><button>File</button>
+				<ul>
+					<li><a href="#">New</a></li>
+					<li><a href="#">Open</a></li>
+					<li><a href="#">Save</a></li>
+					<li><a href="#">Save As</a></li>
+					<li><a href="#">Close</a></li>
+				</ul>
+			</li>
+			<li class="closed"><button>Edit</button>
+				<ul>
+					<li><a href="#">Undo</a></li>
+					<li><a href="#">Redo</a></li>
+					<li><a href="#">Cut</a></li>
+					<li><a href="#">Copy</a></li>
+					<li><a href="#">Paste</a></li>
+					<li><a href="#">Delete</a></li>
+				</ul>			
+			</li>
+			<li class="closed"><button>View</button>
+				<ul>
+					<li><a href="#">Normal</a></li>
+					<li><a href="#">Outline</a></li>
+					<li><a href="#">Source</a></li>
+				</ul>
+			</li>
+			<li class="closed"><button>Help</button>
+				<ul>
+					<li><a href="#">Online Help</a></li>
+					<li><a href="#">About</a></li>
+				</ul>
+			</li>
+		</ul>
+	</div>
+	<div id="edit">
+		<p>The application menu bar is merely a list of lists.</p>
+		<p>
+Sub-menus (nested lists) are normally hidden, but are displayed under the appropriate conditions -
+in this case when the mouse is over the menu label or the menu.
+		</p>
+		<p>CSS does the rest.</p>
+	</div>
+</body>
+</html>

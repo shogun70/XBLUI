@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<?xpl-require href="../Javascript-1.6/Javascript.xhtml"?>
+<?xpl-require href="../CSS.xhtml"?>
+<?xpl-require href="../DOM/System.xhtml"?>
+<html>
+<head>
+<script>
+<![CDATA[
+
+Meeko.stuff.xplSystem.createNamespace("Meeko.DOM.Selectors");
+Meeko.DOM.Selectors = (function() {
+
+
+var NodeSelector = function(target) {
+	if (null == target || window != this) return;
+	return arguments.callee.getInterface(target);	
+}
+
+NodeSelector.interfaceLookup = {}; // TODO should this be an array like EventTarget??
+NodeSelector.interfaceLookup[Node.DOCUMENT_NODE] = Meeko.stuff.domSystem.installBinding("Document", NodeSelector);
+NodeSelector.interfaceLookup[Node.ELEMENT_NODE] = Meeko.stuff.domSystem.installBinding("Element", NodeSelector);
+NodeSelector.getInterface = function(target) {
+	var lookup = this.interfaceLookup[target.nodeType];
+	return (lookup) ? lookup(target) : null;
+}
+NodeSelector.implementation = function(element) {
+	this.boundElement = element;
+	Meeko.stuff.domSystem.bindInterface(element, this, ["querySelector", "querySelectorAll"]);
+}
+
+var CSS = Meeko.CSS;
+var cssParser = new CSS.Parser();
+
+var getElementsBySelector = function(scope, selectorText) {
+	var selectorList;
+	if ("string" == typeof selectorText) selectorList = cssParser.parseSelectors(selectorText);
+	else selectorList = selectorText;
+	var nodeList = [];
+	if (selectorList.test(scope)) nodeList.push(scope);
+	var tagName = '*';
+	FOUND: if (selectorList.length == 1) {
+		var selector = selectorList[0];
+		var conditions = selector[selector.length-1].conditions;
+		for (var n=conditions.length, i=0; i<n; i++) {
+			var c = conditions[i];
+			if (c.conditionType == CSS.Condition.NODE_TEST_CONDITION && c.nodeType == Node.ELEMENT_NODE) {
+				tagName = c.localName;
+				break FOUND;
+			}
+		}
+	}
+	var descendants = scope.getElementsByTagName(tagName);
+	for (var n=descendants.length, i=0; i<n; i++) {
+		var current = descendants[i];
+		if (selectorList.test(current)) nodeList.push(current);
+	}
+}
+
+return {
+	NodeSelector: NodeSelector
+};
+
+})();
+
+Meeko.XPL.Namespace.enhance(window, Meeko.DOM.Selectors);
+
+]]>
+</script>
+</head>
+</html>

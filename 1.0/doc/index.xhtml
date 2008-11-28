@@ -1,0 +1,63 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="CONTENT-TYPE" content="text/html; charset=utf-8" />
+<title>XBLUI - About</title>
+<link rel="stylesheet" type="text/css" href="documentation.css" />
+<link rel="viewer" href="viewer.xhtml" />
+</head>
+<body lang="en-AU">
+<h2>Overview</h2>
+<p>XBLUI provides user interface enhancements for HTML. 
+Enhancements are implemented with element bindings using the W3C's <a href="http://www.w3.org/TR/xbl">XML Binding Language</a> (XBL)<sup>1</sup>. 
+XBL provides a simple method of applying and extending the built-in enhancements.</p>
+<p>XBLUI is a cross-browser Javascript library and incorporates Javascript and DOM fixes and enhancements to promote standards-based, browser-agnostic web-development. </p>
+<p>Since no current browser has a native XBL implementation
+XBLUI has its own partial, cross-browser implementation.
+Native XBL implementations will improve the performance of XBLUI enhancements. </p>
+<p>To facilitate development XBLUI incorporates cross-browser logging.
+More tracing features will arrive in future releases.</p>
+<small><strong>Notes:</strong>
+<ol>
+<li>Also commonly referred to as XBL2, not to be confused with the non-compatible
+<a href="http://developer.mozilla.org/en/docs/XBL">Mozilla XBL</a> also known as XBL1.
+</li>
+</ol>
+</small>
+<h2>Quick start</h2>
+<p>Using XBLUI in your web-page is typically a three step process:</p>
+<ol>
+<li>include the XBLUI script</li>
+<li>create a XBL document to specify which elements receive user interface enhancements</li>
+<li>include the XBL document with a <code>link</code> or <code>style</code> element (similar to including a CSS document)
+</li>
+</ol>
+<p>The following example illustrates the simple case of adding
+numeric input functionality to a HTML input element as in the Web
+Forms 2 specification:</p>
+<pre>&lt;html&gt;<br /> &lt;head&gt;<br />  &lt;script src="http://dist.meekostuff.net/XBLUI/default/XBLUI.js"&gt;&lt;/script&gt;<sup>1,2</sup><br />  &lt;style type="application/xml"&gt;<sup>3,4</sup><br />   &lt;xbl xmlns="http://www.w3.org/ns/xbl"&gt;<br />    &lt;binding <br />      element="input[type=number]"<br />      extends="http://dist.meekostuff.net/XBLUI/default/WF2.xml#WF2NumberInput"/&gt;<br />   &lt;/xbl&gt;<br />  &lt;/style&gt;<br /> &lt;/head&gt;<br /> &lt;body&gt;<br />  &lt;label&gt;Enter a number from 0 to 100 <br />   &lt;input type="number" min="0" max="100" value="50" /&gt;<br />  &lt;/label&gt;<br /> &lt;/body&gt;<br />&lt;/html&gt;</pre>
+<small><strong>Notes:</strong>
+<ol>
+<li>This
+is the default script path. You can also choose a specific version. See
+Distribution
+</li>
+<li>In
+general the script element should be at the top of the head
+element.
+</li>
+<li>The
+type attribute of the style element must be "application/xml". See
+Including Binding Documents </li>
+<li>The XBL specification also
+allows bindings to be applied using CSS style-sheets. This is not yet
+available using XBLUI. </li>
+</ol>
+</small>
+<h2>License</h2>
+<p>Long-term licensing is still to be decided. </p>
+<p>Until further notice you may use the XBLUI library by including the following line in a web-page:</p>
+<pre>&lt;script src="http://dist.meekostuff.net/XBLUI/default/XBLUI.js"&gt;&lt;/script&gt;</pre>
+<p>No other use is permitted. </p>
+
+</body>
+</html>

@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Meeko Browser</title>
+<style type="text/css">
+* {
+	font: message-box;
+}
+
+html, body {
+	background-color: #dddddd;
+	color: #000000;
+	width: 100%; height: 100%;
+	top: 0; bottom: 0; left: 0; right: 0;
+	margin: 0; padding: 0; border: 0;
+}
+#toolbar, #bookmarks, #titlebar {
+	left: 0; right: 0;
+	margin: 0; padding: 0.5em;
+	border-bottom: 1px solid #999999;
+	border-top: 1px solid #f7f7f7;
+}
+#titlebar { border-bottom: none; }
+#toolbar { border-top: none; }
+#titlebar label { font-size: large; font-weight: bold; }
+#browser {
+	height: 100%;
+	width: 100%;
+	top: 0; bottom: 0; left: 0; right: 0;
+	margin: 0; padding: 0; border: 0;
+}
+
+#url { width: 40em; }
+
+#bookmarks ul, #bookmarks li, #bookmarks label {
+	display: inline;
+	list-style-type: none;
+	list-style-position: outside;
+	margin: 0; padding: 0.5em;
+}
+
+#viewPortB {
+	width: auto;
+	height: auto;
+	margin: 0; padding: 0; border: 0;
+}
+#inspector {
+	position: absolute;
+	top: 10em;
+	right: 20px;
+	width: 450px;
+	height: 450px;
+	overflow: hidden;
+	border: 2px inset;
+	background-color: white;
+	vertical-align: top;
+}
+#inspector.closed {
+	top: 0;
+	left: -500px;
+}
+#inspector_tabs {
+	position: relative;
+	top: 0; left: 0;
+	width: 100%;
+	margin: 0; padding: 0.5em 0;
+}
+#inspector_tabs ul, #inspector_tabs li, #inspector_tabs label {
+	display: inline;
+	list-style-type: none;
+	list-style-position: outside;
+	margin: 0; padding: 0.5em;
+}
+#inspector_hide {
+	position: absolute;
+	top: 0; right: 0;
+	padding: 0; border: 0;
+/*	border: none; */
+	background-color: transparent;
+}
+#console {
+	width: 100%; 
+/*	table-layout: fixed; */
+	border-collapse: collapse;
+}
+#console caption { display: none; }
+#console thead td { padding: 0; }
+#console thead td button { margin: 0; border: 1px outset #dddddd; width: 100%; background-color: #dddddd; }
+#console tbody { height: 400px; overflow-y: scroll; }
+#console tbody tr { border-bottom: 1px solid #dddddd; }
+#console tbody td { padding-left: 0.2em; padding-right: 0.2em; vertical-align: top; }
+#console tbody td.URL { white-space: nowrap; overflow: hidden; }
+</style>
+<script type="text/javascript">
+	<![CDATA[
+Meeko.stuff.trace = {};
+Meeko.stuff.trace.log = function(data) {
+	if (data.boundDocumentURI == Meeko.stuff.xplSystem.documentURI) return;
+	var console = document.getElementById("console");
+	console.log(data); // FIXME console object is available before console system is loaded
+}
+	
+	]]>
+</script>
+<xbl xmlns="http://www.w3.org/ns/xbl">
+	<binding element="form[@template]">
+		<implementation>
+<![CDATA[
+({
+
+doSubmit: function() {
+	var form = this.boundElement;
+	var document = form.ownerDocument;
+	var window = document.parentWindow;
+	if ("get" != form.method.toLowerCase()) throw "Can't handle non-GET form submission when template is used";
+	
+	var url = form.getAttribute("template");
+	var query = "";
+	var formElts = form.elements;
+	for (var i=0, n=formElts.length; i<n; i++) {
+		var elt = formElts[i];
+		var name = elt.name;
+		if (!name) continue;
+		var regex = new RegExp("\\{" + name + "\\}", "g");
+		if (regex.test(url)) url = url.replace(regex, elt.value);
+		else query += (query) ? "&" : "" + name + "=" + encodeURIComponent(elt.value);
+	}
+	url = url.replace(/\{[^}]*\}/, "");
+	if (query) url += "?" + query;
+	if (form.target) {
+		var namedElts = document.getElementsByName(form.target);
+		for (var i=0, n=namedElts.length; i<n; i++) {
+			var elt = namedElts[i];
+			if (elt.name != form.target) continue; // NOTE IE finds elements by name or id
+			if ("IFRAME" != elt.tagName) continue;
+			elt.src = url;
+			break;
+		}
+	}
+	else {
+		window.location = url;
+	}
+	
+}
+
+})
+]]>
+
+		</implementation>
+		<handlers>
+			<handler event="submit" default-action="cancel">
+this.doSubmit();
+			</handler>
+		</handlers>
+	</binding>
+	<binding element="#browser">
+		<handlers>
+			<handler event="submit">
+var element = this.boundElement;
+var document = element.ownerDocument;
+var inspector = document.getElementById("inspector");
+inspector.reset(element.action);
+			</handler>
+		</handlers>
+	</binding>
+	<binding element="#bookmarks" extends="{pkgdefaultlibdir}/UI.xml#navlist">
+		<handlers>
+			<handler event="change">
+var element = this.boundElement;
+var document = element.ownerDocument;
+var input = element.getView();
+var item = element.getSelectedItem();
+var refElement = item.getRefElement();
+var href = refElement.getAttribute("href");
+input.value = href;
+var submitEvent = document.createEvent("HTMLEvents");
+submitEvent.initEvent("submit", true, true);
+input.form.dispatchEvent(submitEvent);
+			</handler>
+		</handlers>
+	</binding>
+	<binding element="#bookmarks > ul > li" extends="{pkgdefaultlibdir}/UI.xml#navlistitem"/>
+	<binding element="#bookmarks > ul > li > a[href]" extends="{pkgdefaultlibdir}/UI.xml#navlink"/>
+	<binding element="#viewPortB">
+		<implementation>
+({
+xblEnteredDocument: function() {
+	var frame = this.boundElement;
+	var document = frame.ownerDocument;
+	var height = document.body.offsetHeight - frame.offsetTop;
+	var width = document.body.offsetWidth;
+	frame.style.height = "" + height + "px";
+	frame.style.width = "" + width + "px";
+}
+})
+		</implementation>
+		<handlers>
+			<handler event="load">
+<![CDATA[
+var frame = this.boundElement;
+var window = frame.ownerDocument.parentWindow;
+var xplSystem = frame.contentWindow.xplSystem;
+if (xplSystem) xplSystem.logger._write = window.console_write;
+]]>
+			</handler>
+		</handlers>
+	</binding>
+	
+	<binding element="#inspector">
+		<implementation>
+({
+reset: function(url) {
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	document.getElementById("console").clear();
+}
+})
+		</implementation>
+	</binding>
+	<binding element="#inspector_hide">
+		<handlers>
+			<handler event="click">
+var button = this.boundElement;
+var document = button.ownerDocument;
+var target = document.getElementById("inspector");
+var classList = target.classList;
+classList.remove("open");
+classList.add("closed");
+			</handler>
+		</handlers>
+	</binding>
+	<binding element="#inspector_show">
+		<handlers>
+			<handler event="click">
+var button = this.boundElement;
+var document = button.ownerDocument;
+var target = document.getElementById("inspector");
+var classList = target.classList;
+classList.remove("closed");
+classList.add("open");
+			</handler>
+		</handlers>
+	</binding>
+	<binding element="#console">
+		<implementation>
+<![CDATA[
+({
+clear: function() {
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	var tBodies = element.getElementsByTagName("tbody");
+	var tBody = tBodies[tBodies.length - 1]; // TODO This removes children in last tbody. Is this the desired behavior?
+	var row;
+	while (row = tBody.lastChild) { tBody.removeChild(row); };
+},
+
+log: function(data) {
+	if (data.boundDocumentURI == Meeko.stuff.xplSystem.documentURI) return;
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	var tBodies = element.getElementsByTagName("tbody");
+	var tBody = tBodies[tBodies.length - 1]; // TODO add entries to last tbody. Is this the desired behavior?
+	var frag = document.createElement("tr");
+	function fn(txt, callback) {
+		var td = document.createElement("td");
+		td.appendChild(document.createTextNode((txt!=null)?txt:" "));
+		if (callback) callback(td);
+		frag.appendChild(td);
+	}
+	var level = (["DEBUG", "INFO", "WARN", "ERROR"])[data.level];
+	fn(level);
+	fn(data.message);
+	var href = (data.url.match(/(?:.*\/)?([^\/]*)$/))[1];
+	fn(href, function(td) { td.className = "URL"; td.title = data.url; });
+	var ref = (data.ref.match(/(?:.*\/)?([^\/]*)$/))[1];
+	fn(ref, function(td) { td.className = "URL"; td.title = data.ref; });
+	frag.className = level;
+	var rc = tBody.appendChild(frag);
+}
+
+})
+]]>
+		</implementation>
+	</binding>
+</xbl>
+</head>
+<body>
+	<form template="{url}" method="get" target="viewPortB" id="browser">
+		<div id="titlebar">
+			<label><img src="internet-web-browser.gif" style="vertical-align: text-bottom;" /> Meeko Browser</label>
+		</div>
+		<div id="toolbar">
+			<label for="url">Address <input type="text" name="url" id="url" /></label>
+			<button type="submit"><img src="go-next.gif" style="vertical-align: bottom;" /> Go</button>
+			<button type="button" id="inspector_show"><img src="utilities-system-monitor.gif" style="vertical-align: bottom;" /> Inspector</button>
+		</div>
+		<div id="bookmarks">
+			<a href="#url"></a>
+			<label><img src="bookmark.gif" style="vertical-align: bottom;" /> Bookmarks</label>
+			<ul>
+				<li><a href="tree.html" target="viewPortB">Tree</a></li>
+				<li><a href="menu.html" target="viewPortB">Menu</a></li>
+				<li><a href="tabbox.html" target="viewPortB">Tabbox</a></li>
+				<li><a href="table.html" target="viewPortB">Table</a></li>
+				<li><a href="webforms2.html" target="viewPortB">WebForms2</a></li>
+			</ul>
+		</div>
+		<iframe name="viewPortB" id="viewPortB" />
+	</form>
+	<div id="inspector" class="closed">
+		<div class="nav" id="inspector_tabs">
+			<a href="#inspector_panels"></a>
+			<label><img src="utilities-system-monitor.gif" style="vertical-align: middle;" /> Inspector</label>
+			<ul>
+				<li><a href="#console">Console</a></li>
+				<li>HTML</li>
+				<li>XBL</li>
+			</ul>
+			<button type="button" id="inspector_hide"><img src="close.gif" style="vertical-align: middle;" /></button>
+		</div>
+		<div class="view" id="inspector_panels">
+			<table id="console">
+				<caption>Console</caption>
+				<colgroup span="4"><col style="width: 5em" /><col /><col style="width: 8em" /><col style="width: 7em" /></colgroup>
+				<thead>
+					<tr>
+						<td><button>Level</button></td>
+						<td><button>Message</button></td>
+						<td><button>Document</button></td>
+						<td><button>Ref</button></td>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</body>
+</html>
