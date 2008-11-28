@@ -112,6 +112,13 @@ return false;
 	<handlers>
 		<handler event="keydown" key="Up">this.stepUp(1);</handler>
 		<handler event="keydown" key="Down">this.stepDown(1);</handler>
+		<handler event="mousewheel" default-action="cancel">
+<![CDATA[
+var delta = event.wheelDelta / 40;
+if (delta > 0) this.stepUp(delta);
+else this.stepDown(-delta);
+]]>
+		</handler>
 	</handlers>
 </binding>
 	
