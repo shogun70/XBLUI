@@ -110,6 +110,11 @@ return false;
 <binding id="WF2NumberInput" element="input[type=number]">
 	<implementation>(Meeko.UI.WF2NumberInput.prototype)</implementation>
 	<handlers>
+		<handler event="textInput">
+<![CDATA[
+if (event.data.match(/[^0-9.]/)) event.preventDefault();
+]]>
+		</handler>
 		<handler event="keydown" key="Up">this.stepUp(1);</handler>
 		<handler event="keydown" key="Down">this.stepDown(1);</handler>
 		<handler event="mousewheel" default-action="cancel">
