@@ -54,15 +54,15 @@ TreeWalker.prototype._init = function() {
 	this.currentNode = this.root;
 }
 TreeWalker.prototype._acceptNode = function(node) {
-	var rc = (this.filter) ?
+	if (0x1 << (node.nodeType-1) & this.whatToShow) {
+		return (this.filter) ?
 			this.filter.acceptNode(node) : // FIXME assumes filter.acceptNode is valid
 			NodeFilter.FILTER_ACCEPT;
-	return (0x1 << (node.nodeType-1) & this.whatToShow) ? rc : NodeFilter.FILTER_SKIP;
+	}
+	else return NodeFilter.FILTER_SKIP;
 }
 TreeWalker.prototype.firstChild = function() {
-	var node = this.currentNode;
-	node = node.firstChild;
-	for (node=node.firstChild; node; node=node.nextSibling) {
+	for (var node=this.currentNode.firstChild; node; node=node.nextSibling) {
 		var rc = this._acceptNode(node);
 		if (rc == NodeFilter.FILTER_ACCEPT) break;
 	}
@@ -70,8 +70,7 @@ TreeWalker.prototype.firstChild = function() {
 	return node;
 }
 TreeWalker.prototype.lastChild = function() {
-	var node = this.currentNode;
-	for (node=node.lastChild; node; node=node.previousSibling) {
+	for (var node=this.currentNode.lastChild; node; node=node.previousSibling) {
 		var rc = this._acceptNode(node);
 		if (rc == NodeFilter.FILTER_ACCEPT) break;
 	}
@@ -79,8 +78,7 @@ TreeWalker.prototype.lastChild = function() {
 	return node;
 }
 TreeWalker.prototype.nextSibling = function() {
-	var node = this.currentNode;
-	for (node=node.nextSibling; node; node=node.nextSibling) {
+	for (var node=this.currentNode.nextSibling; node; node=node.nextSibling) {
 		var rc = this._acceptNode(node);
 		if (rc == NodeFilter.FILTER_ACCEPT) break;
 	}
@@ -88,8 +86,7 @@ TreeWalker.prototype.nextSibling = function() {
 	return node;
 }
 TreeWalker.prototype.previousSibling = function() {
-	var node = this.currentNode;
-	for (node=node.previousSibling; node; node=node.previousSibling) {
+	for (var node=this.currentNode.previousSibling; node; node=node.previousSibling) {
 		var rc = this._acceptNode(node);
 		if (rc == NodeFilter.FILTER_ACCEPT) break;
 	}
@@ -97,8 +94,7 @@ TreeWalker.prototype.previousSibling = function() {
 	return node;
 }
 TreeWalker.prototype.parentNode = function() {
-	var node = this.currentNode;
-	for (node=node.parentNode; node; node=node.parentNode) {
+	for (var node=this.currentNode.parentNode; node; node=node.parentNode) {
 		var rc = this._acceptNode(node);
 		if (rc == NodeFilter.FILTER_ACCEPT) break;
 		if (node == this.root) return null; // don't step upwards from root
@@ -152,6 +148,9 @@ TreeWalker.forEach = function(iter, fn, context) {
 	if (!iter.nextNode) throw "Object doesn't have TreeWalker interface";
 	var node;
 	while (node = iter.nextNode()) fn.call(context, node); // TODO try / catch??
+}
+TreeWalker.prototype.forEach = function(fn, context) {
+	return TreeWalker.forEach(this, fn, context);
 }
 
 var NodeIterator = function(key) {
@@ -232,31 +231,18 @@ NodeIterator.forEach = function(iter, fn, context) {
 	var node;
 	while (node = iter.nextNode()) fn.call(context, node); // TODO try / catch??
 }
-
-var DocumentTraversal = function(target) {
-	if (null == target) return null; // TODO throw ??
-	if (this == window) return arguments.callee.getInterface(target);
-	else arguments.callee.prototype.xblCreate.call(this, target);
+NodeIterator.prototype.forEach = function(fn, context) {
+	return NodeIterator.forEach(this, fn, context);
 }
 
-DocumentTraversal.getInterface = Meeko.stuff.domSystem.addImplementation("Document", DocumentTraversal);
-DocumentTraversal.prototype.xblCreate = function(target) {
-	this.target = target;
-	var xblPublic = [];
-	// Add Traversal objects if they don't exist or don't work 
-	try { document.createNodeIterator(document, NodeFilter.SHOW_ALL, null, false); }
-	catch (error) { xblPublic.push("createNodeIterator"); }
-	try { document.createTreeWalker(document, NodeFilter.SHOW_ALL, null, false); }
-	catch (error) { xblPublic.push("createTreeWalker"); }
-	Meeko.stuff.domSystem.bindInterface(target, this, xblPublic, true); // NOTE override
-}
-DocumentTraversal.prototype.createNodeIterator = function() {
-	var instance = new NodeIterator(privateKey);
+var documentTraversal = {};
+documentTraversal.createTreeWalker = function() {
+	var instance = new TreeWalker(privateKey);
 	instance._init.apply(instance, arguments);
 	return instance;
 }
-DocumentTraversal.prototype.createTreeWalker = function() {
-	var instance = new TreeWalker(privateKey);
+documentTraversal.createNodeIterator = function() {
+	var instance = new NodeIterator(privateKey);
 	instance._init.apply(instance, arguments);
 	return instance;
 }
@@ -264,11 +250,46 @@ DocumentTraversal.prototype.createTreeWalker = function() {
 return {
 	NodeFilter: NodeFilter,
 	TreeWalker: TreeWalker,
-	NodeIterator: NodeIterator
+	NodeIterator: NodeIterator,
+	document: documentTraversal
 }
 })();
 
 Meeko.XPL.Namespace.enhance(window, Meeko.DOM.Traversal);
+
+try {{
+var iter = document.createTreeWalker(document, NodeFilter.SHOW_ALL, null, false);
+if (!iter.forEach) {
+	document.__createTreeWalker = document.createTreeWalker;
+	document.createTreeWalker = function(root, whatToShow, filter, entityReferenceExpansion) {
+		// NOTE fix for Safari-3 which treats filter as an acceptNode() function
+		var _filter = function(node) { return arguments.callee.acceptNode(node); }
+		Object.copy(_filter, filter);
+		var iter = this.__createTreeWalker(root, whatToShow, _filter, entityReferenceExpansion);
+		// NOTE and add forEach method
+		iter.forEach = TreeWalker.prototype.forEach;
+		return iter;
+	}
+}
+}}
+catch (error) { document.createTreeWalker = Meeko.DOM.Traversal.document.createTreeWalker; }
+
+try {{
+var iter = document.createNodeIterator(document, NodeFilter.SHOW_ALL, null, false);
+if (!iter.forEach) {
+	document.__createNodeIterator = document.createNodeIterator;
+	document.createNodeIterator = function(root, whatToShow, filter, entityReferenceExpansion) {
+		// NOTE fix for Safari-3 which treats filter as an acceptNode() function
+		var _filter = function(node) { return arguments.callee.acceptNode(node); }
+		Object.copy(_filter, filter);
+		var iter = this.__createNodeIterator(root, whatToShow, _filter, entityReferenceExpansion);
+		// NOTE and add forEach method
+		iter.forEach = NodeIterator.prototype.forEach;
+		return iter;
+	}
+}
+}}
+catch (error) { document.createNodeIterator = Meeko.DOM.Traversal.document.createNodeIterator; }
 
 
 ]]>

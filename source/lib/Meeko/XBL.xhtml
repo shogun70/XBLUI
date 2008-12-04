@@ -12,6 +12,7 @@
 // TODO complete binding removal - delete object.x or object.x = null ??
 // TODO proper DOM errors
 
+
 var ProgressEvent = (function() { // FIXME consolidate this with EventTarget in DOM Events??
 
 var ProgressEvent = function(target) { // NOTE meant to be called by ProgressEvent.apply() - which overrides Function.prototype.apply()
@@ -181,15 +182,21 @@ DocumentXBL.prototype.createXBLSystem = function(uri) {
 	}, false)
 	return xblSystem;
 }
+/*
 DocumentXBL.prototype.applyBindingSystem = function(system) {
 	var xblDocument = system.getXBLDocument();
 	var index = bindingSystems.indexOf(system);
-	var domWalker = new DOMWalker(document.body);
+	var filter = {
+		acceptNode: function(node) {
+			ElementXBL.xblRequired(node) 
+		}
+	}
+	var domWalker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_ELEMENT, ElementXBL.xblRequired, false);
 	domWalker.forEach(function(element) {
-		var elementXBL = ElementXBL(element);
-		if (elementXBL) elementXBL.applyBindingDocument(xblDocument, index);
+		ElementXBL.applyBindingDocument(element, xblDocument, index);
 	});
 }
+*/
 DocumentXBL.prototype.getBindingDocuments = function() {
 	var docList = [];
 	var systems = getBindingSystems();
@@ -237,6 +244,7 @@ BindingDocumentRef.getInterface = function(target) { // FIXME is this even used?
 // BindingDocumentRef.interfaceLookup['?xpl'] = Meeko.stuff.domSystem.addImplementation("ProcessingInstruction", BindingDocumentRef);
 BindingDocumentRef.interfaceLookup['link'] = Meeko.stuff.domSystem.addImplementation("HTMLLinkElement", BindingDocumentRef);
 BindingDocumentRef.interfaceLookup['style'] = Meeko.stuff.domSystem.addImplementation("HTMLStyleElement", BindingDocumentRef);
+BindingDocumentRef.xblRequired = function(node) { return true; }
 
 BindingDocumentRef.prototype.xblCreate = function(target) {
 	var documentXBL = DocumentXBL(document);
@@ -298,26 +306,51 @@ BindingDocumentRef.prototype.createFromHTMLStyleElement = function(node) {
 	this.createFromDocument(xml, document.documentURI);
 }
 BindingDocumentRef.prototype.createFromUri = function(uri) {
+	var ref = this;
 	var documentXBL = DocumentXBL(document);
 	var absoluteURI = parseUri(uri, document.documentURI).toString(); // FIXME should this receive absoluteURI?
 	var xblSystem = this.createXBLSystem(absoluteURI);
+	this.xblSystem = xblSystem;
 	bindingSystems.push(xblSystem);
 	xblSystem.addEventListener("load", function() {
-		documentXBL.applyBindingSystem(xblSystem);
+		ref.init();
 	}, false);
 	xblSystem.request(absoluteURI);
-	this.xblSystem = xblSystem;
 }
 BindingDocumentRef.prototype.createFromDocument = function(target, documentURI) {
+	var ref = this;
 	if (!documentURI) documentURI = target.documentURI;
 	var documentXBL = DocumentXBL(document);
 	var xblSystem = documentXBL.createXBLSystem(documentURI);
+	this.xblSystem = xblSystem;
 	bindingSystems.push(xblSystem);
 	xblSystem.addEventListener("load", function() {
-			documentXBL.applyBindingSystem(xblSystem);
+		ref.init();
 	}, false);
 	xblSystem.init(target, documentURI);
-	this.xblSystem = xblSystem;
+}
+BindingDocumentRef.prototype.init = function() {
+	var doc = this.xblSystem;
+	var index = bindingSystems.indexOf(this.xblSystem);
+	var domWalker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_ELEMENT, this, false);
+	domWalker.forEach(function(element) {
+		ElementXBL(element).applyBindingDocument(doc, index);
+	});
+}
+BindingDocumentRef.prototype.acceptNode = function(element) {
+	var doc = this.xblSystem.getXBLDocument();
+	var bindings = doc.bindings;
+	for (var bindingIndex=0; bindingIndex<bindings.length; bindingIndex++) {
+		var bindingSpec = bindings[bindingIndex];
+		var selectorText = bindingSpec.element;
+		var selectors = bindingSpec.elementSelectorList;
+		if (!selectors) continue;
+		var n = selectors.length;
+		for (var i=0; i<n; i++) {
+			if (selectors[i].test(element)) return NodeFilter.FILTER_ACCEPT;
+		}
+	}
+	return NodeFilter.FILTER_SKIP;
 }
 /* TODO
 	interface ElementXBL {
@@ -334,6 +367,23 @@ var ElementXBL = function(target) {
 	else arguments.callee.prototype.xblCreate.call(this, target);
 }
 ElementXBL.getInterface = Meeko.stuff.domSystem.addImplementation("Element", ElementXBL);
+ElementXBL.xblRequired = function(element) {
+	var docList = DocumentXBL(document).getBindingDocuments();
+	for (var docIndex=0; docIndex<docList.length; docIndex++) {
+		var bindings = docList[docIndex].bindings;
+		for (var bindingIndex=0; bindingIndex<bindings.length; bindingIndex++) {
+			var bindingSpec = bindings[bindingIndex];
+			var selectorText = bindingSpec.element;
+			var selectors = bindingSpec.elementSelectorList;
+			if (!selectors) return;
+			var n = selectors.length;
+			for (var i=0; i<n; i++) {
+				if (selectors[i].test(element)) return true;
+			}
+		}
+	}
+	return false;
+}
 
 ElementXBL.prototype.xblCreate = function(element) {
 	this.boundElement = element;
