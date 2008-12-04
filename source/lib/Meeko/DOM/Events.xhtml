@@ -181,7 +181,7 @@ EventSystem.handlers = { // these handlers must always be called as handler.call
 		var keyId;
 		if (event.keyIdentifier) keyId = event.keyIdentifier;
 		else {
-			keyId = keyIdentifiersByCode[event.keyCode];
+			keyId = keyIdentifiersByCode[event.keyCode || event.charCode]; // FIXME
 			event.keyIdentifier = keyId;
 		}
 		var hist = this.keyEventHistory;
@@ -210,7 +210,7 @@ EventSystem.handlers = { // these handlers must always be called as handler.call
 		var keyId;
 		if (event.keyIdentifier) keyId = event.keyIdentifier;
 		else {
-			keyId = keyIdentifiersByCode[event.keyCode];
+			keyId = keyIdentifiersByCode[event.charCode]; // FIXME
 			event.keyIdentifier = keyId;
 		}
 		var hist = this.keyEventHistory;
@@ -231,16 +231,18 @@ EventSystem.handlers = { // these handlers must always be called as handler.call
 			newEvent.eventStatus = 0x01 | 0x04 | 0x08; // DEFAULT_PREVENTED | FAKE_EVENT | COMPATIBILITY_EVENT: signal to keypress handler to prevent default
 			event.target.dispatchEvent(newEvent);
 		}
-		if (!(keyId in w3cKeyIdentifiers)) {
+		hist.push(Object.copy({ type: "keypress", repeat: repeat }, event, keyEventFields));
+//		if (!(keyId in w3cKeyIdentifiers)) { 
+		if (event.charCode && !(event.metaKey || event.altKey || event.ctrlKey)) { // FIXME is this comprehensive?? 
 			if (!AppleWebKit || AppleWebKit < 500) { // FIXME won't work when other browsers implement textInput events
 				var newEvent = document.createEvent("TextEvent");
-				newEvent.initTextEvent("textInput", true, true, window, String.fromCharCode(event.keyCode));
+				newEvent.initTextEvent("textInput", true, true, window, String.fromCharCode(event.charCode)); // FIXME
 				event.target.dispatchEvent(newEvent);
+				if (newEvent.eventStatus & EventState.DEFAULT_PREVENTED) event.preventDefault();
 			}
 		}
-		hist.push(Object.copy({ type: "keypress", repeat: repeat }, event, keyEventFields));			
 	},
-	"textInput": function(event) {
+	"textInput": function(event) { // TODO should stopPropagation on browser textInput events
 		var current = event.currentTarget || window;
 		var hist = this.keyEventHistory;
 		var n = hist.length;
@@ -821,7 +823,6 @@ DOMMutation.getInterface = function(target) {
 	var nodeType = (target == window) ? 0 : target.nodeType;
 	var lookup = this.interfaceLookup[nodeType];
 	return (lookup) ? lookup(target) : null;
-	
 }
 DOMMutation.methods = ["insertBefore", "replaceChild", "removeChild", "appendChild", "cloneNode"];
 
@@ -923,6 +924,7 @@ var EventBubbler = function(target) {
 }
 
 EventBubbler.getInterface = Meeko.stuff.domSystem.addImplementation("HTMLFormElement", EventBubbler);
+EventBubbler.xblRequired = function(node) { return true; }
 EventBubbler.prototype.xblCreate = function(target) {
 	this.target = target;
 	var bubbler = this;
