@@ -1,0 +1,167 @@
+<?xml version="1.0"?>
+<?access-control allow="*"?>
+<!--
+XBL2 UI stuff
+Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<xbl xmlns="http://www.w3.org/ns/xbl">
+
+<script src="UI.js"/>
+
+<binding id="tree">
+	<implementation>(Meeko.UI.tree.prototype)</implementation>
+	<handlers>
+		<handler event="click">
+var element = this.boundElement;
+var item = event.target;
+while (item.tagName.toLowerCase() != "li") {
+	if (item == element) return;
+	item = item.parentNode;
+}
+this.selectItem(item);
+		</handler>
+	</handlers>
+</binding>
+
+<binding id="treeitem">
+	<implementation>(Meeko.UI.treeitem.prototype)</implementation>
+</binding>
+
+<binding id="navlist">
+	<implementation>(Meeko.UI.navlist.prototype)</implementation>
+	<handlers>
+		<handler event="click">
+var element = this.boundElement;
+var item = event.target;
+while (item.tagName.toLowerCase() != "li") {
+	if (item == element) return;
+	item = item.parentNode;
+}
+this.selectItem(item);
+		</handler>
+	</handlers>
+</binding>
+
+<binding id="navlistitem">
+	<implementation>(Meeko.UI.navlistitem.prototype)</implementation>
+</binding>
+
+<binding id="navlink">
+	<handlers>
+		<handler event="click" default-action="cancel"></handler>
+	</handlers>
+</binding>
+
+<binding id="scrollBox">
+	<implementation>(Meeko.UI.scrollBox.prototype)</implementation>
+</binding>
+	
+<binding id="scrollBoxWithResize">
+	<implementation>(Meeko.UI.scrollBoxWithResize.prototype)</implementation>
+</binding>
+	
+<binding id="switchBox">
+	<implementation>(Meeko.UI.switchBox.prototype)</implementation>
+</binding>
+
+<binding id="table">
+	<implementation>(Meeko.UI.table.prototype)</implementation>
+</binding>
+
+<binding id="RepetitionElement">
+	<implementation>(Meeko.UI.RepetitionElement)</implementation>
+</binding>
+
+<binding id="WF2FormElement">
+	<implementation>(Meeko.UI.WF2FormElement.prototype)</implementation>
+	<handlers>
+		<handler event="submit">
+<![CDATA[
+var element = this.boundElement;
+// FIXME assumes that the activeElement is a submit button in the form. Is this valid??
+var button = element.ownerDocument.parentWindow.activeElement; // NOTE relies on window.activeElement as per HTML5 and IE
+this.submit(button);
+]]>
+		</handler>
+		<handler event="received">
+<![CDATA[
+var rxStatement = this.boundElement.getAttribute("onreceived");
+if (rxStatement) {
+	var rxHandler = eval("function(event) {" + rxStatement + "}");
+	var returnValue = rxHandler.call(this.boundElement, event);
+	if (!returnValue) event.preventDefault();
+}
+]]>
+		</handler>	
+	</handlers>	
+</binding>
+
+<binding id="WF2SubmitButton" element="input[type=submit], button[type=submit]">
+	<implementation>(Meeko.UI.WF2SubmitButton.prototype)</implementation>
+</binding>
+
+<binding id="WF2TextInput">
+	<implementation>(Meeko.UI.WF2TextInput.prototype)</implementation>
+	<handlers>
+		<handler event="textInput">
+<![CDATA[
+var filter = this.getFilter();
+if (!filter) return true;
+var r = new RegExp("["+filter+"]");
+if (r.test(event.data)) return true;
+event.preventDefault();
+return false;
+]]>
+		</handler>
+	</handlers>
+</binding>
+
+<binding id="WF2NumberInput" element="input[type=number]">
+	<implementation>(Meeko.UI.WF2NumberInput.prototype)</implementation>
+	<handlers>
+		<handler event="textInput">
+<![CDATA[
+if (event.data.match(/[^0-9.]/)) event.preventDefault();
+]]>
+		</handler>
+		<handler event="keydown" key="Up">this.stepUp(1);</handler>
+		<handler event="keydown" key="Down">this.stepDown(1);</handler>
+		<handler event="mousewheel" default-action="cancel">
+<![CDATA[
+var delta = event.wheelDelta / 40;
+if (delta > 0) this.stepUp(delta);
+else this.stepDown(-delta);
+]]>
+		</handler>
+	</handlers>
+</binding>
+	
+	
+<binding id="WF2AddElement" element="input[type=add]" extends="#WF2InputElement">
+	<handlers>
+		<handler event="click">this.htmlTemplate.addRepetitionBlock(null);</handler>			
+	</handlers>
+</binding>
+
+<binding id="WF2TextAreaElement">
+</binding>
+	
+<binding id="WF2ButtonElement">
+</binding>
+	
+<binding id="WF2SelectElement" element="select">
+	<implementation>(Meeko.UI.WF2SelectElement.prototype)</implementation>
+</binding>
+	
+<binding id="WF2OutputElement">
+	<implementation>(Meeko.UI.WF2OutputElement.prototype)</implementation>
+</binding>
+
+<binding id="WF2DatalistElement">
+	<implementation>(Meeko.UI.WF2DatalistElement.prototype)</implementation>
+</binding>
+
+
+</xbl>
+	

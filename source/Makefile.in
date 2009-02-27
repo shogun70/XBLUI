@@ -1,0 +1,88 @@
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+PKGNAME = @PKGNAME@
+PKGVERSION = @PKGVERSION@
+
+include @top_srcdir@/mk/gnu.bsdvars.mk
+
+# FIXME we need these first four because pkglibdir, etc
+# aren't expanded by configure
+basedir ?= @basedir@
+prefix ?= @prefix@
+pkgreldir ?= ${PKGNAME}/${PKGVERSION}
+destdir ?= @destdir@
+toolsdir ?= @top_srcdir@/tools
+
+pkglibdir ?= @pkglibdir@
+pkgdefaultlibdir ?= @pkgdefaultlibdir@
+pkglibexecdir ?= @pkglibexecdir@
+pkgdemodir ?= @pkgdemodir@
+destpkglibdir ?= @destpkglibdir@
+destpkglibexecdir ?= @destpkglibexecdir@
+destpkgdemodir ?= @destpkgdemodir@
+
+.SUFFIXES :
+.SUFFIXES : .html .xhtml .js .xml .xpl .xbl
+
+RESOURCES = DOM.js
+UI_TARGETS = WF2.xml UI.xml UI.js
+TARGETS = ${UI_TARGETS} libXBL.js XBL.js XBLUI.js
+
+XSLTPROC = /usr/bin/xsltproc
+XBLPP = ~/bin/xblpp
+XPLPP = ~/bin/xplpp
+XPL = ~/bin/xpl
+URLINSTALL = ~/bin/urlinstall
+CURL = /usr/bin/curl --netrc --ftp-create-dirs
+SVN = /usr/local/bin/svn
+
+CACHE_CONFIG := ${foreach fname,${UI_TARGETS},--disk-cache ${pkglibexecdir}/${fname} ${.CURDIR}/${fname}}
+
+#DOM_VERSION = 0.9.x.1
+#PARAMS_CONFIG += --param DOM_SCRIPT_URL ${libexecdir}/DOM/${DOM_VERSION}/DOM.js
+PARAMS_CONFIG += --param DOM_SCRIPT_URL DOM.js
+PARAMS_CONFIG += --param pkglibdir ${pkglibdir}
+PARAMS_CONFIG += --param pkgdefaultlibdir ${pkgdefaultlibdir}
+
+# Rules
+all : build
+
+depend : .depend
+
+.depend :
+	# FIXME
+	# ${XPL} --make-depend ${CACHE_CONFIG} ${PARAMS_CONFIG} XBL.xhtml > .depend
+	# ${XPL} --make-depend ${CACHE_CONFIG} ${PARAMS_CONFIG} XBLUI.xhtml > .depend
+	
+build : ${TARGETS}
+
+install: build
+	for FILE in ${TARGETS} ; do \
+		${URLINSTALL} $${FILE} ${destpkglibexecdir}/$${FILE}; \
+		gzip -c $${FILE} | ${URLINSTALL} - ${destpkglibexecdir}/$${FILE}.gz; \
+	done;
+	for FILE in ${RESOURCES} ; do \
+		${URLINSTALL} ${srcdir}/$${FILE} ${destpkglibexecdir}/$${FILE}; \
+		gzip -c ${srcdir}/$${FILE} | ${URLINSTALL} - ${destpkglibexecdir}/$${FILE}.gz; \
+	done;
+
+clean : 
+	-rm ${TARGETS}
+
+libXBL.js : lib/Meeko/XBL.js
+	cp ${.IMPSRC} ${.TARGET}
+
+XBL.js : XBL.xhtml DOM.js
+
+XBLUI.js : XBLUI.xhtml ${UI_TARGETS} DOM.js
+
+.xbl.xml :
+	cp ${.IMPSRC} ${.TARGET}
+
+.xpl.js :
+	${XPLPP} ${.IMPSRC} > ${.TARGET}
+
+.xhtml.js :
+	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} > ${.TARGET}
+

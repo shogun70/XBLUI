@@ -1,0 +1,527 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="CONTENT-TYPE" content="text/html; charset=utf-8" />
+<title>XBLUI - XBL User Interface enhancements</title>
+<link rel="viewer" href="viewer.xhtml" />
+</head>
+<body lang="en-AU">
+<div class="head">
+<h1>XBLUI - XBL User Interface enhancements</h1>
+</div>
+<h1>Introduction</h1>
+<h2>Overview</h2>
+<p>XBLUI provides user interface enhancements for HTML.
+Enhancements
+are implemented as element bindings using the W3C's <a href="http://www.w3.org/TR/xbl">XML
+Binding Language</a> (XBL)<sup>1,2</sup>. XBL
+provides a simple
+method of applying and extending the built-in
+enhancements. </p>
+<p>XBLUI is a cross-browser Javascript library and incorporates
+Javascript and DOM fixes and enhancements to promote standards-based,
+browser-agnostic web-development. </p>
+<p>Since no current browser has a native XBL implementation XBLUI
+has
+its own partial, cross-browser implementation. Native XBL
+implementations will improve the performance of XBLUI
+enhancements. </p>
+<p>To facilitate development XBLUI incorporates cross-browser
+logging
+and will soon have other tracing features.</p>
+<small><strong>Notes:</strong>
+<ol>
+<li>Also
+commonly referred to as XBL2, and not to be confused with the
+non-compatible <a href="http://developer.mozilla.org/en/docs/XBL">Mozilla
+XBL</a>
+also known as XBL1.
+</li>
+<li>Enhancements to elements are
+called bindings in XBL.
+</li>
+</ol>
+</small>
+<h2>Quick start</h2>
+<p>Using XBLUI in your web-page is typically a three step process:</p>
+<ol>
+<li>include the XBLUI script</li>
+<li>create a XBL document to specify which elements
+receive user interface enhancements</li>
+<li>include the XBL document with a
+<code>link</code> or <code>style</code>
+element (similar to
+including a CSS document)
+</li>
+</ol>
+<p>The following example illustrates the simple case of adding
+numeric input functionality to a HTML input element as in the Web
+Forms 2 specification:</p>
+<pre>&lt;html&gt;<br /> &lt;head&gt;<br /> &lt;script src="http://dist.meekostuff.net/XBLUI/default/XBLUI.js"&gt;&lt;/script&gt;<sup>1,2</sup><br /> &lt;style type="application/xml"&gt;<sup>3,4</sup><br /> &lt;xbl xmlns="http://www.w3.org/ns/xbl"&gt;<br /> &lt;binding <br /> element="input[type=number]"<br /> extends="http://dist.meekostuff.net/XBLUI/default/WF2.xml#WF2NumberInput"/&gt;<br /> &lt;/xbl&gt;<br /> &lt;/style&gt;<br /> &lt;/head&gt;<br /> &lt;body&gt;<br /> &lt;label&gt;Enter a number from 0 to 100 &lt;input type="number" min="0" max="100" value="50" /&gt;&lt;/label&gt;<br /> &lt;/body&gt;<br />&lt;/html&gt;</pre>
+<small><strong>Notes:</strong>
+<ol>
+<li>This
+is the default script path. You can also choose a specific version. See
+Distribution
+</li>
+<li>In
+general the script element should be at the top of the head
+element.
+</li>
+<li>The
+type attribute of the style element must be "application/xml". See
+Including Binding Documents </li>
+<li>The XBL specification also
+allows bindings to be applied using CSS style-sheets. This is not yet
+available using XBLUI. </li>
+</ol>
+</small>
+<h2>Assumed knowledge</h2>
+<p>To read this guide and get started with XBLUI you should have
+a
+basic understanding of HTML, XML and CSS. </p>
+<p>For advanced usage you will need to know Javascript and the
+DOM. </p>
+<p>Examples in this guide are for illustration only, and are not
+appropriate for the open web without validation. In particular, HTML
+examples do not include a DOCTYPE statement, and while they use some
+XHTML-compatible features - lower-case tags and " /&gt;"
+tag-endings - they are not intended to be served as XHTML. </p>
+<h2>Warnings</h2>
+<h3>Work in progress</h3>
+<ul>
+<li>Hasn't been rigorously
+tested </li>
+<li>Partial implementations
+of standards - don't assume that because it's in the standard it will
+work </li>
+<li>Might not play nice - XBLUI hasn't been used with other
+Javascript libraries and may not work well or at all</li>
+</ul>
+<p class="todo">TODO: What sort of libraries might
+complement XBLUI? Canvas? I/O? Math
+&amp; String processing?</p>
+<h3>Doesn't cure CSS pain</h3>
+<ul>
+<li>CSS bugs aren't fixed </li>
+<li>No built-in themes </li>
+<li>Some XBLUI enhancements are designed to interact with your
+CSS </li>
+</ul>
+<h3>Partial implementation of XBL</h3>
+<p>Besides the inherent limitations of current browsers, the
+major
+deficiencies of the XBL implementation are, in order of importance: </p>
+<ul>
+<li>XBL Templates and
+shadow content aren't implemented. </li>
+<li>Dynamic modification of
+HTML isn't handled, i.e. XBL bindings aren't applied to dynamically
+inserted elements and bindings aren't updated if attributes (including
+pseudo-attributes) change </li>
+<li>xbl
+processing-instructions are only registered for XHTML documents, not
+for HTML documents
+</li>
+<li>loadBindingDocument()
+is not implemented </li>
+<li>XBL documents can't be
+modified </li>
+<li>Default action handlers aren't registered</li>
+</ul>
+<p class="note">Note: XBLUI logs warning messages for XBL
+elements and attributes
+that
+it doesn't implement.</p>
+<p>There are also some non-standard extensions provided by XBLUI:</p>
+<ul>
+<li>XBL binding documents
+may be included with <code>link</code> or <code>style</code>
+elements, similar to including CSS. </li>
+<li>cross-browser (but non-standard) logging
+</li>
+</ul>
+<p class="warn">The alternate method for including XBL is
+essential, so some
+change to your web-page will be required when native XBL
+implementations become available (unless the extension is
+incorporated into the standard). </p>
+<h2>Principles of use</h2>
+<h3>Progressive Enhancement</h3>
+<p>In general you should follow the philosophy of <a href="http://en.wikipedia.org/wiki/Progressive_Enhancement">progressive
+enhancement</a> when you create your pages. </p>
+<ol>
+<li>Start with basic HTML
+markup and create pages that are semantically succinct and accessible
+even when no scripting (or even styling) is available.  </li>
+<li>Use CSS to enhance
+layout.  </li>
+<li>Use XBLUI to enhance behavior.  </li>
+</ol>
+<h1>User's Guide</h1>
+<h3>Setup</h3>
+<p>Enable XBLUI in your web-page by sourcing the XBLUI.js file
+with a
+<code>script</code> element within the document's <code>head</code>
+element. </p>
+<p>For example, to include the default version of XBLUI use the
+following line:</p>
+<pre>&lt;script src="http://dist.meekostuff.net/XBLUI/default/XBLUI.js"&gt;&lt;/script&gt;</pre>
+<p>You can also choose a specific branch, development snapshot or
+release of XBLUI. For details see the <a href="#distribution">Distribution</a>
+section of this document.</p>
+<h3>Binding documents</h3>
+<p>To apply enhancements or create your own custom enhancements
+requires a binding document. A binding document is an XML document in
+the namespace http://www.w3.org/ns/xbl. The root element
+is a
+<code>xbl</code> element which contains all the <code>binding</code>
+elements. An empty binding document will look like this:</p>
+<pre>&lt;xbl xmlns="http://www.w3.org/ns/xbl"&gt;<br />&lt;/xbl&gt;</pre>
+<h4>Including  binding documents</h4>
+<p>Binding documents are included into your web-page in much the
+same
+way as CSS documents are. You may reference the URL of the document
+with a <code>link</code> element, like this:</p>
+<pre>&lt;link rel="bindings" type="application/xml" href="..." /&gt;</pre>
+<p>Or you can include the document inline by wrapping it
+inside a <code>style</code>
+element like this:</p>
+<pre>&lt;style type="application/xml"&gt;<br /> &lt;xbl xmlns="http://www.w3.org/ns/xbl"&gt;<br /> ...<br /> &lt;/xbl&gt;<br />&lt;/style&gt;</pre>
+<p class="note">Note: This is the HTML equivalent
+of an XBL tree in a XHTML document.</p>
+<p>For both methods specifying the <code>type</code>
+attribute as
+"application/xml" is essential, and for the <code>link</code>
+element the <code>rel</code> attribute must be
+"bindings". </p>
+<div class="todo">
+TODO: XHTML options
+<ul>
+<li>&lt;?xbl href="..."?&gt;</li>
+<li>XBL trees in XHTML documents</li>
+</ul>
+</div>
+<h3>Applying enhancements</h3>
+<p>To apply enhancements to your web-page you add <code>binding</code>
+elements to the binding document. Each binding specifies:</p>
+<ul>
+<li>an <code>element</code>
+attribute which contains a CSS selector to identify targets for the
+enhancement </li>
+<li>an <code>extends</code> attribute which
+contains a URL identifying the enhancement to apply </li>
+</ul>
+<p>For example, to specify that all elements of the form <code>&lt;input
+type="number"&gt;</code> should behave as in the Web Forms
+2 specification, add a binding element like this:
+<code></code></p>
+<pre><code>&lt;binding <br /> element="input[type=text]"<br /> extends="http://dist.meekostuff.net/XBLUI/default/WF2.xml#WF2NumberInput"/&gt;</code></pre>
+<p class="warn">The XBL specification also permits
+attaching bindings
+to elements with the <code>addBinding()</code> method and
+with
+the <code>binding</code> style property in CSS
+documents. This
+implementation doesn't support these techniques.</p>
+<h3>Custom enhancements</h3>
+<p>
+</p>
+<h3>Advanced Topics</h3>
+<h4 id="distribution">Versions</h4>
+<p>The default version of XBLUI is always the most recent stable
+release. Generally this is what you want to use, but if you require
+more stability or would like to try features from the latest
+experimental snapshot then you can switch to a specific version
+simply by changing the path of the XBLUI.js file you include. </p>
+<p>Firstly you need to understand how XBLUI branch, release and
+snapshot versions are identified. </p>
+<p>XBLUI branches are represented by two numbers, e.g. 1.0, 1.1,
+1.2.
+Even numbered branches are stable and odd numbered branches are
+experimental. </p>
+<p>Stable releases are identified by three numbers, e.g. 1.0.1,
+1.2.3
+where the first two numbers represent the branch and the third number
+is the release number for that branch. Releases are always taken from
+stable branches and are located in the release tree of the XBLUI
+project.  </p>
+<p>Pre-release and experimental snapshots of the code are
+identified
+by a code of the form A.B.xD, where A and B are numbers represent the
+branch, x is a literal "x", and D is a build number.
+Snapshots are found in the snapshot tree. </p>
+<p>As previously stated, the default version of XBLUI is the most
+recent stable release. Branches also have default releases, which are
+the same as the most recent stable release from the branch. They are
+identified by the the branch's two number representation, and are
+located in the release tree. Branches also have default snapshots,
+which are identified by a code of the form A.B.x and are located in
+the snapshot tree. </p>
+<p>XBLUI releases are available from
+http://dist.meekostuff.net/XBLUI. The distribution tree looks like
+this:</p>
+<ul>
+<li>XBLUI
+<ul>
+<li>release
+<ul>
+<li>1.0 <small class="info">[ 1.0 branch
+default release ]</small>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+1.0.0 </li>
+<li>
+1.0.1 </li>
+<li>
+1.2 <small class="info">[ 1.2 branch default release ]</small>
+</li>
+<li>
+1.2.0 </li>
+<li>
+1.2.1
+<ul>
+<li>snapshot
+<ul>
+<li>1.0.x <small class="info">[ 1.0
+branch default snapshot ]</small>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+1.0.x0 </li>
+<li>
+1.0.x1 </li>
+<li>
+1.1.x <small class="info">[ 1.1 branch default snapshot ]</small>
+</li>
+<li>
+1.1.x0 </li>
+<li>
+1.2.x <small class="info">[ 1.2 branch default snapshot ]</small>
+</li>
+<li>
+1.2.x0 </li>
+<li>
+1.2.x1
+<ul>
+<li>default <small class="info">[ default
+release ]</small> </li>
+</ul>
+</li>
+</ul>
+<p>A XBLUI release directory has the following contents:</p>
+<table cellpadding="2" cellspacing="2">
+<thead> <tr>
+<th>
+<p>Filename</p>
+</th>
+<td>
+</td>
+<th>
+<p>Description</p>
+</th>
+</tr>
+</thead> <tbody>
+<tr>
+<td>XBLUI.js
+</td>
+<td>
+</td>
+<td>A combined image containing all script and XBL document
+resources required by XBLUI.
+</td>
+</tr>
+<tr>
+<td>XBL.js
+</td>
+<td>
+</td>
+<td>The XBL engine
+</td>
+</tr>
+<tr>
+<td>UI.xml
+</td>
+<td>
+</td>
+<td>XBL document with UI enhancements
+</td>
+</tr>
+<tr>
+<td>UI.js
+</td>
+<td>
+</td>
+<td>Implementation for UI enhancements
+</td>
+</tr>
+<tr>
+<td>WF2.xml
+</td>
+<td>
+</td>
+<td>XBL document with WebForms2 enhancements
+</td>
+</tr>
+</tbody>
+</table>
+<p>Typically you would include XBLUI.js which pre-caches the
+other
+resources. In this case the default location for XBL documents - e.g.
+http://dist.meekostuff.net/XBLUI/default/UI.xml - is redirected to a
+pre-cached copy of the file in the release directory. </p>
+<p>This means that switching from the default XBLUI to a specific
+version only requires changing the script location while all XBL
+document references remain the same. </p>
+<h2>Debugging</h2>
+<p>In general you should use Meeko Browser.</p>
+<h1>API Reference</h1>
+<h2>Simple Enhancements</h2>
+<h3>TreeItem</h3>
+<p>A treeitem is a node in a tree. It has no significance when
+not
+attached to an element in a tree. </p>
+<h3>ViewBox</h3>
+<p>A viewBox is like the viewPort of your browser window. You can
+navigate it by scrolling the box or by calling a method to jump to a
+specified element. </p>
+<h3>Sortable Table</h3>
+<h2>Compound Enhancements</h2>
+<h3>Tree</h3>
+<p>A tree is a hierarchy of lists (typically ul)
+with
+behavior that allows different branches of the tree to be hidden or
+shown under user control. </p>
+<h3>Menu</h3>
+<p>A menu is a tree where only one branch is visible at a time
+and
+sub-menus popup adjacent to higher menus. </p>
+<h3>Tabbox</h3>
+<p>A tabbox is a viewBox (surrounding the content) preceded by a
+list
+of skip links styled as a set of tabs. </p>
+<h3>Sortable Table</h3>
+<h2>Web Forms 2 Enhancements</h2>
+<p>XBLUI provides some extensions to form control elements which
+partially implement the WHATWG Web Forms 2.0 (Working Draft). </p>
+<h3>Applying the enhancements</h3>
+<p>You can apply all the available Web Forms 2 enhancements by
+adding
+the following in the head of your page: </p>
+<pre>&lt;script type="text/javascript"&gt;<br />if (!document.implementation.hasFeature("WebForms", "2.0"))<br /> document.write('&lt;link rel="bindings" href="http://dist.meekostuff.net/XBLUI/default/WF2.xml" /&gt;');<br />&lt;/script&gt;</pre>
+<p>This will install XBLUI's Web Forms 2 enhancements only if
+the feature is not implemented natively.</p>
+<h3>Enhancement reference</h3>
+<p>This section describes the individual enhancements. Properties
+and
+methods listed here should behave as detailed in the specification
+unless otherwise noted. Properties and methods that are in the
+specification but not listed here are not implemented. </p>
+<h4>WF2FormElement</h4>
+<h5>Notes:</h5>
+<ul>
+<li>the <code>replace</code>
+and <code>data</code> attributes/properties. Getter and
+setter methods are also provided. </li>
+<li>
+the <code>checkValidity()</code>
+and <code>resetFromData()</code> methods </li>
+<li>
+the <code>elements</code> array isn't
+overridden and returns whatever is in the native implementation </li>
+</ul>
+<h4>WF2SelectElement</h4>
+<h5>Notes:</h5>
+<ul>
+<li>the <code>data</code>
+attribute/property </li>
+<li>
+the <code>checkValidity()</code> and <code>setCustomValidity()</code>
+methods </li>
+</ul>
+<h4>WF2TextInput</h4>
+<h5>Notes:</h5>
+<ul>
+<li>the <code>pattern</code>
+attribute/property </li>
+<li>
+the <code>checkValidity()</code> method </li>
+</ul>
+<h4>WF2NumberInput</h4>
+<h5>Notes:</h5>
+<ul>
+<li>the <code>min</code>,
+<code>max</code>, <code>step</code>
+attributes/properties </li>
+<li>
+the <code>stepUp()</code>
+and <code>stepDown()</code> methods </li>
+<li>
+the <code>checkValidity()</code> and <code>setCustomValidity()</code>
+methods </li>
+</ul>
+<h4>WF2RangeInput</h4>
+<h5>Notes:</h5>
+<ul>
+<li>the <code>min</code>,
+<code>max</code>, <code>step</code>
+attributes/properties </li>
+<li>
+the <code>stepUp()</code>
+and <code>stepDown()</code> methods </li>
+<li>
+the <code>checkValidity()</code> and <code>setCustomValidity()</code>
+method </li>
+</ul>
+<h4>WF2DateTimeInput</h4>
+<h4>WF2DateInput</h4>
+<h4>WF2MonthInput</h4>
+<h4>WF2WeekInput</h4>
+<h4>WF2TimeInput</h4>
+<h4>WF2EmailInput</h4>
+<h4>WF2URLInput</h4>
+<h2>See also</h2>
+<ul>
+<li><a href="showcase/index.html">Demos</a> </li>
+<li>
+<a href="status.html">Current
+status</a> </li>
+<li>
+Issues </li>
+</ul>
+<ul>
+<li>XBL implementations
+<ul>
+<li><a href="http://dev.w3.org/cvsweb/2006/waf/XBLImpl/">The
+W3C
+reference implementation</a> by <a href="http://www.tml.tkk.fi/%7Empohja/">Mikko Pohja</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="http://code.google.com/p/xbl/">An
+MIT licenced implementation</a> by <a href="http://www.ilinsky.com/">Sergey Ilinsky</a> </li>
+</ul>
+<h2>References </h2>
+<dl>
+<dt><a name="refsXBL2">[XBL2] </a></dt>
+<dd><a href="http://www.w3.org/TR/2007/CR-xbl-20070316/">XML
+Binding Language (XBL) 2.0</a>, I. Hickson. W3C,
+Candidate Recommendation 16 March 2007. The latest version of the XBL
+specification is available at <a href="http://www.w3.org/TR/xbl/">http://www.w3.org/TR/xbl/</a>
+</dd>
+<dt> <a name="refsXBLPrimer">[XBLPrimer]
+</a></dt>
+<dd><a href="http://www.w3.org/TR/2007/WD-xbl-primer-20070718/">XBL
+2.0 Primer: An Introduction for Developers</a>, L.
+Hunt, M. Caceras. W3C, Working Draft 18 July 2007. The latest version
+of the XBL Primer is available at <a href="http://www.w3.org/TR/xbl-primer">http://www.w3.org/TR/xbl-primer/</a>
+</dd>
+</dl>
+</body></html>

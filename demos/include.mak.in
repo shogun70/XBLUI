@@ -1,0 +1,68 @@
+# NOTE configuration variable expansion is done in the demo root directory,
+# but the makefile is included and used from the demo subdirs. 
+
+# FIXME wrapper.html is hard-coded
+
+demo_srcdir = @srcdir@
+
+PKGNAME = @PKGNAME@
+PKGVERSION = @PKGVERSION@
+
+include @top_srcdir@/mk/gnu.bsdvars.mk
+
+pkglibdir = @pkglibdir@
+pkgdefaultlibdir = @pkgdefaultlibdir@
+pkglibexecdir = @pkglibexecdir@
+pkgdemodir = @pkgdemodir@
+destpkglibdir = @destpkglibdir@
+destpkglibexecdir = @destpkglibexecdir@
+destpkgdemodir = @destpkgdemodir@
+
+toolsdir = @top_srcdir@/tools
+
+.SUFFIXES: .html .xml .css
+DEMOS = tree menu tabbox table webforms2
+RESOURCES = wf2select.xml button.gif arrow-up.gif arrow-dn.gif arrow-lft.gif arrow-rit.gif bookmark.gif utilities-system-monitor.gif go-next.gif close.gif internet-web-browser.gif columnpicker.gif
+SUBDIR_RESOURCES += init.js
+TARGETS = browser.html
+TARGETS += ${foreach DEMO,${DEMOS},${DEMO}.html}
+
+XSLTPROC = /usr/bin/xsltproc --novalid 
+TIDY = /usr/bin/tidy -q
+URLINSTALL = ~/bin/urlinstall
+HTMLPP = ~/bin/htmlpp
+HTMLWRAP = ~/bin/htmlwrap
+
+DOM_SCRIPT_URL ?= ${pkgdefaultlibdir}/DOM.js
+PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
+PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBL.js
+PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
+
+all: build
+
+build: wrapper.html ${TARGETS} ${RESOURCES} ${SUBDIR_RESOURCES}
+
+clean:
+	-rm ${TARGETS}
+	-rm ${RESOURCES}
+	-rm wrapper.html
+
+install: ${TARGETS} ${RESOURCES}
+	for FILE in ${TARGETS} ${RESOURCES} ${SUBDIR_RESOURCES}; do \
+		${URLINSTALL} $${FILE} ${destpkgdemodir}/${DOM_LIB}/$${FILE}; \
+		gzip -c $${FILE} | ${URLINSTALL} - ${destpkgdemodir}/${DOM_LIB}/$${FILE}.gz; \
+	done;
+
+
+${TARGETS}: %.html: ${demo_srcdir}/%.html
+	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
+	${HTMLWRAP} --stringparam WRAPPER_URL wrapper.html - > ${.TARGET}
+
+${RESOURCES}: %: ${demo_srcdir}/%
+	cp ${.IMPSRC} ${.TARGET}
+	
+${SUBDIR_RESOURCES}: %: ${srcdir}/%
+	cp ${.IMPSRC} ${.TARGET}
+	
+wrapper.html: ${demo_srcdir}/wrapper.html
+	${HTMLPP} ${PARAMS} ${.IMPSRC} > ${.TARGET}

@@ -1,0 +1,70 @@
+# FIXME wrapper.html is hard-coded
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+PKGNAME = @PKGNAME@
+PKGVERSION = @PKGVERSION@
+SUBDIRS = Meeko base2
+
+include @top_srcdir@/mk/gnu.bsdvars.mk
+
+pkglibdir = @pkglibdir@
+pkgdefaultlibdir = @pkgdefaultlibdir@
+pkglibexecdir = @pkglibexecdir@
+pkgdemodir = @pkgdemodir@
+destpkglibdir = @destpkglibdir@
+destpkglibexecdir = @destpkglibexecdir@
+destpkgdemodir = @destpkgdemodir@
+
+toolsdir = @top_srcdir@/tools
+
+.SUFFIXES: .html .html .xml .css
+RESOURCES = init.js
+TARGET_FILES = index.html
+TARGETS += ${foreach FILE,${TARGET_FILES},${.CURDIR}/${FILE}}
+
+XSLTPROC = /usr/bin/xsltproc --novalid 
+TIDY = /usr/bin/tidy -q
+URLINSTALL = ~/bin/urlinstall
+HTMLPP = ~/bin/htmlpp
+HTMLWRAP = ~/bin/htmlwrap
+
+DOM_SCRIPT_URL ?= ${pkglibexecdir}/DOM.js
+PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
+PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBL.js
+PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
+
+all: build
+
+clean: clean-subdirs
+	-rm ${TARGETS}
+	-rm wrapper.html # FIXME
+
+build: build-subdirs ${.CURDIR}/wrapper.html ${TARGETS}
+
+install: install-subdirs ${TARGET_FILES} ${RESOURCES}
+	for FILE in ${TARGET_FILES}; do \
+		${URLINSTALL} $${FILE} ${destpkgdemodir}/$${FILE}; \
+		gzip -c $${FILE} | ${URLINSTALL} - ${destpkgdemodir}/$${FILE}.gz; \
+	done;
+	for FILE in ${RESOURCES}; do \
+		${URLINSTALL} ${srcdir}/$${FILE} ${destpkgdemodir}/$${FILE}; \
+		gzip -c ${srcdir}/$${FILE} | ${URLINSTALL} - ${destpkgdemodir}/$${FILE}.gz; \
+	done;
+
+clean-subdirs: 
+	for dir in ${SUBDIRS}; do make -C $${dir} clean; done
+
+build-subdirs: 
+	for dir in ${SUBDIRS}; do make -C $${dir} build; done
+
+install-subdirs: 
+	for dir in ${SUBDIRS}; do make -C $${dir} install; done
+
+${TARGETS}: ${.CURDIR}/%.html: ${srcdir}/%.html 
+	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
+	${HTMLWRAP} --stringparam WRAPPER_URL wrapper.html - > ${.TARGET}
+
+${.CURDIR}/wrapper.html: ${srcdir}/wrapper.html
+	${HTMLPP} ${PARAMS} ${.IMPSRC} > ${.TARGET}

@@ -1,0 +1,176 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Webforms2 Demo
+Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
+All rights reserved
+-->
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>Meeko XBL WebForms2 Demo</title>
+	<style>
+html { border: none; }
+body { width: 480px; height: 100%; }
+#form label { display: block; position: relative; top: 0; left: 0; margin: 5px; vertical-align: middle; }
+#form input, #form select { position: absolute; top: 0; left: 130px; }
+#form a { font: 9pt sans-serif; }
+#form label a { display: none; }
+#webforms2 { position: relative; background-color: #dddddd; }
+
+#help { font-size: 10pt; }
+#help h2 { font-size: 10pt; }
+#help h3 { font-size: 9pt; font-weight: bold; }
+	</style>
+
+<xbl xmlns="http://www.w3.org/ns/xbl" xmlns:html="http://www.w3.org/1999/xhtml">
+	<html:style>
+#form a { display: none; }
+#form { margin-right: 160px; }
+#help { position: absolute; top: 0; left: 300px; width: 150px; font-size: 10pt; }
+#help div { background-color: #ffffdd; padding: 5px; }
+#help h2 { background-color: #e6f7ff; font-size: 10pt; text-align: center; margin: 3px 0; padding: 3px; border: 1px solid #dddddd; }
+#help h3 { font-size: 9pt; font-weight: bold; }
+#help p { margin: 3px 0; }
+	</html:style>
+	<binding extends="{pkgdefaultlibdir}/UI.xml#WF2NumberInput" element="input[type=number]"></binding>
+	<binding extends="{pkgdefaultlibdir}/UI.xml#WF2SubmitButton" element="input[type=submit], button[type=submit]"></binding>
+	<binding extends="{pkgdefaultlibdir}/UI.xml#WF2SelectElement" element="select[data]"></binding>
+	<binding element="form">
+		<implementation>
+<![CDATA[
+({
+encode: function() {
+	var element = this.boundElement;
+	var a = [];
+	Array.forEach(element.elements, function(el) {
+		if (el.name) a.push(el.name + "=" + encodeURIComponent(el.value));
+	});
+	var txt = a.join('&');
+	return txt;
+}
+})
+]]>
+		</implementation>
+		<handlers>
+			<handler event="submit" default-action="cancel">
+<![CDATA[
+var element = this.boundElement;
+var valid = true;
+forEach (element.elements, function(el) {
+	if (el.checkValidity && !el.checkValidity()) {
+		var message = "Invalid data for "+el.name+":\n"+el.value;
+		alert(message);
+		valid = false;
+	}
+});
+if (valid) {
+	var txt = "Encoded form data: \n" + this.encode();
+	alert(txt);
+}
+]]>
+			</handler>
+		</handlers>
+	</binding>
+		
+	<!-- Help system -->
+	<binding extends="{pkgdefaultlibdir}/UI.xml#switchBox" element="#help">
+		<implementation>
+({
+xblEnteredDocument: function() {
+	this.setView(null);
+},
+
+setView: function(item) {
+	if (null == item) forEach (this.baseBinding._getPanels(), function(panel) { panel.style.display = "none"; });
+	else return this.baseBinding.setView(item);
+}
+})
+		</implementation>
+	</binding>
+	<binding element="form, label[for]">
+		<implementation>
+
+({
+getRefElement: function() {
+	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
+		if ("A" == node.tagName) return node;
+	}
+	return null;
+},
+
+getView: function() {
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	var ref = this.getRefElement();
+	if ("A" == ref.tagName) {
+		var href = ref.href;
+		var baseURI = document.documentURI;
+		var rex = new RegExp("^"+baseURI+"#");
+		if (href.match(rex)) {
+			var id = href.replace(rex, "");
+			return document.getElementById(id);
+		}
+	}
+	return null;
+}
+})
+
+		</implementation>
+	</binding>
+	<binding element="input, select">
+		<handlers>
+			<handler event="focus">
+
+var element = this.boundElement;
+var document = element.ownerDocument;
+var form = element.form;
+var type = ("text" == element.type) ? element.getAttribute("type") : element.type.replace(/-.+$/, "");
+var view = document.getElementById(type + "Help");
+var viewBox = form.getView &amp;&amp; form.getView();
+if (view &amp;&amp; viewBox) viewBox.setView(view);
+				
+			</handler>
+			<handler event="blur">
+
+var element = this.boundElement;
+var document = element.ownerDocument;
+var form = element.form;
+var viewBox = form.getView &amp;&amp; form.getView();
+if (viewBox) viewBox.setView(null);
+				
+			</handler>
+		</handlers>
+	</binding>
+</xbl>
+</head>
+<body id="webforms2">
+	<form id="form">
+		<label for="numberInput">Number (0..100)
+			<input type="number" autocomplete="off" id="numberInput" name="numberInput" value="50" min="0" max="100"></input>
+			<a rel="help" href="#numberHelp">Help</a>
+		</label>
+
+		<label for="dataSelect">Data Select
+			<select data="wf2select.xml" id="dataSelect" name="dataSelect"></select>
+			<a rel="help" href="#selectHelp">Help</a>
+		</label>
+
+		<button type="submit">Submit</button>
+		<a rel="help" href="#help">Help</a>
+	</form>
+	
+	<div id="help">
+		<div id="numberHelp">
+			<h2>Number Input</h2>
+			<h3>&lt;input type="number" <br></br>min="0" max="100"&gt;</h3>
+			<p>Valid input is between the min and max values</p>
+			<p>Up and down keys can modify the value.</p>
+		</div>
+		<div id="selectHelp">
+			<h2>Data Select</h2>
+			<h3>&lt;select data="select.xml"&gt;</h3>
+			<p>A select element may be empty.  Options are loaded from the file specified by the data attribute.</p>
+		</div>
+	</div>
+	
+</body>
+</html>
