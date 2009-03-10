@@ -33,7 +33,7 @@ URLINSTALL = ~/bin/urlinstall
 HTMLPP = ~/bin/htmlpp
 HTMLWRAP = ~/bin/htmlwrap
 
-DOM_SCRIPT_URL ?= ${pkgdefaultlibdir}/DOM.js
+DOM_SCRIPT_URL ?= ${pkglibexecdir}/DOM.js
 PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
 PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBL.js
 PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}

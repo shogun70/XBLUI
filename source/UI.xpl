@@ -280,7 +280,9 @@ All rights reserved
 			<body>
 <![CDATA[
 	var element = this.boundElement;
-	Array.forEach(element.tBodies, function(tBody) {
+	var tBodies = element.tBodies;
+	for (var j=0, m=tBodies.length; j<m; j++) {
+		var tBody = tBodies.item(j);
 		var rows = tBody.rows;
 		var values = [];
 		for (var i=0, n=rows.length; i<n; i++) {
@@ -308,7 +310,7 @@ All rights reserved
 			if (i == n-1) tBody.appendChild(row);
 			else tBody.insertBefore(row, tBody.rows.item(i));
 		}
-	});
+	}
 ]]>
 			</body>
 		</method>

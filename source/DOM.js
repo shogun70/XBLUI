@@ -768,11 +768,12 @@ function onprogress() {
 
 
 function _init() {
+	window.clearTimeout(timerId); // NOTE this timeout can be circumvented by calling domSystem.initialize() 
 	timerId = window.setTimeout(onprogress, 50);
 	MAIN: switch (readyState) { // NOTE all these branches can fall-thru when they result in a state transition
 		case "uninitialized":
 ;;;logger.debug("initializing");
-			if (!document.body) return false;
+//			if (!document.body) return false;
 			for (var name in domBindings) {
 				domBindings[name].init();
 			}
@@ -850,6 +851,7 @@ Object.copy(domSystem, { // FIXME this is a complete hack
 	restoreInterface: restore,
 	wrapInterface: wrap,
 	attach: attachDOMBindings,
+	initialize: onprogress,
 	document: {} // FIXME implement this
 });
 
@@ -1967,6 +1969,7 @@ EventTarget.prototype.xblCreate = function(target) {
 		event.target = null;
 	}
 	this.prevValues = {}; // for onattrmodified
+	if (this.target == document.documentElement) return; // FIXME why doesn't this work for IE?
 	var clone = this.target.cloneNode(false);
 	var text = clone.outerHTML.replace(/^\S+/, "");
 	var rex = /\s+([-_a-zA-Z0-9]+)=(?:"([^"]*)"|'([^']*)'|([^\s>]+))(\>)?/g;

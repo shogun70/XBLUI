@@ -106,7 +106,7 @@ function copyTree(dest, source) {
 function registerXBLProcessingInstructions() {
 	for (var node=document.firstChild; node; node=node.nextSibling) {
 		if (node == document.documentElement) break;
-		if (node.nodeType != Node.PROCESSING_INSTRUCTION_NODE) continue;
+		if (node.nodeType != 7 /* Node.PROCESSING_INSTRUCTION_NODE */) continue;
 		if ("xbl" != node.target) continue;
 		var m = node.data.match(/^\s*href=['"]([^'"]*)['"]/);
 		loadBindingDocument(m[1]);
@@ -116,7 +116,7 @@ function registerXBLProcessingInstructions() {
 function registerXBLLinkElements() {
 	var head = document.getElementsByTagName("head")[0];
 	for (var node=head.firstChild; node; node=node.nextSibling) {
-		if (node.nodeType != Node.ELEMENT_NODE) continue;
+		if (node.nodeType != 1 /* Node.ELEMENT_NODE */) continue;
 		if (node.tagName.toLowerCase() != "link") continue;
 		if (node.rel != "bindings") continue;
 		loadBindingDocument(node.href);
@@ -126,7 +126,7 @@ function registerXBLLinkElements() {
 function registerXBLStyleElements() {
 	var head = document.getElementsByTagName("head")[0];
 	for (var node=head.firstChild; node; node=node.nextSibling) {
-		if (node.nodeType != Node.ELEMENT_NODE) continue;
+		if (node.nodeType != 1 /* Node.ELEMENT_NODE */) continue;
 		if (node.tagName.toLowerCase() != "style") continue;
 		if (node.type != "application/xml") continue;
 		var text = node.textContent || node.innerHTML; // TODO standardize??
@@ -304,8 +304,10 @@ function dispatchEvent(event) {
 	}
 
 	// override event properties and methods
-	event.__defineGetter__("currentTarget" , function() { return current; }); // WARN not working for Safari
-	event.__defineGetter__("eventPhase" , function() { return phase; }); // WARN not working for Safari
+	if (event.__defineGetter__) {
+		event.__defineGetter__("currentTarget" , function() { return current; }); // WARN not working for Safari
+		event.__defineGetter__("eventPhase" , function() { return phase; }); // WARN not working for Safari
+	}
 	event.eventStatus = 0;
 	event.__preventDefault = event.preventDefault;
 	event.preventDefault = function() { this.eventStatus |= 1; };
@@ -313,24 +315,30 @@ function dispatchEvent(event) {
 	event.stopPropagation = function() { this.eventStatus |= 2; };
 
 	
-	phase = Event.CAPTURING_PHASE;
+	phase = 1; // Event.CAPTURING_PHASE;
+	if (!event.__defineGetter__) event.phase = phase;
 	for (var n=path.length, i=n-1; i>0; i--) {
 		current = path[i];
+		if (!event.__defineGetter__) event.currentTarget = current;
 		callHandlers();
 		if (event.eventStatus & 1) event.__preventDefault();
 		if (event.eventStatus & 2) return;
 	}
 
-	phase = Event.AT_TARGET;
+	phase = 2; // Event.AT_TARGET;
+	if (!event.__defineGetter__) event.phase = phase;
 	current = path[0];
+	if (!event.__defineGetter__) event.currentTarget = current;
 	callHandlers();
 	if (event.eventStatus & 1) event.__preventDefault();
 	if (event.eventStatus & 2) return;
 	if (!event.bubbles) return;
 
-	phase = Event.BUBBLING_PHASE;
+	phase = 3; // Event.BUBBLING_PHASE;
+	if (!event.__defineGetter__) event.phase = phase;
 	for (var n=path.length, i=1; i<n; i++) {
 		current = path[i];
+		if (!event.__defineGetter__) event.currentTarget = current;
 		callHandlers();
 		if (event.eventStatus & 1) event.__preventDefault();
 		if (event.eventStatus & 2) return;
@@ -372,7 +380,7 @@ var XBLXblElement = function(_element, _document) {
 	this.srcHTMLStyleElements = []; // NOTE unused
 
 	for (var node=_element.firstChild; node; node=node.nextSibling) {
-		if (Node.ELEMENT_NODE != node.nodeType) continue;
+		if (node.nodeType != 1 /* Node.ELEMENT_NODE */) continue;
 		var localName = getLocalName(node);
 		if ("script" == localName && XBLNS == node.namespaceURI) {
 			var src = node.getAttribute("src");
@@ -434,7 +442,7 @@ var XBLBindingElement = function(_element, _document) {
 	
 	var XBLHandlers = function(_element) {
 		for (var node=_element.firstChild; node; node=node.nextSibling) {
-			if (Node.ELEMENT_NODE != node.nodeType) continue;
+			if (node.nodeType != 1 /* Node.ELEMENT_NODE */) continue;
 			var localName = getLocalName(node);
 			if ("handler" == localName && XBLNS == node.namespaceURI) {
 				var handler = XBLHandlerElement(node, _document);
@@ -452,7 +460,7 @@ var XBLBindingElement = function(_element, _document) {
 	var templateElts = [];
 
 	for (var node=_element.firstChild; node; node=node.nextSibling) {
-		if (Node.ELEMENT_NODE != node.nodeType) continue;
+		if (node.nodeType != 1 /* Node.ELEMENT_NODE */) continue;
 		if (XBLNS != node.namespaceURI) {
 			DOM.logger.warn("Ignoring " + tagName + " element: invalid namespace for child of xbl:binding");
 			continue;
@@ -537,9 +545,9 @@ XBLHandlerElement = function(_element, _document) {
 	}
 
 	this.phase = lookupValue("phase", {
-		"capture": Event.CAPTURING_PHASE,
-		"target": Event.AT_TARGET,
-		"bubble": Event.BUBBLING_PHASE,
+		"capture": 1, // Event.CAPTURING_PHASE,
+		"target": 2, // Event.AT_TARGET,
+		"bubble": 3, // Event.BUBBLING_PHASE,
 		"default-action": 0x78626C44 
 	}) || 0;
 
@@ -809,7 +817,7 @@ function getTextContent(element) {
 	if (null != element.textContent) text = element.textContent; // W3C
 	else if (null != element.text) text = element.text; // IE
 	else for (var textNode=element.firstChild; null!=textNode; textNode=textNode.nextSibling) { // Safari2
-		if (Node.TEXT_NODE == textNode.nodeType || Node.CDATA_SECTION_NODE == textNode.nodeType)
+		if (textNode.nodeType == 3 || textNode.nodeType == 4) // Node.TEXT_NODE or Node.CDATA_SECTION_NODE
 			text += textNode.nodeValue;
 	}
 	return text;
