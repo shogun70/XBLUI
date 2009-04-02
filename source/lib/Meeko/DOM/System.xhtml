@@ -109,9 +109,8 @@ nodeManager.getStorage = function(node) {
 }
 nodeManager.addNode = function(node, callback, context) {
 	if (this.getStorage(node)) { // FIXME why?
-		logger.error("Failure in addNode(): node already being managed " + node.tagName);
+		// logger.debug("Failure in addNode(): node already being managed " + node.tagName);
 		return false;
-		// throw "Failure in addNode()";
 	}
 	var nodeType = (node != window) ? node.nodeType : 0;
 	var nodeList = nodeTable[nodeType];
@@ -541,7 +540,7 @@ Traversal.prototype.createNodeIterator = function(root, whatToShow, filter, enti
 }
 
 
-var SafeNodeList = function(target) {
+var NodeList = function(target) {
 	if (!(this instanceof arguments.callee)) return new arguments.callee(target);
 
 	if (!(target && target.item && target.length != null)) throw "Target does not have NodeList interface"; 
@@ -550,14 +549,14 @@ var SafeNodeList = function(target) {
 		target: target,
 		valueOf: function() { return this.target.length; }
 	};
-	this.length.toString = this.length.valueOf;
 }
-SafeNodeList.prototype.item = function(i) {
-	var node = this.target.item(i);
+NodeList.prototype.item = function(i) {
+	var target = this.target;
+	var node = target.item(i);
 	if (node) Meeko.stuff.domSystem.attach(node);
 	return node;
 }
-SafeNodeList.prototype.forEach = function(fn, context) {
+NodeList.prototype.forEach = function(fn, context) {
 	var target = this.target;
 	for (var n=target.length, i=0; i<n; i++) {
 		var node = target.item(i);
@@ -566,7 +565,9 @@ SafeNodeList.prototype.forEach = function(fn, context) {
 	}
 }
 
-window.SafeNodeList = SafeNodeList; // FIXME
+// FIXME
+if (window.NodeList) window._NodeList = window.NodeList;
+window.NodeList = NodeList; 
 
 return domSystem;
 
