@@ -1,9 +1,9 @@
 (function() {
 
 
-var DOM = {};
+var conf = {};
 /*
-DOM.logger = {
+conf.logger = {
 	log: function fbug_log() { return console.log.apply(console, arguments); },
 	debug: function fbug_debug() { return console.debug.apply(console, arguments); },
 	info: function fbug_info() { return console.info.apply(console, arguments); },
@@ -11,9 +11,9 @@ DOM.logger = {
 	error: function fbug_error() { return console.error.apply(console, arguments); }
 }
 */
-DOM.utils = {
-	resolveURL: function(src, base) { return (URIParser.parseUri(src, base)).toString(); },
-	loadURL: function(uri) {
+conf.URL = {
+	resolve: function(src, base) { return (URIParser.parseUri(src, base)).toString(); },
+	load: function(uri) {
 		var rq = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
 		rq.open("GET", uri, false);
 		rq.send("");
@@ -22,7 +22,7 @@ DOM.utils = {
 	}
 }
 
-DOM.XMLDocument = {
+conf.XMLDocument = {
 	load: function(uri) {
 		var rq = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP"); 
 		rq.open("GET", uri, false);
@@ -41,7 +41,7 @@ DOM.XMLDocument = {
 	}
 }
 
-DOM.Document = {
+conf.Document = {
 	addEventListener: function(doc, type, handler, useCapture) {
 		return base2.DOM.Document.addEventListener(doc, type, handler, useCapture);
 	}
@@ -101,16 +101,16 @@ Object.defineProperty = function(object, field, desc) {
 */
 if (window.NodeList) NodeList.prototype.item = function(index) { 
 	NodeList.prototype._item = NodeList.prototype.item;
-	return DOM.Element.bind(this[index]); 
+	return conf.Element.bind(this[index]); 
 }
 if (window.HTMLCollection) {
 	HTMLCollection.prototype._item = HTMLCollection.prototype.item;
-	HTMLCollection.prototype.item = function(index) { return DOM.Element.bind(this[index]); }
+	HTMLCollection.prototype.item = function(index) { return conf.Element.bind(this[index]); }
 	HTMLCollection.prototype._namedItem = HTMLCollection.prototype.namedItem;
-	HTMLCollection.prototype.namedItem = function(name) { return DOM.Element.bind(this[name]); }
+	HTMLCollection.prototype.namedItem = function(name) { return conf.Element.bind(this[name]); }
 }
 
-DOM.HTMLCollection = { 
+conf.HTMLCollection = { 
 fixInterface: function(target, field) {
 	var base = target[field]; // base points to the native interface
 	target["_"+field] = base; 
@@ -118,12 +118,12 @@ fixInterface: function(target, field) {
 	coll._base = base;
 	coll.item = function(index) { 
 		var item = this._base[index]; 
-		if (item) DOM.Element.bind(item);
+		if (item) conf.Element.bind(item);
 		return item;
 	}
 	coll.namedItem = function(name) { 
 		var item = this._base[name]; 
-		if (item) DOM.Element.bind(item);
+		if (item) conf.Element.bind(item);
 		return item;
 	}
 	Object.defineProperty(coll, "length", { get: function() { return this._base.length; } });
@@ -137,7 +137,7 @@ addInterface: function(target, field, filter) {
 		while (node) {
 			if (node.nodeType == 1) { // Node.ELEMENT_NODE
 				if (!filter || filter(node) == 1) i++; // NodeFilter.FILTER_ACCEPT
-				if (index == i) return DOM.Element.bind(node);
+				if (index == i) return conf.Element.bind(node);
 			}
 			node = node.nextSibling;
 		}
@@ -157,7 +157,7 @@ addInterface: function(target, field, filter) {
 }
 }
 
-DOM.Element = {
+conf.Element = {
 	matchesSelector: function(elt, selector) {
 		return base2.DOM.Element.matchesSelector(elt, selector);
 	},
@@ -165,22 +165,22 @@ DOM.Element = {
 		if (elt.base2ID) return elt; // FIXME orthogonality
 		var bind = arguments.callee;
 		base2.DOM.bind(elt);
-		if (elt.children) DOM.HTMLCollection.fixInterface(elt, "children");
-		else DOM.HTMLCollection.addInterface(elt, "children");
+		if (elt.children) conf.HTMLCollection.fixInterface(elt, "children");
+		else conf.HTMLCollection.addInterface(elt, "children");
 
 		switch(elt.tagName.toLowerCase()) {
 			case "table":
 				if (elt.tHead) bind(elt.tHead);
 				if (elt.tFoot) bind(elt.tFoot);
-				DOM.HTMLCollection.fixInterface(elt, "tBodies");
+				conf.HTMLCollection.fixInterface(elt, "tBodies");
 			case "thead": case "tbody": case "tfoot":
-				DOM.HTMLCollection.fixInterface(elt, "rows");
+				conf.HTMLCollection.fixInterface(elt, "rows");
 				break;
 			case "tr":
-				DOM.HTMLCollection.fixInterface(elt, "cells");
+				conf.HTMLCollection.fixInterface(elt, "cells");
 				break;
 			case "select":
-				DOM.HTMLCollection.fixInterface(elt, "options");
+				conf.HTMLCollection.fixInterface(elt, "options");
 				break;
 		}
 		return elt;
@@ -289,10 +289,10 @@ base2.DOM.bind(document);
 document._getElementById = document.getElementById;
 document.getElementById = function(id) {
 	var elt = this._getElementById(id);
-	if (elt) DOM.Element.bind(elt);
+	if (elt) conf.Element.bind(elt);
 	return elt;
 }
 
-Meeko.stuff.xblSystem.initialize(DOM);
+Meeko.stuff.xblSystem.initialize(conf);
 
 })();

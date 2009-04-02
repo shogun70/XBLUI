@@ -27,7 +27,7 @@ destpkgdemodir ?= @destpkgdemodir@
 
 RESOURCES = DOM.js
 UI_TARGETS = WF2.xml UI.xml UI.js
-TARGETS = ${UI_TARGETS} libXBL.js XBL.js XBLUI.js
+TARGETS = ${UI_TARGETS} libXBL.js XBL.js libXBLUI.js XBLUI.js
 
 XSLTPROC = /usr/bin/xsltproc
 XBLPP = ~/bin/xblpp
@@ -74,6 +74,8 @@ libXBL.js : lib/Meeko/XBL.js
 	cp ${.IMPSRC} ${.TARGET}
 
 XBL.js : XBL.xhtml DOM.js
+
+libXBLUI.js : libXBLUI.xhtml ${UI_TARGETS}
 
 XBLUI.js : XBLUI.xhtml ${UI_TARGETS} DOM.js
 
