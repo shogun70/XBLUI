@@ -24,9 +24,9 @@ TARGETS += ${foreach DOC,${DOCS},${DOC}.html}
 RESOURCES = documentation.css
 
 XSLTPROC = /usr/bin/xsltproc --novalid 
-HTMLWRAP = ~/bin/htmlwrap
+HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
 TIDY = /usr/bin/tidy -q
-URLINSTALL = ~/bin/urlinstall
+URLINSTALL = ~/bin/URL-Utils-0.5/url-install
 
 
 PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/XBLUI.js
@@ -51,6 +51,5 @@ install: ${TARGETS} ${RESOURCES}
 
 .xhtml.html :
 	${HTMLWRAP} ${.IMPSRC} |\
-	${XSLTPROC} ${PARAMS} ${top_srcdir}/demos/xhtml2xhtml_standalone.xsl - |\
-	${XSLTPROC} ${PARAMS} ${top_srcdir}/demos/xhtml2html.xsl - > ${.TARGET}
+	${HTMLPP} ${PARAMS} - > ${.TARGET}
 

@@ -26,9 +26,9 @@ TARGETS += ${foreach FILE,${TARGET_FILES},${.CURDIR}/${FILE}}
 
 XSLTPROC = /usr/bin/xsltproc --novalid 
 TIDY = /usr/bin/tidy -q
-URLINSTALL = ~/bin/urlinstall
-HTMLPP = ~/bin/htmlpp
-HTMLWRAP = ~/bin/htmlwrap
+URLINSTALL = ~/bin/URL-Utils-0.5/url-install
+HTMLPP = ~/bin/HTMLPP-0.7/htmlpp
+HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
 
 DOM_SCRIPT_URL ?= ${pkglibexecdir}/DOM.js
 PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
@@ -64,7 +64,7 @@ install-subdirs:
 
 ${TARGETS}: ${.CURDIR}/%.html: ${srcdir}/%.html 
 	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
-	${HTMLWRAP} --stringparam WRAPPER_URL wrapper.html - > ${.TARGET}
+	${HTMLWRAP} --wrapper wrapper.html - > ${.TARGET}
 
 ${.CURDIR}/wrapper.html: ${srcdir}/wrapper.html
 	${HTMLPP} ${PARAMS} ${.IMPSRC} > ${.TARGET}

@@ -30,12 +30,9 @@ UI_TARGETS = WF2.xml UI.xml UI.js
 TARGETS = ${UI_TARGETS} libXBL.js XBL.js libXBLUI.js XBLUI.js
 
 XSLTPROC = /usr/bin/xsltproc
-XBLPP = ~/bin/xblpp
-XPLPP = ~/bin/xplpp
-XPL = ~/bin/xpl
-URLINSTALL = ~/bin/urlinstall
-CURL = /usr/bin/curl --netrc --ftp-create-dirs
-SVN = /usr/local/bin/svn
+XPL2JS = ~/bin/XPL-0.5/xpl2js
+XPL = ~/bin/XPL-0.5/xpl
+URLINSTALL = ~/bin/URL-Utils-0.5/url-install
 
 CACHE_CONFIG := ${foreach fname,${UI_TARGETS},--disk-cache ${pkglibexecdir}/${fname} ${.CURDIR}/${fname}}
 
@@ -83,7 +80,7 @@ XBLUI.js : XBLUI.xhtml ${UI_TARGETS} DOM.js
 	cp ${.IMPSRC} ${.TARGET}
 
 .xpl.js :
-	${XPLPP} ${.IMPSRC} > ${.TARGET}
+	${XPL2JS} ${.IMPSRC} > ${.TARGET}
 
 .xhtml.js :
 	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} > ${.TARGET}

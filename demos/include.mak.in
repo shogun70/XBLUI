@@ -29,9 +29,9 @@ TARGETS += ${foreach DEMO,${DEMOS},${DEMO}.html}
 
 XSLTPROC = /usr/bin/xsltproc --novalid 
 TIDY = /usr/bin/tidy -q
-URLINSTALL = ~/bin/urlinstall
-HTMLPP = ~/bin/htmlpp
-HTMLWRAP = ~/bin/htmlwrap
+URLINSTALL = ~/bin/URL-Utils-0.5/url-install
+HTMLPP = ~/bin/HTMLPP-0.7/htmlpp
+HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
 
 DOM_SCRIPT_URL ?= ${pkglibexecdir}/DOM.js
 PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
@@ -45,6 +45,7 @@ build: wrapper.html ${TARGETS} ${RESOURCES} ${SUBDIR_RESOURCES}
 clean:
 	-rm ${TARGETS}
 	-rm ${RESOURCES}
+	-rm ${SUBDIR_RESOURCES}
 	-rm wrapper.html
 
 install: ${TARGETS} ${RESOURCES}
@@ -56,7 +57,7 @@ install: ${TARGETS} ${RESOURCES}
 
 ${TARGETS}: %.html: ${demo_srcdir}/%.html
 	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
-	${HTMLWRAP} --stringparam WRAPPER_URL wrapper.html - > ${.TARGET}
+	${HTMLWRAP} --wrapper wrapper.html - > ${.TARGET}
 
 ${RESOURCES}: %: ${demo_srcdir}/%
 	cp ${.IMPSRC} ${.TARGET}
