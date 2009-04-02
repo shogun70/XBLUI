@@ -281,19 +281,14 @@ All rights reserved
 			<parameter name="reverse"/>
 			<body>
 <![CDATA[
-	forEach (this.boundElement.tBodies, function(tBody) {
-		var clone = tBody.cloneNode(true);
-		var rows = [];
-		var row;
-		while (row = clone.firstChild) { // NOTE assumes tBody only contains rows
-			clone.removeChild(row);
-			if (Node.ELEMENT_NODE == row.nodeType) rows.push(row);
-		}
+	var element = this.boundElement;
+	Array.forEach(element.tBodies, function(tBody) {
+		var rows = tBody.rows;
 		var values = [];
 		for (var i=0, n=rows.length; i<n; i++) {
-			var row = rows[i]; var cell = (row.cells && row.cells.length) ? row.cells[column] : row.getElementsByTagName("td")[column];
+			var row = rows[i]; var cell = row.cells[column];
 			var val = new String(cell.firstChild.nodeValue);
-			val.rowIndex = i;
+			val.row = row;
 			values.push(val);
 		}
 		switch (type) {
@@ -310,10 +305,11 @@ All rights reserved
 		if (reverse) values = values.reverse();
 		for (var n=values.length, i=0; i<n; i++) {
 			var val = values[i];
-			clone.appendChild(rows[val.rowIndex]);
+			var row = val.row;
+			tBody.removeChild(row);
+			if (i == n-1) tBody.appendChild(row);
+			else tBody.insertBefore(row, tBody.rows[i]);
 		}
-		var parent = tBody.parentNode;
-		parent.replaceChild(clone, tBody);
 	});
 ]]>
 			</body>
@@ -323,8 +319,8 @@ All rights reserved
 			<body>
 <![CDATA[
 	var type = "string";
-	var cols = this.getColumns();
-	var classList = cols[column].classList;
+	var cols = NodeList(this.getColumns());
+	var classList = cols.item(column).classList;
 	if (classList.has("number")) type = "number";
 	if (classList.has("string")) type = "string";
 	var sortable = classList.has("sortable");
@@ -343,7 +339,7 @@ All rights reserved
 	}
 	for (var n=cols.length, i=0; i<n; i++) {
 		if (column != i) {
-			var classList = cols[i].classList;
+			var classList = cols.item(i).classList;
 			classList.remove("sorted");
 			classList.remove("reversed");
 		}
