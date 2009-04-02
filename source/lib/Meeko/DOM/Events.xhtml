@@ -15,63 +15,7 @@ Meeko.DOM.Events = (function() {
 
 var privateKey = Math.random();
 
-var w3cEventsTable = [
-	{ type: "DOMActivate", bubbles: true, cancelable: true, module: "UIEvent" },
-	{ type: "DOMFocusIn", bubbles: true, cancelable: false, module: "UIEvent" },
-	{ type: "DOMFocusOut", bubbles: true, cancelable: false, module: "UIEvent" },
-	{ type: "focus", bubbles: false, cancelable: false, module: "UIEvent" },
-	{ type: "blur", bubbles: false, cancelable: false, module: "UIEvent" },
-	{ type: "textInput", bubbles: true, cancelable: true, module: "TextEvent" },
-	{ type: "click", bubbles: true, cancelable: true, module: "MouseEvent" },
-	{ type: "dblclick", bubbles: true, cancelable: true, module: "MouseEvent" },
-	{ type: "mousedown", bubbles: true, cancelable: true, module: "MouseEvent" },
-	{ type: "mouseup", bubbles: true, cancelable: true, module: "MouseEvent" },
-	{ type: "mouseover", bubbles: true, cancelable: true, module: "MouseEvent" },
-	{ type: "mousemove", bubbles: true, cancelable: true, module: "MouseEvent" },
-	{ type: "mouseout", bubbles: true, cancelable: true, module: "MouseEvent" },
-	{ type: "keydown", bubbles: true, cancelable: true, module: "KeyboardEvent" },
-	{ type: "keyup", bubbles: true, cancelable: true, module: "KeyboardEvent" },
-	{ type: "mousemultiwheel", bubbles: true, cancelable: true, module: "MouseMultiWheelEvent" },
-	{ type: "mousewheel", bubbles: true, cancelable: true, module: "MouseWheelEvent" },
-	{ type: "DOMSubtreeModified", bubbles: true, cancelable: false, module: "MutationEvent" },
-	{ type: "DOMNodeInserted", bubbles: true, cancelable: false, module: "MutationEvent" },
-	{ type: "DOMNodeRemoved", bubbles: true, cancelable: false, module: "MutationEvent" },
-	{ type: "DOMNodeRemovedFromDocument", bubbles: false, cancelable: false, module: "MutationEvent" },
-	{ type: "DOMNodeInsertedIntoDocument", bubbles: false, cancelable: false, module: "MutationEvent" },
-	{ type: "DOMAttrModified", bubbles: true, cancelable: false, module: "MutationEvent" },
-	{ type: "DOMCharacterDataModified", bubbles: true, cancelable: false, module: "MutationEvent" },
-	{ type: "DOMElementNameChanged", bubbles: true, cancelable: false, module: "MutationNameEvent" },
-	{ type: "DOMAttributeNameChanged", bubbles: true, cancelable: false, module: "MutationNameEvent" },
-	{ type: "load", bubbles: false, cancelable: false, module: "Event" },
-	{ type: "unload", bubbles: false, cancelable: false, module: "Event" },
-	{ type: "abort", bubbles: true, cancelable: false, module: "Event" },
-	{ type: "error", bubbles: true, cancelable: false, module: "Event" },
-	{ type: "select", bubbles: true, cancelable: false, module: "Event" },
-	{ type: "change", bubbles: true, cancelable: false, module: "Event" },
-	{ type: "submit", bubbles: true, cancelable: true, module: "Event" },
-	{ type: "reset", bubbles: true, cancelable: true, module: "Event" },
-	{ type: "resize", bubbles: true, cancelable: false, module: "UIEvent" },
-	{ type: "scroll", bubbles: true, cancelable: false, module: "UIEvent" },
-	{ type: "keypress", bubbles: true, cancelable: true, module: "KeyboardEvent" }, // non-standard
-	{ type: "DOMContentLoaded", bubbles: true, cancelable: false, module: "Event" } // mozilla
-];
-
-var eventsByType = {};
-for (var i=0, n=w3cEventsTable.length; i<n; i++) {
-	var row = w3cEventsTable[i];
-	var type = row["type"];
-	eventsByType[type] = row;
-}
-
-var eventsByModule = {};
-for (var i=0, n=w3cEventsTable.length; i<n; i++) {
-	var row = w3cEventsTable[i];
-	var type = row["type"];
-	var module = row["module"];
-	if (!eventsByModule[module]) eventsByModule[module] = {};
-	eventsByModule[module][type] = row;
-}
-
+var eventModules = [ "Event", "CustomEvent", "UIEvent", "TextEvent", "KeyboardEvent", "MouseEvent", "MouseWheelEvent", "MouseMultiWheelEvent", "MutationEvent", "MutationNameEvent" ];
 
 var w3cKeyIdentifiers = {
 	"U+007F": 46, // Delete
@@ -299,7 +243,8 @@ EventSystem.prototype.registerEvent = function(type) {
 	}
 
 	var ieLookup = { // FIXME ensure all standard event properties are copied / created
-		"DOMAttrModified": { type: "propertychange", bubbles: false, cancelable: false },
+		"DOMAttrModified": function() { // FIXME handled in addEventListener for now
+		},
 		"DOMActivate": { type: "activate", bubbles: true, cancelable: true },
 		"DOMFocusIn": { type: "focusin", bubbles: true, cancelable: false },
 		"DOMFocusOut": { type: "focusout", bubbles: true, cancelable: false },
@@ -634,8 +579,6 @@ DocumentEvent.prototype.createEvent = function(module) {
 	if (!event) throw "Could not create event in " + module;
 	Object.copy(event, tmp);
 	event.eventStatus |= EventState.FAKE_EVENT;
-//	event.preventDefault = function() { Event.prototype.preventDefault.call(this); window.Event.prototype.preventDefault.call(this); }
-//	event.stopPropagation = function() { Event.prototype.stopPropagation.call(this); window.Event.prototype.stopPropagation.call(this); }
 	event._preventDefault = event.preventDefault;
 	event._stopPropagation = event.stopPropagation;
 	event.preventDefault = function() { Event.prototype.preventDefault.call(this); this._preventDefault(); }
@@ -644,7 +587,7 @@ DocumentEvent.prototype.createEvent = function(module) {
 }
 
 var fail = false;
-forEach (eventsByModule, function(dummy, module) {
+Array.forEach (eventModules, function(module) {
 	try {
 		var event = document.createEvent(module);
 		if (!event["init"+module]) fail = true;
@@ -794,12 +737,55 @@ else if (window.attachEvent) {{
 EventTarget.interfaceLookup[0] = Meeko.stuff.domSystem.addImplementation("Window", EventTarget);
 EventTarget.interfaceLookup[Node.DOCUMENT_NODE] = Meeko.stuff.domSystem.addImplementation("Document", EventTarget);
 EventTarget.interfaceLookup[Node.ELEMENT_NODE] = Meeko.stuff.domSystem.addImplementation("Element", EventTarget);
+EventTarget.prototype._xblCreate = EventTarget.prototype.xblCreate;
+EventTarget.prototype.xblCreate = function(target) {
+	this._xblCreate(target);
+	if (target.nodeType != Node.ELEMENT_NODE) return;
+	this.onattrmodified = function(srcEvent) {
+		var target = eventTarget.target;
+		var attrName = srcEvent.propertyName;
+		var newValue = target[attrName];
+		switch (typeof newValue) {
+			case "string": case "number": case "boolean": case "undefined": break;
+			case "object": if (null === newValue) break;
+			default: return;
+		}
+		var prevValue = this.prevValues[attrName];
+		this.prevValues[attrName] = newValue;
+		var attrChange = (newValue != null) ? ((prevValue != null) ? 1 : 2) : 3; // MODIFICATION, ADDITION, REMOVAL;
+		var event = document.createEvent("MutationEvent");
+		event.initMutationEvent("DOMAttrModified", true, false, null, prevValue, newValue, attrName, attrChange);
+		event.target = target;
+		event.eventPhase = 2; // AT_TARGET
+		event.currentTarget = target;
+		eventTarget.handleEvent(event);
+		event.currentTarget = null;
+		event.target = null;
+	}
+	this.prevValues = {}; // for onattrmodified
+	var clone = this.target.cloneNode(false);
+	var text = clone.outerHTML.replace(/^\S+/, "");
+	var rex = /\s+([-_a-zA-Z0-9]+)=(?:"([^"]*)"|'([^']*)'|([^\s>]+))(\>)?/g;
+	RegExp.lastIndex = 0;
+	var m;
+	while (m = rex.exec(text)) {
+		var attrName = m[1];
+		var val = m[2]; if ("" == val) val = m[3]; if ("" == val) val = m[4];
+		this.prevValues[attrName] = val;
+		if (">" == m[5]) break; 
+	}
+}
+
 EventTarget.prototype.addEventListener = function(type, listener, useCapture) {
+	if (!this.baseBinding.hasEventListener(type)) {
+		eventSystem.registerEvent(type);
+		if (type == "DOMAttrModified") this.target.attachEvent("onpropertychange", this.onattrmodified);
+	}
 	this.baseBinding.addEventListener(type, listener, useCapture);
-	eventSystem.registerEvent(type);	
 }
 EventTarget.prototype.removeEventListener = function(type, listener, useCapture) {
 	this.baseBinding.removeEventListener(type, listener, useCapture);
+	if (type == "DOMAttrModified" && !this.baseBinding.hasEventListener(type)) this.target.detachEvent("onpropertychange", this.onattrmodified);
 }
 EventTarget.prototype.dispatchEvent = function(event) {
 	eventSystem.dispatchEvent(this.target, event);
