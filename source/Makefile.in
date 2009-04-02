@@ -23,22 +23,16 @@ destpkglibexecdir ?= @destpkglibexecdir@
 destpkgdemodir ?= @destpkgdemodir@
 
 .SUFFIXES :
-.SUFFIXES : .html .xhtml .js .xml .xpl .xbl .xbl_xpl 
+.SUFFIXES : .html .xhtml .js .xml .xpl .xbl
 
 UI_TARGETS = WF2.xml UI.xml UI.js
 TARGETS = ${UI_TARGETS} XBL.js XBLUI.js DOM.js
 INSTALL_FILES = ${UI_TARGETS} XBL.js XBLUI.js DOM.js
 
 XSLTPROC = /usr/bin/xsltproc
-HTML2XHTML = ${XSLTPROC} --novalid --html ${srcdir}/lib/Meeko/XPL/xhtml2xhtml.xsl 
-XHTML2JS = ${toolsdir}/bin/brash ${srcdir}/lib/Meeko/XPL/xhtml2js.js
-EXBL2XBL = ${XSLTPROC} --novalid ${srcdir}/lib/Meeko/XBL/exbl2xbl.xsl 
-XBLPP = ${XSLTPROC} --novalid ${srcdir}/lib/Meeko/XBL/xblpp.xsl 
-XPLPP = ${XSLTPROC} --novalid ${srcdir}/lib/Meeko/XBL/xplpp.xsl 
-XPL = ${toolsdir}/bin/xpl
-URLINSTALL = ${toolsdir}/bin/urlinstall
-CURL = /usr/bin/curl --netrc --ftp-create-dirs
-SVN = /usr/local/bin/svn
+XPL2JS = ~/bin/XPL-0.5/xpl2js
+XPL = ~/bin/XPL-0.5/xpl
+URLINSTALL = ~/bin/URL-Utils-0.5/url-install
 
 CACHE_CONFIG := ${foreach fname,${UI_TARGETS},--disk-cache ${pkglibexecdir}/${fname} ${.CURDIR}/${fname}}
 
@@ -81,20 +75,8 @@ XBL.js : XBL.xhtml lib/Meeko/XBL.xhtml
 DOM.js : DOM.xhtml lib/Meeko/DOM.xhtml
 	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} > ${.TARGET}
 
-.html.xhtml : 
-	${HTML2XHTML} ${.IMPSRC} > ${.TARGET}
-
-.xhtml.js : 
-	${XHTML2JS} ${.IMPSRC} > ${.TARGET}
-
 .xbl.xml :
 	cp ${.IMPSRC} ${.TARGET}
 
-.xbl_xpl.xml :
-	${XBLPP} ${.IMPSRC} > ${.TARGET}
-
-.exbl.xml :
-	${EXBL2XBL} ${.IMPSRC} > ${.TARGET}
-
 .xpl.js :
-	${XPLPP} ${.IMPSRC} > ${.TARGET}
+	${XPL2JS} ${.IMPSRC} > ${.TARGET}

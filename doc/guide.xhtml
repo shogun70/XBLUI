@@ -3,7 +3,6 @@
 <meta http-equiv="CONTENT-TYPE" content="text/html; charset=utf-8" />
 <title>XBLUI - User Guide</title>
 <link rel="viewer" href="viewer.xhtml" />
-<link rel="stylesheet" type="text/css" href="documentation.css" />
 </head>
 <body lang="en-AU">
 <h1>User Guide</h1>
@@ -39,8 +38,6 @@ is a proposed extension to HTML Forms. Many of the HTML input element enhancemen
 <h4>Work in progress</h4>
 <ul>
 <li>Hasn't been rigorously tested </li>
-<li>Partial implementations of standards -
-don't assume that because it's in the standards it will work </li>
 <li>Might not play nice - XBLUI hasn't been used with other
 Javascript libraries and may not work well or at all</li>
 </ul>
@@ -51,16 +48,16 @@ complement XBLUI? Canvas? I/O? Math
 <ul>
 <li>CSS bugs aren't fixed </li>
 <li>No built-in themes </li>
-<li>Some XBLUI enhancements are designed to interact with your
-CSS </li>
+<li>Some XBLUI enhancements are designed to interact with your CSS </li>
 </ul>
 <h4>Partial implementation of XBL</h4>
 <p>Besides the inherent limitations of current browsers, the major
 deficiencies of the XBL implementation are, in order of importance: </p>
 <ul>
 <li>XBL Templates and shadow content aren't implemented. </li>
-<li>Dynamic modification of HTML isn't handled, i.e. XBL bindings aren't applied to dynamically
-inserted elements and bindings aren't updated if attributes (including pseudo-attributes) change </li>
+<li>Dynamic modification of HTML isn't fully supported.
+Specifically, XBL bindings aren't updated if attributes (including pseudo-attributes) change
+or if the position of the element in the document changes.</li>
 <li>xbl processing-instructions are only registered for XHTML documents, not for HTML documents</li>
 <li>loadBindingDocument() is not implemented </li>
 <li>XBL documents can't be modified </li>
@@ -233,8 +230,7 @@ branch default snapshot ]</small>
 <li>
 1.2.x1
 <ul>
-<li>default <small class="info">[ default
-release ]</small> </li>
+<li>default <small class="info">[ default release ]</small> </li>
 </ul>
 </li>
 </ul>
@@ -273,7 +269,7 @@ resources required by XBLUI.
 </td>
 <td>
 </td>
-<td>XBL document with UI enhancements
+<td>XBL document with all UI enhancements
 </td>
 </tr>
 <tr>
@@ -289,13 +285,12 @@ resources required by XBLUI.
 </td>
 <td>
 </td>
-<td>XBL document with WebForms2 enhancements
+<td>XBL document which attaches WebForms2 enhancements to elements as per the specification.
 </td>
 </tr>
 </tbody>
 </table>
-<p>Typically you would include XBLUI.js which pre-caches the
-other
+<p>Typically you would include XBLUI.js which pre-caches the other
 resources. In this case the default location for XBL documents - e.g.
 http://dist.meekostuff.net/XBLUI/default/UI.xml - is redirected to a
 pre-cached copy of the file in the release directory. </p>

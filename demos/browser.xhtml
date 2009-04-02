@@ -91,18 +91,15 @@ html, body {
 #console tbody td { padding-left: 0.2em; padding-right: 0.2em; vertical-align: top; }
 #console tbody td.URL { white-space: nowrap; overflow: hidden; }
 </style>
-<script type="text/javascript">
-	<![CDATA[
-Meeko.stuff.trace = {};
-Meeko.stuff.trace.log = function(data) {
+<xbl xmlns="http://www.w3.org/ns/xbl">
+	<script type="text/javascript">
+window.Meeko.stuff.trace = {};
+window.Meeko.stuff.trace.log = function(data) {
 	if (data.boundDocumentURI == Meeko.stuff.xplSystem.documentURI) return;
 	var console = document.getElementById("console");
 	console.log(data); // FIXME console object is available before console system is loaded
 }
-	
-	]]>
-</script>
-<xbl xmlns="http://www.w3.org/ns/xbl">
+	</script>
 	<binding element="form[@template]">
 		<implementation>
 <![CDATA[

@@ -26,10 +26,10 @@ TARGETS += ${foreach DEMO,${DEMOS},${DEMO}.html}
 
 XSLTPROC = /usr/bin/xsltproc --novalid 
 TIDY = /usr/bin/tidy -q
-URLINSTALL = ${toolsdir}/bin/urlinstall
-
-
-PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/XBLUI.js
+HTMLPP = ~/bin/HTMLPP-0.7/htmlpp
+HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
+URLINSTALL = ~/bin/URL-Utils-0.5/url-install
+PARAMS += --script ${pkglibexecdir}/XBLUI.js
 PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
 
 all: build
@@ -50,17 +50,8 @@ install: ${TARGETS} ${RESOURCES}
 	done;
 
 console.html: console.xhtml
-	cat ${.IMPSRC} |\
-	${XSLTPROC} ${srcdir}/xhtml2html.xsl - > ${.TARGET}
+	cp ${.IMPSRC} ${.TARGET}
 
 .xhtml.html :
-	cat ${.IMPSRC} |\
-	${XSLTPROC} ${PARAMS} ${srcdir}/xhtml2xhtml_standalone.xsl - |\
-	${XSLTPROC} ${PARAMS} ${srcdir}/xhtml2html.xsl - > ${.TARGET}
-
-.xhtml.xml :
-	${XSLTPROC} ${PARAMS} ${srcdir}/xhtml_xbl_css2xbl.xsl ${.IMPSRC} > ${.TARGET}
-
-.xhtml.css :
-	${XSLTPROC} ${PARAMS} ${srcdir}/xhtml_xbl_css2css.xsl ${.IMPSRC} > ${.TARGET}
+	${HTMLPP} ${PARAMS} ${.IMPSRC} > ${.TARGET}
 

@@ -2,7 +2,6 @@
 <head>
 <meta http-equiv="CONTENT-TYPE" content="text/html; charset=utf-8" />
 <title>XBLUI - About</title>
-<link rel="stylesheet" type="text/css" href="documentation.css" />
 <link rel="viewer" href="viewer.xhtml" />
 </head>
 <body lang="en-AU">
@@ -14,8 +13,6 @@ XBL provides a simple method of applying and extending the built-in enhancements
 <p>Since no current browser has a native XBL implementation
 XBLUI has its own partial, cross-browser implementation.
 Native XBL implementations will improve the performance of XBLUI enhancements. </p>
-<p>To facilitate development XBLUI incorporates cross-browser logging.
-More tracing features will arrive in future releases.</p>
 <small><strong>Notes:</strong>
 <ol>
 <li>Also commonly referred to as XBL2, not to be confused with the non-compatible
@@ -34,25 +31,7 @@ More tracing features will arrive in future releases.</p>
 <p>The following example illustrates the simple case of adding
 numeric input functionality to a HTML input element as in the Web
 Forms 2 specification:</p>
-<pre>&lt;html&gt;<br /> &lt;head&gt;<br />  &lt;script src="http://dist.meekostuff.net/XBLUI/default/XBLUI.js"&gt;&lt;/script&gt;<sup>1,2</sup><br />  &lt;style type="application/xml"&gt;<sup>3,4</sup><br />   &lt;xbl xmlns="http://www.w3.org/ns/xbl"&gt;<br />    &lt;binding <br />      element="input[type=number]"<br />      extends="http://dist.meekostuff.net/XBLUI/default/WF2.xml#WF2NumberInput"/&gt;<br />   &lt;/xbl&gt;<br />  &lt;/style&gt;<br /> &lt;/head&gt;<br /> &lt;body&gt;<br />  &lt;label&gt;Enter a number from 0 to 100 <br />   &lt;input type="number" min="0" max="100" value="50" /&gt;<br />  &lt;/label&gt;<br /> &lt;/body&gt;<br />&lt;/html&gt;</pre>
-<small><strong>Notes:</strong>
-<ol>
-<li>This
-is the default script path. You can also choose a specific version. See
-Distribution
-</li>
-<li>In
-general the script element should be at the top of the head
-element.
-</li>
-<li>The
-type attribute of the style element must be "application/xml". See
-Including Binding Documents </li>
-<li>The XBL specification also
-allows bindings to be applied using CSS style-sheets. This is not yet
-available using XBLUI. </li>
-</ol>
-</small>
+<pre>&lt;html&gt;<br /> &lt;head&gt;<br />  &lt;script src="http://dist.meekostuff.net/XBLUI/default/XBLUI.js"&gt;&lt;/script&gt;<br />  &lt;style type="application/xml"&gt;<br />   &lt;xbl xmlns="http://www.w3.org/ns/xbl"&gt;<br />    &lt;binding <br />      element="input[type=number]"<br />      extends="http://dist.meekostuff.net/XBLUI/default/WF2.xml#WF2NumberInput"/&gt;<br />   &lt;/xbl&gt;<br />  &lt;/style&gt;<br /> &lt;/head&gt;<br /> &lt;body&gt;<br />  &lt;label&gt;Enter a number from 0 to 100 <br />   &lt;input type="number" min="0" max="100" value="50" /&gt;<br />  &lt;/label&gt;<br /> &lt;/body&gt;<br />&lt;/html&gt;</pre>
 <h2>License</h2>
 <p>Long-term licensing is still to be decided. </p>
 <p>Until further notice you may use the XBLUI library by including the following line in a web-page:</p>
