@@ -70,7 +70,7 @@ this.selectItem(item);
 </binding>
 
 <binding id="RepetitionElement">
-	<implementation>(Meeko.UI.RepetitionElement)</implementation>
+	<implementation>(Meeko.UI.RepetitionElement.prototype)</implementation>
 </binding>
 
 <binding id="WF2FormElement">
