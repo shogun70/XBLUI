@@ -288,7 +288,7 @@ BindingDocumentRef.prototype.createFromProcessingInstruction = function(node) {
 	while (att = r.exec(data)) {
 		var name = att[1]; var value = att[2];
 		if ("href" == name) {
-			thi.createFromUri(value);
+			this.createFromUri(value);
 			break;
 		}
 	}
