@@ -23,6 +23,8 @@ This API and implementation is a Frankenstein of:
 */
 
 /*
+FIXME
+- tagNames should be upper-case in HTML, lower-case in XML
 TODO
 - stylesheet & property parsing
 */
@@ -113,7 +115,7 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 				}
 	
 				// Attribute
-				m = /^\[\s*([a-z0-9_-]+)(\|([a-z0-9_-]+))?\s*(([~|^$*]?=)\s*("([^"]*)"|'([^']*)'|(\S+))\s*)?\]/.exec(text);
+				m = /^\[\s*([a-z0-9_-]+)(\|([a-z0-9_-]+))?\s*(([~|^$*]?=)\s*("([^"]*)"|'([^']*)'|([^\]\s]+))\s*)?\]/.exec(text);
 				if (m) {
 					if (m[3]) { ns = m[1]; name = m[3]; }
 					else { ns = null; name = m[1]; }
@@ -251,7 +253,7 @@ Parser.prototype._parseSelectors = function(selectorText) { // TODO error handli
 }
 
 
-// TODO how to implement SelectorList magic?
+// FIXME how to implement SelectorList magic?
 var SelectorList = function() {}
 SelectorList.prototype.addSelector = function(selector) {
 	this.push(selector);
@@ -310,60 +312,50 @@ Selector.prototype.addStep = function(step) {
 	else throw "Error in Selector.addStep";
 }
 
+// Selector.prototype.test contains the bottle-neck for matchesSelector performance.
+// It has been optimized by bringing tagName test inside the function
+// FIXME the tagName test doesn't handle namespaces
 Selector.prototype.test = function(element) {
 	var curElt = element;
-	var rel = null;
-	var n = this.steps.length;
-	with (RelativeSelector) for (var i=n-1; i>=0; i--) {
+	var rel = 0;
+	var i = this.steps.length - 1;
+	do {
 		var step = this.steps[i];
-		do {
-			var rc = step.test(curElt);
-			switch (rel) {
-				default:
-					if (!rc) return false; // no more chances
-					else rel = null; // NOTE rel is already null
-					break;
-				case DESCENDANT_RELATIVE:
-					if (!rc) { // keep trying ancestors unless already at top of tree
-						if (/* Node.DOCUMENT_NODE */ 9 == curElt.parentNode) return false; // can't go any higher
-						curElt = curElt.parentNode;
-						if (!curElt) return false; // NOTE this could only happen in an unattached tree
-					}
-					else rel = null;
-					break;
-				case CHILD_RELATIVE:
-					if (!rc) return false; // no second chance
-					else rel = null;
-					break;
-				case INDIRECT_ADJACENT_RELATIVE:
-					if (!rc) { // keep trying preceding-siblings
-						curElt = curElt.previousSibling;
-						if (!curElt) return false;
-					}
-					else rel = null;
-					break;
-				case DIRECT_ADJACENT_RELATIVE:
-					if (!rc) return false; // no second chance
-					else rel = null;
-					break;
-			}
-		} while (rel);
-		rel = step.relationType;
+		var nodeTest = step.conditions[0];
+		if (nodeTest.conditionType != 1 /* Condition.NODE_TEST_CONDITION */) nodeTest = false;
+		var tagName = (nodeTest && "*" != nodeTest.localName) ? nodeTest.localName.toUpperCase() : false; // FIXME assumes HTML
+		var bMore = !nodeTest || step.conditions.length > 1;
 		switch (rel) {
-			default: break;
-			case DESCENDANT_RELATIVE: case CHILD_RELATIVE:
-				if (/* Node.DOCUMENT_NODE */ 9 == curElt.parentNode) return false; // can't go any higher
-				curElt = curElt.parentNode;
-				if (!curElt) return false;
+			case 0: // first time through there is no relationType
+				if (tagName && curElt.tagName != tagName || bMore && !step.test(curElt)) return false;
 				break;
-			case INDIRECT_ADJACENT_RELATIVE: case DIRECT_ADJACENT_RELATIVE:
-				while (curElt = curElt.previousSibling) {
-					if (/* Node.ELEMENT_NODE */ 1 == curElt.nodeType) break;
-				}
-				if (!curElt) return false;
+			case 1: // DESCENDANT_RELATIVE:
+				do { // keep trying ancestors unless already at top of tree
+					curElt = curElt.parentNode;
+					if (!curElt || curElt.nodeType == 9 /* Node.DOCUMENT_NODE */) return false;
+				} while (tagName && curElt.tagName != tagName || bMore && !step.test(curElt));
+				break;
+			case 2: // CHILD_RELATIVE:
+				curElt = curElt.parentNode;
+				if (!curElt || curElt.nodeType == 9 /* Node.DOCUMENT_NODE */) return false;
+				if (tagName && curElt.tagName != tagName || bMore && !step.test(curElt)) return false;
+				break;
+			case 3: // DIRECT_ADJACENT_RELATIVE:
+				do {
+					curElt = curElt.previousSibling;
+					if (!curElt) return false;
+				} while (curElt.nodeType != 1 /* Node.ELEMENT_NODE */);
+				if (tagName && curElt.tagName != tagName || bMore && !step.test(curElt)) return false;
+				break;
+			case 4: // INDIRECT_ADJACENT_RELATIVE:
+				do {
+					curElt = curElt.previousSibling;
+					if (!curElt) return false;
+				} while (curElt.nodeType != 1 /* Node.ELEMENT_NODE */ || tagName && curElt.tagName != tagName || bMore && !step.test(curElt));
 				break;
 		}
-	}
+		rel = step.relationType;
+	} while (i--);
 	return true;
 }
 
@@ -399,7 +391,7 @@ interface RelativeSelector {
 }
 */
 var RelativeSelector = function() {
-	this.relationType = null;
+	this.relationType = 0;
 	this.conditions = [];
 }
 RelativeSelector.NO_RELATIVE = 0;
@@ -415,10 +407,11 @@ RelativeSelector.prototype.addCondition = function(condition) {
 
 RelativeSelector.prototype.test = function(element) {
 	var n = this.conditions.length;
-	for (var i=0; i<n; i++) {
-		var rc = this.conditions[i].test(element);
+	var i=n;
+	do {
+		var rc = this.conditions[n-i].test(element);
 		if (!rc) return false;
-	}
+	} while (--i);
 	return true;
 }
 
@@ -456,7 +449,7 @@ Condition.prototype.test = function(element) { // TODO namespace handling
 		case Condition.NODE_TEST_CONDITION:
 			if (/* Node.ELEMENT_NODE */ 1 != this.nodeType) return false; // TODO should we allow tests for other node types?
 			if (!this.localName || "*" == this.localName) return true;
-			if (element.tagName.toLowerCase() == this.localName.toLowerCase()) return true;
+			if (element.tagName == this.localName.toUpperCase()) return true; // FIXME assumes HTML
 			return false;
 			break;
 		case Condition.ID_CONDITION:
@@ -465,9 +458,13 @@ Condition.prototype.test = function(element) { // TODO namespace handling
 			return false;
 			break;
 		case Condition.CLASS_CONDITION:
-			var rex = new RegExp(" "+this.value+" ");
+			var regex = this.regex;
+			if (!regex) {
+				regex = new RegExp(" "+this.value+" ");
+				this.regex = regex;
+			}
 			var attrValue = element.className;
-			if (rex.test(" "+attrValue+" ")) return true;
+			if (regex.test(" "+attrValue+" ")) return true;
 			return false;
 			break;
 		case Condition.PSEUDO_CLASS_CONDITION: // TODO
@@ -483,48 +480,76 @@ Condition.prototype.test = function(element) { // TODO namespace handling
 		case Condition.POSITIONAL_CONDITION: // TODO
 			break;
 		case Condition.IS_ROOT_CONDITION:
-			if (/* Node.DOCUMENT_NODE */ 9 == element.parentNode) return true;
+			if (element.parentNode.nodeType == 9 /* Node.DOCUMENT_NODE */) return true;
 			return false;
 			break;
 		case Condition.IS_EMPTY_CONDITION: // FIXME does this fulfil the spec?
 			if (0 == element.childNodes.length) return true;
 			return false;
 			break;
-		case Condition.ATTRIBUTE_CONDITION:
-			if (!this.specified || null == this.value) return true;
-			attrValue = element.getAttribute(this.localName);
+		case Condition.ATTRIBUTE_CONDITION: // TODO consolidate all attribute checks
+			var attrName = this.localName;
+			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
+			if (attrValue == null) return false;
+			if (attrValue == "") return false; // FIXME is this acceptable??
+			if (!this.specified) return true;
 			if (attrValue == this.value) return true;
 			return false;
 			break;
 		case Condition.ONE_OF_ATTRIBUTE_CONDITION:
-			var rex = new RegExp(" "+this.value+" ");
-			attrValue = element.getAttribute(this.localName);
-			if (rex.test(" "+attrValue+" ")) return true;
+			var attrName = this.localName;
+			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
+			var regex = this.regex;
+			if (!regex) {
+				regex = new RegExp(" "+this.value+" ");
+				this.regex = regex;
+			}
+			if (regex.test(" "+attrValue+" ")) return true;
 			return false;
 			break;
 		case Condition.BEGIN_HYPHEN_ATTRIBUTE_CONDITION:
-			attrValue = element.getAttribute(this.localName);
+			var attrName = this.localName;
+			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
 			if (attrValue == this.value) return true;
-			var rex = new RegExp("^"+this.value+"-");
-			if (rex.test(" "+attrValue+" ")) return true;
+			var regex = this.regex;
+			if (!regex) {
+				regex = new RegExp("^"+this.value+"-");
+				this.regex = regex;
+			}
+			if (regex.test(" "+attrValue+" ")) return true;
 			return false;
 			break;
 		case Condition.STARTS_WITH_ATTRIBUTE_CONDITION:
-			var rex = new RegExp("^"+this.value);
-			attrValue = element.getAttribute(this.localName);
-			if (rex.test(attrValue)) return true;
+			var attrName = this.localName;
+			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
+			var regex = this.regex;
+			if (!regex) {
+				regex = new RegExp("^"+this.value);
+				this.regex = regex;
+			}
+			if (regex.test(attrValue)) return true;
 			return false;
 			break;
 		case Condition.ENDS_WITH_ATTRIBUTE_CONDITION:
-			var rex = new RegExp(this.value+"$");
-			attrValue = element.getAttribute(this.localName);
-			if (rex.test(attrValue)) return true;
+			var attrName = this.localName;
+			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
+			var regex = this.regex;
+			if (!regex) {
+				regex = new RegExp(this.value+"$");
+				this.regex = regex;
+			}
+			if (regex.test(attrValue)) return true;
 			return false;
 			break;
 		case Condition.CONTAINS_ATTRIBUTE_CONDITION:
-			var rex = new RegExp(this.value);
-			attrValue = element.getAttribute(this.localName);
-			if (rex.test(attrValue)) return true;
+			var attrName = this.localName;
+			attrValue = (attrName != "class") ? element.getAttribute(attrName) : element.className;
+			var regex = this.regex;
+			if (!regex) {
+				regex = new RegExp(this.value);
+				this.regex = regex;
+			}
+			if (regex.test(attrValue)) return true;
 			return false;
 			break;	
 	}
@@ -537,7 +562,7 @@ var _conditionFactory = {
 	createNodeTestCondition: function(name, ns) {
 		var c = new Condition();
 		c.conditionType = Condition.NODE_TEST_CONDITION;
-		c.nodeType = 1/* Node.ELEMENT_NODE */;
+		c.nodeType = 1 /* Node.ELEMENT_NODE */;
 		c.localName = name;
 		c.namespaceURI = ns;
 		return c;
