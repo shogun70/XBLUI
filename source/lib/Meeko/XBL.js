@@ -62,7 +62,8 @@ $conf.XMLDocument = {
 		return rq.responseXML;
 	},
 	loadXML: function(data) {
-		var xmlDoc = (new DOMParser).parseFromString(data, "application/xml"); // TODO catch errors
+		var domParser = new DOMParser;
+		var xmlDoc = domParser.parseFromString(data, "application/xml"); // TODO catch errors
 		return xmlDoc;
 	}
 }
