@@ -2,51 +2,6 @@
 
 Meeko.stuff.domSystem.initialize();
 
-if (!Function.prototype.bind) Function.prototype.bind = function(target) {
-	if (arguments.length > 1) throw "This implementation of Function.prototype.bind() only supports one argument."
-	var callee = this;
-	return function() { return callee.apply(target, arguments); }
-}
-
-if (!Object.defineProperty) {
-if (Object.prototype.__defineGetter__) {
-Object.defineProperty = function(object, field, desc) {
-	if ((desc.get || desc.set) && desc.value != null) throw "value is incompatible with get, set";
-	if (desc.value != null) {
-		if (delete object[field] && object[field] == null) object[field] = desc.value; 
-		else object.__defineGetter__(field, function() { return desc.value; });
-	}
-	if (desc.get) object.__defineGetter__(field, desc.get);
-	if (desc.set) object.__defineSetter__(field, desc.set);
-	return object;
-}
-}
-else {
-Object.defineProperty = function(object, field, desc) { 
-	if ((desc.get || desc.set) && undefined != desc.value) throw "value is incompatible with get, set";
-	var value = (desc.get) ? {
-			valueOf: desc.get.bind(object),
-			toString: desc.get.bind(object)
-		} : desc.value;
-	try {
-		if (desc.value) object[field] = desc.value;
-		if (desc.get) object[field] = {
-			valueOf: desc.get.bind(object),
-			toString: desc.get.bind(object)
-		}
-		if (desc.set) throw "setters not implemented";
-	}
-	catch (error) {
-		if (object.nodeType != 1) throw "Object.defineProperty not valid for non-Element nodes";
-		var attr = document.createAttribute(field);
-		attr.nodeValue = value;
-		object.setAttributeNode(attr);
-	}
-	return object;
-}
-}
-}
-	
 var conf = Meeko.stuff.xblSystem.getConfig();
 
 /*
