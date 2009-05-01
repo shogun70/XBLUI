@@ -1,0 +1,43 @@
+<?xpl-param name="pkglibdir" value="{pkglibdir}"?>  
+<?xpl-param name="pkgdefaultlibdir" value="{pkgdefaultlibdir}"?>  
+<?xpl-prefetch href="{pkglibdir}/UI.js"?>
+<?xpl-prefetch href="{pkglibdir}/UI.xml"?>
+<?xpl-prefetch href="{pkglibdir}/WF2.xml"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<script src="lib/Meeko/XBL.js"></script>
+	<script type="text/javascript">
+<![CDATA[
+(function() {
+	var pkglibdir = xplContext.params["pkglibdir"];
+	var pkgdefaultlibdir = xplContext.params["pkgdefaultlibdir"];
+	xplSystem.prefetch[pkgdefaultlibdir + '/UI.js'] = xplSystem.prefetch[pkglibdir + '/UI.js'];
+	xplSystem.prefetch[pkgdefaultlibdir + '/UI.xml'] = xplSystem.prefetch[pkglibdir + '/UI.xml'];
+	xplSystem.prefetch[pkgdefaultlibdir + '/WF2.xml'] = xplSystem.prefetch[pkglibdir + '/WF2.xml'];
+	var xblSystem = Meeko.stuff.xblSystem;
+	xblSystem._initialize = xblSystem.initialize;
+	xblSystem.initialize = function(conf) {
+		if (!conf.URL) conf.URL = {};
+		if (conf.URL.load) conf.URL._load = conf.URL.load;
+		conf.URL.load = function(uri) {
+			var data = xplSystem.prefetch[uri];
+			if (data) return data;
+			else return (this._load) ? this._load(uri) : null;
+		}
+		if (!conf.XMLDocument) conf.XMLDocument = {};
+		if (conf.XMLDocument.load) conf.XMLDocument._load = conf.XMLDocument.load;
+		conf.XMLDocument.load = function(uri) {
+			var data = xplSystem.prefetch[uri];
+			if (data) {
+				if (window.DOMParser) return (new DOMParser).parseFromString(data, "application/xml"); // TODO catch errors
+				else return null;
+			}
+			else return (this._load) ? this._load(uri) : null;
+		}
+		return this._initialize(conf);
+	}
+})();
+]]>
+	</script>
+</head>
+</html>
