@@ -1,6 +1,6 @@
 srcdir = @srcdir@
 DOM_LIB = Meeko
-DOM_SCRIPT_URL = ${pkglibexecdir}/DOM.js
+DOM_SCRIPT_URL = @SLAB_libexecdir@/SLAB.js
 
 include ../include.mak
 

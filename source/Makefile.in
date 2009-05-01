@@ -25,7 +25,6 @@ destpkgdemodir ?= @destpkgdemodir@
 .SUFFIXES :
 .SUFFIXES : .html .xhtml .js .xml .xpl .xbl
 
-RESOURCES = DOM.js
 UI_TARGETS = WF2.xml UI.xml UI.js
 TARGETS = ${UI_TARGETS} libXBL.js XBL.js libXBLUI.js XBLUI.js
 
@@ -36,9 +35,7 @@ URLINSTALL = ~/bin/URL-Utils-0.5/url-install
 
 CACHE_CONFIG := ${foreach fname,${UI_TARGETS},--disk-cache ${pkglibexecdir}/${fname} ${.CURDIR}/${fname}}
 
-#DOM_VERSION = 0.9.x.1
-#PARAMS_CONFIG += --param DOM_SCRIPT_URL ${libexecdir}/DOM/${DOM_VERSION}/DOM.js
-PARAMS_CONFIG += --param DOM_SCRIPT_URL DOM.js
+PARAMS_CONFIG += --param SLAB_SCRIPT_URL @SLAB_libexecdir@/SLAB.js
 PARAMS_CONFIG += --param pkglibdir ${pkglibdir}
 PARAMS_CONFIG += --param pkgdefaultlibdir ${pkgdefaultlibdir}
 
@@ -70,11 +67,11 @@ clean :
 libXBL.js : lib/Meeko/XBL.js
 	cp ${.IMPSRC} ${.TARGET}
 
-XBL.js : XBL.xhtml DOM.js
+XBL.js : XBL.xhtml 
 
 libXBLUI.js : libXBLUI.xhtml ${UI_TARGETS}
 
-XBLUI.js : XBLUI.xhtml ${UI_TARGETS} DOM.js
+XBLUI.js : XBLUI.xhtml ${UI_TARGETS} 
 
 .xbl.xml :
 	cp ${.IMPSRC} ${.TARGET}
