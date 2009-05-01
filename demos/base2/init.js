@@ -1,56 +1,7 @@
 (function() {
 
-
-var conf = {};
-/*
-conf.logger = {
-	log: function fbug_log() { return console.log.apply(console, arguments); },
-	debug: function fbug_debug() { return console.debug.apply(console, arguments); },
-	info: function fbug_info() { return console.info.apply(console, arguments); },
-	warn: function fbug_warn() { return console.warn.apply(console, arguments); },
-	error: function fbug_error() { return console.error.apply(console, arguments); }
-}
-*/
-conf.URL = {
-	resolve: function(src, base) { return (URIParser.parseUri(src, base)).toString(); },
-	load: function(uri) {
-		var rq = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
-		rq.open("GET", uri, false);
-		rq.send("");
-		if (rq.status != 200) throw "Error loading " + uri;
-		return rq.responseText;		
-	}
-}
-
-conf.XMLDocument = {
-	load: function(uri) {
-		var rq = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP"); 
-		rq.open("GET", uri, false);
-		rq.send("");
-		if (rq.status != 200) throw "Error loading " + uri;
-		if (!rq.responseXML) throw "Document is not XML: " + uri;
-		return rq.responseXML;
-	},
-	loadXML: function(data) {
-		if (window.DOMParser) return (new DOMParser).parseFromString(data, "application/xml"); // TODO catch errors
-		var xmlDom = new ActiveXObject("Microsoft.XMLDOM");
-		xmlDom.async = "false";
-		xmlDom.loadXML(data);
-		return xmlDom;
-
-	}
-}
-
-conf.Document = {
-	addEventListener: function(doc, type, handler, useCapture) {
-		return base2.DOM.Document.addEventListener(doc, type, handler, useCapture);
-	}
-}
-
-if (!Function.prototype.bind) Function.prototype.bind = function(target) {
-	var callee = this;
-	return function() { return callee.apply(target, arguments); }
-}
+base2.JavaScript.bind(window);
+base2.DOM.bind(document);
 
 if (!Object.defineProperty) {
 if (Object.prototype.__defineGetter__) {
@@ -90,7 +41,47 @@ Object.defineProperty = function(object, field, desc) {
 }
 }
 }
+
+var conf = Meeko.stuff.xblSystem.getConfig();
 	
+/*
+conf.logger = {
+	log: function fbug_log() { return console.log.apply(console, arguments); },
+	debug: function fbug_debug() { return console.debug.apply(console, arguments); },
+	info: function fbug_info() { return console.info.apply(console, arguments); },
+	warn: function fbug_warn() { return console.warn.apply(console, arguments); },
+	error: function fbug_error() { return console.error.apply(console, arguments); }
+}
+*/
+conf.URL.load = function(options) {
+	var url = options.url
+	var rq = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
+	rq.open("GET", url, false);
+	rq.send("");
+	if (rq.status != 200) throw "Error loading " + url;
+	return rq;		
+}
+
+conf.XMLDocument.load = function(uri) {
+	var rq = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP"); 
+	rq.open("GET", uri, false);
+	rq.send("");
+	if (rq.status != 200) throw "Error loading " + uri;
+	if (!rq.responseXML) throw "Document is not XML: " + uri;
+	return rq.responseXML;
+}
+conf.XMLDocument.loadXML = function(data) {
+	if (window.DOMParser) return (new DOMParser).parseFromString(data, "application/xml"); // TODO catch errors
+	var xmlDom = new ActiveXObject("Microsoft.XMLDOM");
+	xmlDom.async = "false";
+	xmlDom.loadXML(data);
+	return xmlDom;
+}
+
+conf.Document.addEventListener = function(doc, type, handler, useCapture) {
+	return base2.DOM.Document.addEventListener(doc, type, handler, useCapture);
+}
+
 /*
  HTMLCollection fixes
  Ideally we want to remove the whole native HTMLCollection interface 
@@ -110,8 +101,8 @@ if (window.HTMLCollection) {
 	HTMLCollection.prototype.namedItem = function(name) { return conf.Element.bind(this[name]); }
 }
 
-conf.HTMLCollection = { 
-fixInterface: function(target, field) {
+if (!conf.HTMLCollection) conf.HTMLCollection = {};
+conf.HTMLCollection.fixInterface = function(target, field) {
 	var base = target[field]; // base points to the native interface
 	target["_"+field] = base; 
 	var coll = {};
@@ -128,8 +119,8 @@ fixInterface: function(target, field) {
 	}
 	Object.defineProperty(coll, "length", { get: function() { return this._base.length; } });
 	Object.defineProperty(target, field, { value: coll });
-},
-addInterface: function(target, field, filter) {
+}
+conf.HTMLCollection.addInterface = function(target, field, filter) {
 	var coll = {};
 	coll._target = target,
 	coll.item = function(index) {
@@ -155,137 +146,35 @@ addInterface: function(target, field, filter) {
 	} });
 	Object.defineProperty(target, field, { value: coll });
 }
+
+conf.Element.matchesSelector = function(elt, selector) {
+	return base2.DOM.Element.matchesSelector(elt, selector);
 }
+conf.Element.bind = function(elt) {
+	if (elt.base2ID) return elt; // FIXME orthogonality
+	var bind = arguments.callee;
+	base2.DOM.bind(elt);
+	if (elt.children) conf.HTMLCollection.fixInterface(elt, "children");
+	else conf.HTMLCollection.addInterface(elt, "children");
 
-conf.Element = {
-	matchesSelector: function(elt, selector) {
-		return base2.DOM.Element.matchesSelector(elt, selector);
-	},
-	bind: function(elt) {
-		if (elt.base2ID) return elt; // FIXME orthogonality
-		var bind = arguments.callee;
-		base2.DOM.bind(elt);
-		if (elt.children) conf.HTMLCollection.fixInterface(elt, "children");
-		else conf.HTMLCollection.addInterface(elt, "children");
-
-		switch(elt.tagName.toLowerCase()) {
-			case "table":
-				if (elt.tHead) bind(elt.tHead);
-				if (elt.tFoot) bind(elt.tFoot);
-				conf.HTMLCollection.fixInterface(elt, "tBodies");
-			case "thead": case "tbody": case "tfoot":
-				conf.HTMLCollection.fixInterface(elt, "rows");
-				break;
-			case "tr":
-				conf.HTMLCollection.fixInterface(elt, "cells");
-				break;
-			case "select":
-				conf.HTMLCollection.fixInterface(elt, "options");
-				break;
-		}
-		return elt;
-	}
-}
-
-/*
-	URIParser (a wrapper class for parseUri), MIT License
-	URIParser by Sean Hogan <http://www.meekostuff.net>
-	parseUri by Steven Levithan <http://stevenlevithan.com>
-*/
-var URIParser = (function() {
-	
-var parseUri = function (source) {
-	var o = parseUri.options,
-		value = o.parser[o.strictMode ? "strict" : "loose"].exec(source);
-	
-	for (var i = 0, uri = {}; i < 14; i++) {
-		uri[o.key[i]] = value[i] || "";
-	}
-	
-	uri[o.q.name] = {};
-	uri[o.key[12]].replace(o.q.parser, function ($0, $1, $2) {
-		if ($1) uri[o.q.name][$1] = $2;
-	});
-	
-	return uri;
-};
-
-parseUri.options = {
-	strictMode: true,
-	key: ["source","protocol","authority","userInfo","user","password","host","port","relative","path","directory","file","query","anchor"],
-	q: {
-		name: "queryKey",
-		parser: /(?=.)&?([^&=]*)=?([^&]*)/g
-	},
-	parser: {
-		strict: /^(?:([^:\/?#]+):)?(?:\/\/((?:(([^:@]*):?([^:@]*))?@)?([^:\/?#]*)(?::(\d*))?))?((((?:[^?#\/]*\/)*)([^?#]*))(?:\?([^#]*))?(?:#(.*))?)/,
-		loose: /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@]*):?([^:@]*))?@)?([^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/
-	}
-};
-
-var URIParser = function(base) {
-	this.base = base;
-}
-
-URIParser.parseUri = function(src, base) {
-	if (null != src && "string" != typeof src) src = src.toString(); // NOTE IE String.match doesn't handle duck-typing
-	if (null != base && "string" != typeof base) base = base.toString();
-	var m = src.match(/^([^:\/?#]+):/);
-	var scheme = (m && m.length > 1) ? m[1] : "";
-	switch (scheme) {
-		case "http":
-		case "https":
-		case "ftp":
-		case "file":
-		case "":
-			var uri = parseUri(src);
-			var baseURI = parseUri(base);
-			if (!uri.protocol) {
-				uri.protocol = baseURI.protocol;
-				uri.authority = baseURI.authority;
-				uri.userInfo = baseURI.userInfo;
-				uri.user = baseURI.user;
-				uri.password = baseURI.password;
-				uri.host = baseURI.host;
-				uri.port = baseURI.port;
-				var directory = (uri.path.match(/^\//)) ? uri.directory : baseURI.directory + uri.directory;
-				var file = (uri.file) ? uri.file : (uri.anchor || uri.query) ? baseURI.file : "";
-				uri.directory = directory;
-				uri.file = file;
-				uri.path = directory + file;
-				var query = (uri.query) ? "?" + uri.query : "";
-				var anchor = (uri.anchor) ? "#" + uri.anchor : "";
-				uri.relative = directory + file + query + anchor;
-				uri.source = src;
-			}
-			uri.href = uri.protocol + "://" + uri.authority + uri.path;
-			if (uri.query) uri.href += "?" + uri.query;
-			uri.toString = function() { return this.protocol + "://" + this.authority + this.relative; }
-			return uri;
+	switch(elt.tagName.toLowerCase()) {
+		case "table":
+			if (elt.tHead) bind(elt.tHead);
+			if (elt.tFoot) bind(elt.tFoot);
+			conf.HTMLCollection.fixInterface(elt, "tBodies");
+		case "thead": case "tbody": case "tfoot":
+			conf.HTMLCollection.fixInterface(elt, "rows");
 			break;
-	
-		default:
-			return {
-				protocol: scheme,
-				source: src,
-				href: src,
-				toString: function() { return this.source; }
-			}
+		case "tr":
+			conf.HTMLCollection.fixInterface(elt, "cells");
+			break;
+		case "select":
+			conf.HTMLCollection.fixInterface(elt, "options");
 			break;
 	}
-
+	return elt;
 }
 
-URIParser.prototype.parseUri = function(src) {
-	return URIParser.parseURI(src, this.base);
-}
-
-return URIParser;
-
-})();
-
-base2.JavaScript.bind(window);
-base2.DOM.bind(document);
 document._getElementById = document.getElementById;
 document.getElementById = function(id) {
 	var elt = this._getElementById(id);
@@ -293,6 +182,6 @@ document.getElementById = function(id) {
 	return elt;
 }
 
-Meeko.stuff.xblSystem.initialize(conf);
+Meeko.stuff.xblSystem.initialize();
 
 })();

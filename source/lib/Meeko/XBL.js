@@ -25,13 +25,30 @@ $conf.logger = {
 	error: function() { this.log.apply(this, arguments); }
 }
 $conf.URL = {
-	resolve: function(src, base) { throw "Internal URL.resolve not implemented"; },
-	load: function(uri) {
+	resolve: function(src, base) {
+		var rex = /^([a-z]+):\/\/([^\/]+)(\/.*)$/i;
+		var srcParts = src.match(rex);
+		if (srcParts && srcParts.length) return src;
+		if (!base) throw "Base URL is null in URL.resolve()";
+		var szBase = "" + base;
+		var baseParts = szBase.match(rex);
+		if (!(baseParts && baseParts.length)) throw "Base URL " + szBase + " could not be parsed in URL.resolve()";
+		var url = baseParts[1] + "://" + baseParts[2];
+		if (src[0] == '/') url += src;
+		else url += baseParts[3].replace(/[^\/]*$/, src);
+		return url;
+	},
+	load: function(options) {
+		var method = options.method || "GET";
+		if ("GET" != method && "get" != options.method) throw "" + method + " method not supported in URL.load()";
+		var async = options.async || false;
+		if (async) throw "Asynchronous URL.load() not supported.";
+		var url = options.url;
 		var rq = new XMLHttpRequest(); 
-		rq.open("GET", uri, false);
+		rq.open("GET", url, false);
 		rq.send("");
-		if (rq.status != 200) throw "Error loading " + uri;
-		return rq.responseText;		
+		if (rq.status != 200) throw "Error loading " + url;
+		return rq;
 	}
 }
 
@@ -79,28 +96,11 @@ $conf.Element = {
 /*
  initialize() kicks everything off. 
 */
-function initialize(conf) {
-	configure(conf);
+function initialize() {
 	registerXBLProcessingInstructions();
 	registerXBLLinkElements();
 	registerXBLStyleElements();
 	configureEventDelegation();
-}
-
-function configure(overlay) {
-	copyTree($conf, overlay);
-}
-
-function copyTree(dest, source) {
-	for (var field in source) {
-		if (typeof source[field] == "object") {
-			if (!dest[field]) dest[field] = {};
-			copyTree(dest[field], source[field]);
-		}
-		else {
-			dest[field] = source[field];
-		}
-	}
 }
 
 function registerXBLProcessingInstructions() {
@@ -387,7 +387,8 @@ var XBLXblElement = function(_element, _document) {
 			var jsText = "";
 			if (src) {
 				var uri = $conf.URL.resolve(src, _document.documentURI);
-				jsText = $conf.URL.load(uri);
+				var rq = $conf.URL.load({ url: uri });
+				jsText = rq.responseText;
 				execScript(jsText);
 			}
 			else { // TODO refactor this duplication of execScript
@@ -829,7 +830,8 @@ function getLocalName(element) {
 
 
 return {
-	initialize: initialize
+	initialize: initialize,
+	getConfig: function() { return $conf; }
 }
 
 })();

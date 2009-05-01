@@ -1,27 +1,9 @@
 (function() {
 
-
-var conf = {};
-/*
-conf.logger = {
-	log: function fbug_log() { return console.log.apply(console, arguments); },
-	debug: function fbug_debug() { return console.debug.apply(console, arguments); },
-	info: function fbug_info() { return console.info.apply(console, arguments); },
-	warn: function fbug_warn() { return console.warn.apply(console, arguments); },
-	error: function fbug_error() { return console.error.apply(console, arguments); }
-}
-*/
-conf.URL = {
-	resolve: function(src, base) { return (Meeko.Net.URIParser.parseUri(src, base)).toString(); }
-}
-
-conf.Document = {
-	addEventListener: function(doc, type, handler, useCapture) {
-		return doc.addEventListener(type, handler, useCapture);
-	}
-}
+Meeko.stuff.domSystem.initialize();
 
 if (!Function.prototype.bind) Function.prototype.bind = function(target) {
+	if (arguments.length > 1) throw "This implementation of Function.prototype.bind() only supports one argument."
 	var callee = this;
 	return function() { return callee.apply(target, arguments); }
 }
@@ -65,6 +47,25 @@ Object.defineProperty = function(object, field, desc) {
 }
 }
 	
+var conf = Meeko.stuff.xblSystem.getConfig();
+
+/*
+conf.logger = {
+	log: function fbug_log() { return console.log.apply(console, arguments); },
+	debug: function fbug_debug() { return console.debug.apply(console, arguments); },
+	info: function fbug_info() { return console.info.apply(console, arguments); },
+	warn: function fbug_warn() { return console.warn.apply(console, arguments); },
+	error: function fbug_error() { return console.error.apply(console, arguments); }
+}
+*/
+conf.URL.resolve = function(src, base) {
+	return (Meeko.Net.URIParser.parseUri(src, base)).toString();
+}
+
+conf.Document.addEventListener = function(doc, type, handler, useCapture) {
+	return doc.addEventListener(type, handler, useCapture);
+}
+
 /*
  HTMLCollection fixes
  Ideally we want to remove the whole native HTMLCollection interface 
@@ -84,8 +85,8 @@ if (window.HTMLCollection) {
 	HTMLCollection.prototype.namedItem = function(name) { return conf.Element.bind(this[name]); }
 }
 
-conf.HTMLCollection = { 
-fixInterface: function(target, field) {
+if (!conf.HTMLCollection) conf.HTMLCollection = {};
+conf.HTMLCollection.fixInterface = function(target, field) {
 	var base = target[field]; // base points to the native interface
 	target["_"+field] = base; 
 	var coll = {};
@@ -102,8 +103,8 @@ fixInterface: function(target, field) {
 	}
 	Object.defineProperty(coll, "length", { get: function() { return this._base.length; } });
 	Object.defineProperty(target, field, { value: coll });
-},
-addInterface: function(target, field, filter) {
+}
+conf.HTMLCollection.addInterface = function(target, field, filter) {
 	var coll = {};
 	coll._target = target,
 	coll.item = function(index) {
@@ -129,45 +130,42 @@ addInterface: function(target, field, filter) {
 	} });
 	Object.defineProperty(target, field, { value: coll });
 }
+
+conf.Element.matchesSelector = function(elt, selector) {
+	return Element.matchesSelector(elt, selector);
 }
+conf.Element.bind = function(elt) {
+	if (elt._domBindings) return elt; // FIXME orthogonality
+	var bind = arguments.callee;
+	Meeko.stuff.domSystem.attach(elt);
+	if (elt.children) conf.HTMLCollection.fixInterface(elt, "children");
+	else conf.HTMLCollection.addInterface(elt, "children");
 
-conf.Element = {
-	matchesSelector: function(elt, selector) {
-		return Element.matchesSelector(elt, selector);
-	},
-	bind: function(elt) {
-		if (elt._domBindings) return elt; // FIXME orthogonality
-		var bind = arguments.callee;
-		Meeko.stuff.domSystem.attach(elt);
-		if (elt.children) conf.HTMLCollection.fixInterface(elt, "children");
-		else conf.HTMLCollection.addInterface(elt, "children");
-
-		switch(elt.tagName.toLowerCase()) {
-			case "table":
-				if (elt.tHead) bind(elt.tHead);
-				if (elt.tFoot) bind(elt.tFoot);
-				conf.HTMLCollection.fixInterface(elt, "tBodies");
-			case "thead": case "tbody": case "tfoot":
-				conf.HTMLCollection.fixInterface(elt, "rows");
-				break;
-			case "tr":
-				conf.HTMLCollection.fixInterface(elt, "cells");
-				break;
-			case "select":
-				conf.HTMLCollection.fixInterface(elt, "options");
-				break;
-		}
-		return elt;
+	switch(elt.tagName.toLowerCase()) {
+		case "table":
+			if (elt.tHead) bind(elt.tHead);
+			if (elt.tFoot) bind(elt.tFoot);
+			conf.HTMLCollection.fixInterface(elt, "tBodies");
+		case "thead": case "tbody": case "tfoot":
+			conf.HTMLCollection.fixInterface(elt, "rows");
+			break;
+		case "tr":
+			conf.HTMLCollection.fixInterface(elt, "cells");
+			break;
+		case "select":
+			conf.HTMLCollection.fixInterface(elt, "options");
+			break;
 	}
+	return elt;
 }
 
-Meeko.stuff.domSystem.initialize();
 document._getElementById = document.getElementById;
 document.getElementById = function(id) {
 	var elt = this._getElementById(id);
 	if (elt) conf.Element.bind(elt);
 	return elt;
 }
-Meeko.stuff.xblSystem.initialize(conf);
+
+Meeko.stuff.xblSystem.initialize();
 
 })();
