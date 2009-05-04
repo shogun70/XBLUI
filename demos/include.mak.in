@@ -35,7 +35,7 @@ HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
 
 DOM_SCRIPT_URL ?= @SLAB_libexecdir@/SLAB.js
 PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
-PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBL.js
+PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBLUI.js
 PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
 
 all: build

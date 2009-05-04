@@ -52,6 +52,15 @@ $conf.URL = {
 	}
 }
 
+var loadURL = function(url) {
+	var xplSystem = Meeko.stuff.xplSystem;
+	if (xplSystem) {
+		var data = xplSystem.prefetch[url];
+		if (data) return { responseText: data };
+	}
+	return $conf.URL.load({ url: url });
+}
+
 $conf.XMLDocument = {
 	load: function(uri) {
 		var rq = new XMLHttpRequest(); 
@@ -68,9 +77,22 @@ $conf.XMLDocument = {
 	}
 }
 
+var loadXMLDocument = function(uri) {
+	var xplSystem = Meeko.stuff.xplSystem;
+	if (xplSystem) {
+		var data = xplSystem.prefetch[uri];
+		if (data) {
+			var domParser = new DOMParser;
+			var xml = domParser.parseFromString(data, "application/xml"); // TODO catch errors
+			return xml;
+		}
+	}
+	return $conf.XMLDocument.load(uri);
+}
+
 $conf.XBLDocument = {
 	load: function(uri) {
-		var xmlDoc = $conf.XMLDocument.load(uri);
+		var xmlDoc = loadXMLDocument(uri);
 		var xblDoc = new XBLDocument(xmlDoc, uri);
 		return xblDoc;
 	},
@@ -388,7 +410,7 @@ var XBLXblElement = function(_element, _document) {
 			var jsText = "";
 			if (src) {
 				var uri = $conf.URL.resolve(src, _document.documentURI);
-				var rq = $conf.URL.load({ url: uri });
+				var rq = loadURL(uri);
 				jsText = rq.responseText;
 				execScript(jsText);
 			}

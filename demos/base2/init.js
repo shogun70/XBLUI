@@ -53,7 +53,7 @@ conf.logger = {
 	error: function fbug_error() { return console.error.apply(console, arguments); }
 }
 */
-conf.URL.load = function(options) {
+var loadURL = function(options) {
 	var url = options.url
 	var rq = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
 	rq.open("GET", url, false);
@@ -61,8 +61,10 @@ conf.URL.load = function(options) {
 	if (rq.status != 200) throw "Error loading " + url;
 	return rq;		
 }
+if (conf.URL._load) conf.URL._load = loadURL;
+else conf.URL.load = loadURL;
 
-conf.XMLDocument.load = function(uri) {
+var loadXMLDocument = function(uri) {
 	var rq = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP"); 
 	rq.open("GET", uri, false);
 	rq.send("");
@@ -70,6 +72,9 @@ conf.XMLDocument.load = function(uri) {
 	if (!rq.responseXML) throw "Document is not XML: " + uri;
 	return rq.responseXML;
 }
+if (conf.XMLDocument._load) conf.XMLDocument._load = loadXMLDocument;
+else conf.XMLDocument.load = loadXMLDocument;
+
 conf.XMLDocument.loadXML = function(data) {
 	if (window.DOMParser) return (new DOMParser).parseFromString(data, "application/xml"); // TODO catch errors
 	var xmlDom = new ActiveXObject("Microsoft.XMLDOM");
