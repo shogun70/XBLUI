@@ -1,46 +1,9 @@
+// NOTE this depends on base2-dom and sizzle libraries
+
 (function() {
 
 base2.JavaScript.bind(window);
 base2.DOM.bind(document);
-
-if (!Object.defineProperty) {
-if (Object.prototype.__defineGetter__) {
-Object.defineProperty = function(object, field, desc) {
-	if ((desc.get || desc.set) && desc.value != null) throw "value is incompatible with get, set";
-	if (desc.value != null) {
-		if (delete object[field] && object[field] == null) object[field] = desc.value; 
-		else object.__defineGetter__(field, function() { return desc.value; });
-	}
-	if (desc.get) object.__defineGetter__(field, desc.get);
-	if (desc.set) object.__defineSetter__(field, desc.set);
-	return object;
-}
-}
-else {
-Object.defineProperty = function(object, field, desc) { 
-	if ((desc.get || desc.set) && undefined != desc.value) throw "value is incompatible with get, set";
-	var value = (desc.get) ? {
-			valueOf: desc.get.bind(object),
-			toString: desc.get.bind(object)
-		} : desc.value;
-	try {
-		if (desc.value) object[field] = desc.value;
-		if (desc.get) object[field] = {
-			valueOf: desc.get.bind(object),
-			toString: desc.get.bind(object)
-		}
-		if (desc.set) throw "setters not implemented";
-	}
-	catch (error) {
-		if (object.nodeType != 1) throw "Object.defineProperty not valid for non-Element nodes";
-		var attr = document.createAttribute(field);
-		attr.nodeValue = value;
-		object.setAttributeNode(attr);
-	}
-	return object;
-}
-}
-}
 
 var conf = Meeko.stuff.xblSystem.getConfig();
 	
@@ -53,7 +16,7 @@ conf.logger = {
 	error: function fbug_error() { return console.error.apply(console, arguments); }
 }
 */
-var loadURL = function(options) {
+conf.URL.load = function(options) {
 	var url = options.url
 	var rq = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
 	rq.open("GET", url, false);
@@ -61,10 +24,8 @@ var loadURL = function(options) {
 	if (rq.status != 200) throw "Error loading " + url;
 	return rq;		
 }
-if (conf.URL._load) conf.URL._load = loadURL;
-else conf.URL.load = loadURL;
 
-var loadXMLDocument = function(uri) {
+conf.XMLDocument.load = function(uri) {
 	var rq = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP"); 
 	rq.open("GET", uri, false);
 	rq.send("");
@@ -72,8 +33,6 @@ var loadXMLDocument = function(uri) {
 	if (!rq.responseXML) throw "Document is not XML: " + uri;
 	return rq.responseXML;
 }
-if (conf.XMLDocument._load) conf.XMLDocument._load = loadXMLDocument;
-else conf.XMLDocument.load = loadXMLDocument;
 
 conf.XMLDocument.loadXML = function(data) {
 	if (window.DOMParser) return (new DOMParser).parseFromString(data, "application/xml"); // TODO catch errors
@@ -108,28 +67,25 @@ if (window.HTMLCollection) {
 
 if (!conf.HTMLCollection) conf.HTMLCollection = {};
 conf.HTMLCollection.fixInterface = function(target, field) {
-	var base = target[field]; // base points to the native interface
-	target["_"+field] = base; 
-	var coll = {};
-	coll._base = base;
-	coll.item = function(index) { 
-		var item = this._base[index]; 
+	var coll = target[field];
+	coll._item = coll.item;
+	coll._namedItem = coll.namedItem;
+	coll.item = function(index) {
+		var item = this[index]; 
 		if (item) conf.Element.bind(item);
 		return item;
 	}
 	coll.namedItem = function(name) { 
-		var item = this._base[name]; 
+		var item = this[name]; 
 		if (item) conf.Element.bind(item);
 		return item;
 	}
-	Object.defineProperty(coll, "length", { get: function() { return this._base.length; } });
-	Object.defineProperty(target, field, { value: coll });
 }
 conf.HTMLCollection.addInterface = function(target, field, filter) {
 	var coll = {};
-	coll._target = target,
+	coll.__target__ = target;
 	coll.item = function(index) {
-		var i = -1, node = this._target.firstChild;
+		var i = -1, node = this.__target__.firstChild;
 		while (node) {
 			if (node.nodeType == 1) { // Node.ELEMENT_NODE
 				if (!filter || filter(node) == 1) i++; // NodeFilter.FILTER_ACCEPT
@@ -139,42 +95,87 @@ conf.HTMLCollection.addInterface = function(target, field, filter) {
 		}
 		return null;
 	}
-	Object.defineProperty(coll, "length", { get: function() {
-		var i = 0, node = this._target.firstChild;
+	var getLength = function() {
+		var i = 0, node = this.__target__.firstChild;
 		while (node) {
 			if (node.nodeType == 1) { // Node.ELEMENT_NODE
 				if (!filter || filter(node) == 1) i++; // NodeFilter.FILTER_ACCEPT
 			}
 			node = node.nextSibling;
 		}
-		return i;						
-	} });
-	Object.defineProperty(target, field, { value: coll });
+		return i;		
+	}
+	coll.length = {
+		toString: getLength.bind(coll),
+		valueOf: getLength.bind(coll)
+	}
+	target[field] = coll;
 }
 
 conf.Element.matchesSelector = function(elt, selector) {
 	return base2.DOM.Element.matchesSelector(elt, selector);
 }
+conf.Element.getAttribute = function(name) {
+	switch (name) {
+		case "class": return this.className; break;
+		case "for": return this.htmlFor; break;
+		default: return this.attributes[name].nodeValue; break;
+	}
+}
+conf.Element.setAttribute = function(name, value) {
+	switch (name) {
+		case "class": this.className = value; break;
+		case "for": this.htmlFor = value; break;
+		default:
+			var attr = this.attributes[name];
+			if (!attr) {
+				attr = document.createAttribute(name);
+				this.setAttributeNode(attr);
+			}
+			attr.nodeValue = value;
+			break;
+	}
+}
+conf.Element.removeAttribute = function(name) {
+        switch (name) {
+                case "class": this.className = null; break;
+                case "for": this.htmlFor = null; break;
+                default:
+                        var attr = this.attributes[name];
+                        if (attr) attr.nodeValue = null;
+                        break;
+        }
+}
 conf.Element.bind = function(elt) {
-	if (elt.base2ID) return elt; // FIXME orthogonality
-	var bind = arguments.callee;
+	if (elt._fixed) return elt;
+	elt._fixed = true; // NOTE assumes no exceptions before end of function
 	base2.DOM.bind(elt);
+	if (elt.getAttribute.ancestor) {
+		elt.getAttribute = conf.Element.getAttribute.bind(elt);
+		elt.setAttribute = conf.Element.setAttribute.bind(elt);
+		elt.removeAttribute = conf.Element.removeAttribute.bind(elt);
+	}
 	if (elt.children) conf.HTMLCollection.fixInterface(elt, "children");
 	else conf.HTMLCollection.addInterface(elt, "children");
 
 	switch(elt.tagName.toLowerCase()) {
 		case "table":
-			if (elt.tHead) bind(elt.tHead);
-			if (elt.tFoot) bind(elt.tFoot);
 			conf.HTMLCollection.fixInterface(elt, "tBodies");
+			if (elt.tHead) conf.Element.bind(elt.tHead);
+			if (elt.tFoot) conf.Element.bind(elt.tFoot);
 		case "thead": case "tbody": case "tfoot":
 			conf.HTMLCollection.fixInterface(elt, "rows");
 			break;
 		case "tr":
 			conf.HTMLCollection.fixInterface(elt, "cells");
 			break;
+		case "form":
+			conf.HTMLCollection.fixInterface(elt, "elements");
+			break;
 		case "select":
 			conf.HTMLCollection.fixInterface(elt, "options");
+		case "input": case "textbox":
+			if (elt.form) conf.Element.bind(elt.form);
 			break;
 	}
 	return elt;
