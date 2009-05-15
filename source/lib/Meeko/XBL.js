@@ -81,11 +81,7 @@ var loadXMLDocument = function(uri) {
 	var xplSystem = Meeko.stuff.xplSystem;
 	if (xplSystem) {
 		var data = xplSystem.prefetch[uri];
-		if (data) {
-			var domParser = new DOMParser;
-			var xml = domParser.parseFromString(data, "application/xml"); // TODO catch errors
-			return xml;
-		}
+		if (data) return $conf.XMLDocument.loadXML(data); 
 	}
 	return $conf.XMLDocument.load(uri);
 }
