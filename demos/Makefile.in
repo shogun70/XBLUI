@@ -5,7 +5,7 @@ VPATH = @srcdir@
 
 PKGNAME = @PKGNAME@
 PKGVERSION = @PKGVERSION@
-SUBDIRS = Meeko base2
+SUBDIRS = SLAB base2 base2-sizzle
 
 include @top_srcdir@/mk/gnu.bsdvars.mk
 
