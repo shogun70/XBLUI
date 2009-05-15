@@ -33,8 +33,6 @@ URLINSTALL = ~/bin/URL-Utils-0.5/url-install
 HTMLPP = ~/bin/HTMLPP-0.7/htmlpp
 HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
 
-DOM_SCRIPT_URL ?= @SLAB_libexecdir@/SLAB.js
-PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
 PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBLUI.js
 PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
 
@@ -65,5 +63,5 @@ ${RESOURCES}: %: ${demo_srcdir}/%
 ${SUBDIR_RESOURCES}: %: ${srcdir}/%
 	cp ${.IMPSRC} ${.TARGET}
 	
-wrapper.html: ${demo_srcdir}/wrapper.html
+wrapper.html: ${srcdir}/wrapper.html
 	${HTMLPP} ${PARAMS} ${.IMPSRC} > ${.TARGET}
