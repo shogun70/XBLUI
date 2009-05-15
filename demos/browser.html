@@ -65,7 +65,7 @@ doSubmit: function() {
 	var query = "";
 	var formElts = form.elements;
 	for (var i=0, n=formElts.length; i&lt;n; i++) {
-		var elt = formElts[i];
+		var elt = formElts.item(i);
 		var name = elt.name;
 		if (!name) continue;
 		var regex = new RegExp("\\{" + name + "\\}", "g");
@@ -77,9 +77,8 @@ doSubmit: function() {
 	if (form.target) {
 		var namedElts = document.getElementsByName(form.target);
 		for (var i=0, n=namedElts.length; i&lt;n; i++) {
-			var elt = namedElts[i];
-			if (elt.name != form.target) continue; // NOTE IE finds elements by name or id
-			if ("IFRAME" != elt.tagName) continue;
+			var elt = namedElts.item(i);
+			if ("iframe" != elt.tagName.toLowerCase()) continue;
 			elt.src = url;
 			break;
 		}
@@ -142,7 +141,7 @@ xblEnteredDocument: function() {
 			<label><img src="internet-web-browser.gif" style="vertical-align: text-bottom;" /> XBLUI-Lite Demos</label>
 		</div>
 		<div id="toolbar">
-			<label for="url">Address <input type="text" name="url" id="url"></input></label>
+			<label for="url">Address <input type="text" name="url" id="url" /></label>
 			<button type="submit"><img src="go-next.gif" style="vertical-align: bottom;" /> Go</button>
 		</div>
 		<div id="bookmarks">

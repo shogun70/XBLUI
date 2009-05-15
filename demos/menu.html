@@ -47,7 +47,7 @@ this.baseBinding.setOpenState(false);
 return;
 }
 var cmp = this.boundElement.compareDocumentPosition(event.relatedTarget);
-if (cmp && !(cmp & Node.DOCUMENT_POSITION_CONTAINED_BY)) this.baseBinding.setOpenState(false);
+if (cmp && !(cmp & 0x10 /* Node.DOCUMENT_POSITION_CONTAINED_BY */)) this.baseBinding.setOpenState(false);
 ]]>
 			</handler>
 		</handlers>
