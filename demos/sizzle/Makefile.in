@@ -1,0 +1,9 @@
+srcdir = @srcdir@
+DOM_LIB = base2-sizzle
+DOM_SCRIPT_URL = http://base2.googlecode.com/svn/version/1.0/base2-dom-fp.js
+SIZZLE_SCRIPT_URL = http://github.com/jeresig/sizzle/raw/e6a41b833bcfe295532a204fb4d1b1bb61b947d1/sizzle.js
+
+PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
+PARAMS += --stringparam SIZZLE_SCRIPT_URL ${SIZZLE_SCRIPT_URL}
+include ../include.mak
+
