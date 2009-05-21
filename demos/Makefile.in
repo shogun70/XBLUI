@@ -5,7 +5,7 @@ VPATH = @srcdir@
 
 PKGNAME = @PKGNAME@
 PKGVERSION = @PKGVERSION@
-SUBDIRS = SLAB base2 base2-sizzle
+SUBDIRS = SLAB base2 sizzle NWEvents
 
 include @top_srcdir@/mk/gnu.bsdvars.mk
 
