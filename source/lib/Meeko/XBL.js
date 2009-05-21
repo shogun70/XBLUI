@@ -545,7 +545,7 @@ var XBLBindingElement = function(_element, _document) {
 	return this;
 }
 
-XBLHandlerElement = function(_element, _document) {
+var XBLHandlerElement = function(_element, _document) {
 	if (!(this instanceof arguments.callee)) return new arguments.callee(_element, _document);
 	var localName = getLocalName(_element);
 	if ("handler" != localName || XBLNS != _element.namespaceURI) throw 'XBLHandlerElement interface only valid for "handler" elements';
