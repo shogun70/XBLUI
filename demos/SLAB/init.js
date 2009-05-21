@@ -21,7 +21,7 @@ conf.Element.matchesSelector = function(elt, selector) {
 	return Element.matchesSelector(elt, selector);
 }
 conf.Element.bind = function(elt) {
-	if (elt._domBindings) return elt; // FIXME orthogonality
+	if (elt.slabID) return elt; // FIXME orthogonality
 	Meeko.stuff.domSystem.attach(elt);
 	return elt;
 }
