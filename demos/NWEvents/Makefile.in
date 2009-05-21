@@ -1,0 +1,9 @@
+srcdir = @srcdir@
+DOM_LIB = NWEvents
+DOM_SCRIPT_URL = http://javascript.nwbox.com/NWEvents/nwevents.js
+SELECTOR_SCRIPT_URL = http://javascript.nwbox.com/NWMatcher/nwmatcher.js
+
+PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
+PARAMS += --stringparam SELECTOR_SCRIPT_URL ${SELECTOR_SCRIPT_URL}
+include ../include.mak
+
