@@ -592,7 +592,7 @@ for (var i=0; i<n; i++) {
 }
 	
 var aElt = this.elements;
-forEach (aElt, function(elt) {
+Array.forEach (aElt, function(elt) {
 	var face = WF2FormControlElement(elt);
 	if (!face) return;
 	var name = face.name || elt.id;
@@ -675,7 +675,7 @@ this.httpRequest = new this.boundElement.ownerDocument.parentWindow.XMLHttpReque
 			<body>
 <![CDATA[
 var a = [];
-forEach(this.elements, function(el) {
+Array.forEach(this.elements, function(el) {
 	if (el.name) a.push(el.name + "=" + encodeURIComponent(el.value));
 });
 var txt = a.join('&');
@@ -688,7 +688,7 @@ return txt;
 			<body>
 <![CDATA[
 var hash = eval("({" + txt + "})");
-forEach(this.elements, function(el) {
+Array.forEach(this.elements, function(el) {
 	var name = el.name;
 	if (name) {
 		el.value = (undefined != hash[name]) ?
