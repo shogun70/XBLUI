@@ -1,3 +1,4 @@
+builddir = @builddir@
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
 VPATH = @srcdir@
@@ -17,13 +18,13 @@ destpkgdocdir = @destpkgdocdir@
 
 toolsdir = @top_srcdir@/tools
 
-.SUFFIXES: .xhtml .html .xml .css
-DOCS = index guide reference examples debug status
-SRCS += ${foreach DOC,${DOCS},${DOC}.xhtml}
+.SUFFIXES: .html .xml .css
+DOCS = index # guide reference debug status
 TARGETS += ${foreach DOC,${DOCS},${DOC}.html}
 RESOURCES = documentation.css
 
 XSLTPROC = /usr/bin/xsltproc --novalid 
+HTMLPP = ~/bin/HTMLPP-0.7/htmlpp
 HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
 TIDY = /usr/bin/tidy -q
 URLINSTALL = ~/bin/URL-Utils-0.5/url-install
@@ -32,14 +33,17 @@ URLINSTALL = ~/bin/URL-Utils-0.5/url-install
 PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/XBLUI.js
 PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
 
+BUILD_TARGETS += ${foreach DOC,${DOCS},${builddir}/${DOC}.html}
+
 all: build
 
-build: ${TARGETS}
+build: ${BUILD_TARGETS} ${RESOURCES}
 
 clean:
 	-rm ${TARGETS}
+	-rm wrapper.html
 
-install: ${TARGETS} ${RESOURCES}
+install: ${BUILD_TARGETS} ${RESOURCES}
 	for FILE in ${TARGETS}; do \
 		${URLINSTALL} $${FILE} ${destpkgdocdir}/$${FILE}; \
 		gzip -c $${FILE} | ${URLINSTALL} - ${destpkgdocdir}/$${FILE}.gz; \
@@ -49,7 +53,9 @@ install: ${TARGETS} ${RESOURCES}
 		gzip -c ${srcdir}/$${FILE} | ${URLINSTALL} - ${destpkgdocdir}/$${FILE}.gz; \
 	done;
 
-.xhtml.html :
-	${HTMLWRAP} ${.IMPSRC} |\
-	${HTMLPP} ${PARAMS} - > ${.TARGET}
+${BUILD_TARGETS}: ${builddir}/%.html : ${srcdir}/%.html ${builddir}/wrapper.html
+	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
+	${HTMLWRAP} --wrapper wrapper.html - > ${.TARGET}
 
+${builddir}/wrapper.html: ${srcdir}/wrapper.html
+	${HTMLPP} ${PARAMS} ${.IMPSRC} > ${.TARGET}
