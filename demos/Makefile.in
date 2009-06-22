@@ -1,23 +1,9 @@
 # FIXME wrapper.html is hard-coded
-
 srcdir = @srcdir@
 VPATH = @srcdir@
-
-PKGNAME = @PKGNAME@
-PKGVERSION = @PKGVERSION@
 SUBDIRS = SLAB base2 sizzle NWEvents
 
 include @top_srcdir@/mk/gnu.bsdvars.mk
-
-pkglibdir = @pkglibdir@
-pkgdefaultlibdir = @pkgdefaultlibdir@
-pkglibexecdir = @pkglibexecdir@
-pkgdemodir = @pkgdemodir@
-destpkglibdir = @destpkglibdir@
-destpkglibexecdir = @destpkglibexecdir@
-destpkgdemodir = @destpkgdemodir@
-
-toolsdir = @top_srcdir@/tools
 
 .SUFFIXES: .html .html .xml .css
 RESOURCES = init.js
@@ -26,7 +12,7 @@ TARGETS += ${foreach FILE,${TARGET_FILES},${.CURDIR}/${FILE}}
 
 XSLTPROC = /usr/bin/xsltproc --novalid 
 TIDY = /usr/bin/tidy -q
-URLINSTALL = ~/bin/URL-Utils-0.5/url-install
+URLINSTALL = ~/bin/URL-Utils-0.6/url-install
 HTMLPP = ~/bin/HTMLPP-0.7/htmlpp
 HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
 
@@ -45,12 +31,10 @@ build: build-subdirs ${.CURDIR}/wrapper.html ${TARGETS}
 
 install: install-subdirs ${TARGET_FILES} ${RESOURCES}
 	for FILE in ${TARGET_FILES}; do \
-		${URLINSTALL} $${FILE} ${destpkgdemodir}/$${FILE}; \
-		gzip -c $${FILE} | ${URLINSTALL} - ${destpkgdemodir}/$${FILE}.gz; \
+		${URLINSTALL} $${FILE} ${pkgdemodir}/$${FILE}; \
 	done;
 	for FILE in ${RESOURCES}; do \
-		${URLINSTALL} ${srcdir}/$${FILE} ${destpkgdemodir}/$${FILE}; \
-		gzip -c ${srcdir}/$${FILE} | ${URLINSTALL} - ${destpkgdemodir}/$${FILE}.gz; \
+		${URLINSTALL} ${srcdir}/$${FILE} ${pkgdemodir}/$${FILE}; \
 	done;
 
 clean-subdirs: 

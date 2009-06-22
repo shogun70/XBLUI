@@ -1,6 +1,6 @@
 srcdir = @srcdir@
 DOM_LIB = SLAB
-DOM_SCRIPT_URL = @SLAB_libexecdir@/SLAB.js
+DOM_SCRIPT_URL = ${SLAB_libexecdir}/SLAB.js
 
 PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
 include ../include.mak

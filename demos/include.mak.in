@@ -4,21 +4,7 @@
 # FIXME wrapper.html is hard-coded
 
 demo_srcdir = @srcdir@
-
-PKGNAME = @PKGNAME@
-PKGVERSION = @PKGVERSION@
-
 include @top_srcdir@/mk/gnu.bsdvars.mk
-
-pkglibdir = @pkglibdir@
-pkgdefaultlibdir = @pkgdefaultlibdir@
-pkglibexecdir = @pkglibexecdir@
-pkgdemodir = @pkgdemodir@
-destpkglibdir = @destpkglibdir@
-destpkglibexecdir = @destpkglibexecdir@
-destpkgdemodir = @destpkgdemodir@
-
-toolsdir = @top_srcdir@/tools
 
 .SUFFIXES: .html .xml .css
 DEMOS = tree menu tabbox table webforms2
@@ -29,7 +15,7 @@ TARGETS += ${foreach DEMO,${DEMOS},${DEMO}.html}
 
 XSLTPROC = /usr/bin/xsltproc --novalid 
 TIDY = /usr/bin/tidy -q
-URLINSTALL = ~/bin/URL-Utils-0.5/url-install
+URLINSTALL = ~/bin/URL-Utils-0.6/url-install
 HTMLPP = ~/bin/HTMLPP-0.7/htmlpp
 HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
 
@@ -48,8 +34,7 @@ clean:
 
 install: ${TARGETS} ${RESOURCES}
 	for FILE in ${TARGETS} ${RESOURCES} ${SUBDIR_RESOURCES}; do \
-		${URLINSTALL} $${FILE} ${destpkgdemodir}/${DOM_LIB}/$${FILE}; \
-		gzip -c $${FILE} | ${URLINSTALL} - ${destpkgdemodir}/${DOM_LIB}/$${FILE}.gz; \
+		${URLINSTALL} $${FILE} ${pkgdemodir}/${DOM_LIB}/$${FILE}; \
 	done;
 
 
