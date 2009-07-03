@@ -10,12 +10,6 @@ RESOURCES = init.js
 TARGET_FILES = index.html
 TARGETS += ${foreach FILE,${TARGET_FILES},${.CURDIR}/${FILE}}
 
-XSLTPROC = /usr/bin/xsltproc --novalid 
-TIDY = /usr/bin/tidy -q
-URLINSTALL = ~/bin/URL-Utils-0.6/url-install
-HTMLPP = ~/bin/HTMLPP-0.7/htmlpp
-HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
-
 DOM_SCRIPT_URL ?= ${libexecdir}/DOM.js
 PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
 PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBL.js
@@ -30,11 +24,9 @@ clean: clean-subdirs
 build: build-subdirs ${.CURDIR}/wrapper.html ${TARGETS}
 
 install: install-subdirs ${TARGET_FILES} ${RESOURCES}
-	for FILE in ${TARGET_FILES}; do \
-		${URLINSTALL} $${FILE} ${pkgdemodir}/$${FILE}; \
-	done;
+	${URLINSTALL} ${TARGET_FILES} ${pkgdemodir}/
 	for FILE in ${RESOURCES}; do \
-		${URLINSTALL} ${srcdir}/$${FILE} ${pkgdemodir}/$${FILE}; \
+		${URLINSTALL} ${srcdir}/$${FILE} ${pkgdemodir}/; \
 	done;
 
 clean-subdirs: 

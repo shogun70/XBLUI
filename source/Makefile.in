@@ -9,16 +9,11 @@ include @top_srcdir@/mk/gnu.bsdvars.mk
 UI_TARGETS = WF2.xml UI.xml UI.js
 TARGETS = ${UI_TARGETS} libXBL.js XBL.js libXBLUI.js XBLUI.js
 
-XSLTPROC = /usr/bin/xsltproc
-XPL2JS = ~/bin/XPL-0.5/xpl2js
-XPL = ~/bin/XPL-0.5/xpl
-URLINSTALL = ~/bin/URL-Utils-0.6/url-install
-
 CACHE_CONFIG := ${foreach fname,${UI_TARGETS},--disk-cache ${pkglibexecdir}/${fname} ${.CURDIR}/${fname}}
 
 PARAMS_CONFIG += --param SLAB_SCRIPT_URL ${SLAB_libexecdir}/SLAB.js
 PARAMS_CONFIG += --param pkglibdir ${pkglibdir}
-PARAMS_CONFIG += --param pkgdefaultlibdir ${pkgdefaultlibdir}
+PARAMS_CONFIG += --param pkglibdir_aliases "${pkglibdir_aliases}"
 
 # Rules
 all : build
@@ -33,11 +28,9 @@ depend : .depend
 build : ${TARGETS}
 
 install: build
-	for FILE in ${TARGETS} ; do \
-		${URLINSTALL} $${FILE} ${pkglibexecdir}/$${FILE}; \
-	done;
-	for FILE in ${RESOURCES} ; do \
-		${URLINSTALL} ${srcdir}/$${FILE} ${pkglibexecdir}/$${FILE}; \
+	${URLINSTALL} ${TARGETS} ${pkglibexecdir}/
+	for FILE in ${RESOURCES}; do \
+		${URLINSTALL} ${srcdir}/$${FILE} ${pkglibexecdir}/; \
 	done;
 
 clean : 

@@ -26,11 +26,9 @@ clean:
 	-rm ${TARGETS}
 
 install: ${TARGETS} ${RESOURCES}
-	for FILE in ${TARGETS}; do \
-		${URLINSTALL} $${FILE} ${pkgdocdir}/$${FILE}; \
-	done;
+	${URLINSTALL} ${TARGETS} ${pkgdocdir}/
 	for FILE in ${RESOURCES}; do \
-		${URLINSTALL} ${srcdir}/$${FILE} ${pkgdocdir}/$${FILE}; \
+		${URLINSTALL} ${srcdir}/$${FILE} ${pkgdocdir}/; \
 	done;
 
 .xhtml.html :

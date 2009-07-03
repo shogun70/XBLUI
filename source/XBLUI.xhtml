@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <?xpl-param name="pkglibdir" value="{pkglibdir}"?>  
-<?xpl-param name="pkgdefaultlibdir" value="{pkgdefaultlibdir}"?>  
+<?xpl-param name="pkglibdir_aliases" value="{pkglibdir_aliases}"?>  
 <?xpl-prefetch href="{pkglibdir}/UI.js"?>
 <?xpl-prefetch href="{pkglibdir}/UI.xml"?>
 <?xpl-prefetch href="{pkglibdir}/WF2.xml"?>
@@ -11,10 +11,12 @@
 	<script>
 (function() {
 	var pkglibdir = xplContext.params["pkglibdir"];
-	var pkgdefaultlibdir = xplContext.params["pkgdefaultlibdir"];
-	xplSystem.prefetch[pkgdefaultlibdir + '/UI.js'] = xplSystem.prefetch[pkglibdir + '/UI.js'];
-	xplSystem.prefetch[pkgdefaultlibdir + '/UI.xml'] = xplSystem.prefetch[pkglibdir + '/UI.xml'];
-	xplSystem.prefetch[pkgdefaultlibdir + '/WF2.xml'] = xplSystem.prefetch[pkglibdir + '/WF2.xml'];
+	var pkglibdir_aliases = xplContext.params["pkglibdir_aliases"].split(" ");
+	Array.forEach(pkglibdir_aliases, function(base) {
+		xplSystem.prefetch[base + '/UI.js'] = xplSystem.prefetch[pkglibdir + '/UI.js'];
+		xplSystem.prefetch[base + '/UI.xml'] = xplSystem.prefetch[pkglibdir + '/UI.xml'];
+		xplSystem.prefetch[base + '/WF2.xml'] = xplSystem.prefetch[pkglibdir + '/WF2.xml'];
+	});
 })();
 	</script>
 </head>

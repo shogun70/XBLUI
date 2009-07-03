@@ -13,12 +13,6 @@ SUBDIR_RESOURCES += init.js
 TARGETS = browser.html
 TARGETS += ${foreach DEMO,${DEMOS},${DEMO}.html}
 
-XSLTPROC = /usr/bin/xsltproc --novalid 
-TIDY = /usr/bin/tidy -q
-URLINSTALL = ~/bin/URL-Utils-0.6/url-install
-HTMLPP = ~/bin/HTMLPP-0.7/htmlpp
-HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
-
 PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBLUI.js
 PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
 
@@ -33,9 +27,7 @@ clean:
 	-rm wrapper.html
 
 install: ${TARGETS} ${RESOURCES}
-	for FILE in ${TARGETS} ${RESOURCES} ${SUBDIR_RESOURCES}; do \
-		${URLINSTALL} $${FILE} ${pkgdemodir}/${DOM_LIB}/$${FILE}; \
-	done;
+		${URLINSTALL} ${TARGETS} ${RESOURCES} ${SUBDIR_RESOURCES} ${pkgdemodir}/${DOM_LIB}/
 
 
 ${TARGETS}: %.html: ${demo_srcdir}/%.html
