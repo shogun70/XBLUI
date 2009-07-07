@@ -9,12 +9,6 @@ SRCS += ${foreach DOC,${DOCS},${DOC}.xhtml}
 TARGETS += ${foreach DOC,${DOCS},${DOC}.html}
 RESOURCES = documentation.css
 
-XSLTPROC = /usr/bin/xsltproc --novalid 
-HTMLWRAP = ~/bin/HTMLPP-0.7/htmlwrap
-TIDY = /usr/bin/tidy -q
-URLINSTALL = ~/bin/URL-Utils-0.6/url-install
-
-
 PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/XBLUI.js
 PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
 
@@ -26,9 +20,9 @@ clean:
 	-rm ${TARGETS}
 
 install: ${TARGETS} ${RESOURCES}
-	${URLINSTALL} ${TARGETS} ${pkgdocdir}/
+	${INSTALL} ${TARGETS} ${pkgdocdir}/
 	for FILE in ${RESOURCES}; do \
-		${URLINSTALL} ${srcdir}/$${FILE} ${pkgdocdir}/; \
+		${INSTALL} ${srcdir}/$${FILE} ${pkgdocdir}/; \
 	done;
 
 .xhtml.html :

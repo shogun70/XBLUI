@@ -24,9 +24,9 @@ clean: clean-subdirs
 build: build-subdirs ${.CURDIR}/wrapper.html ${TARGETS}
 
 install: install-subdirs ${TARGET_FILES} ${RESOURCES}
-	${URLINSTALL} ${TARGET_FILES} ${pkgdemodir}/
+	${INSTALL} ${TARGET_FILES} ${pkgdemodir}/
 	for FILE in ${RESOURCES}; do \
-		${URLINSTALL} ${srcdir}/$${FILE} ${pkgdemodir}/; \
+		${INSTALL} ${srcdir}/$${FILE} ${pkgdemodir}/; \
 	done;
 
 clean-subdirs: 
