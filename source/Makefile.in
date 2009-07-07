@@ -28,9 +28,9 @@ depend : .depend
 build : ${TARGETS}
 
 install: build
-	${URLINSTALL} ${TARGETS} ${pkglibexecdir}/
+	${INSTALL} ${TARGETS} ${pkglibexecdir}/
 	for FILE in ${RESOURCES}; do \
-		${URLINSTALL} ${srcdir}/$${FILE} ${pkglibexecdir}/; \
+		${INSTALL} ${srcdir}/$${FILE} ${pkglibexecdir}/; \
 	done;
 
 clean : 
@@ -52,5 +52,6 @@ XBLUI.js : XBLUI.xhtml ${UI_TARGETS}
 	${XPL2JS} ${.IMPSRC} > ${.TARGET}
 
 .xhtml.js :
-	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} > ${.TARGET}
+	${XPL} ${CACHE_CONFIG} ${PARAMS_CONFIG} ${.IMPSRC} |\
+	${JSMIN} - > ${.TARGET}
 

@@ -27,7 +27,7 @@ clean:
 	-rm wrapper.html
 
 install: ${TARGETS} ${RESOURCES}
-		${URLINSTALL} ${TARGETS} ${RESOURCES} ${SUBDIR_RESOURCES} ${pkgdemodir}/${DOM_LIB}/
+		${INSTALL} ${TARGETS} ${RESOURCES} ${SUBDIR_RESOURCES} ${pkgdemodir}/${DOM_LIB}/
 
 
 ${TARGETS}: %.html: ${demo_srcdir}/%.html
