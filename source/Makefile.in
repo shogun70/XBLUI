@@ -8,6 +8,7 @@ include @top_srcdir@/mk/gnu.bsdvars.mk
 
 UI_TARGETS = WF2.xml UI.xml UI.js
 TARGETS = ${UI_TARGETS} libXBL.js XBL.js libXBLUI.js XBLUI.js
+RESOURCES = SLAB.js
 
 CACHE_CONFIG := ${foreach fname,${UI_TARGETS},--disk-cache ${pkglibexecdir}/${fname} ${.CURDIR}/${fname}}
 
@@ -29,21 +30,23 @@ build : ${TARGETS}
 
 install: build
 	${INSTALL} ${TARGETS} ${pkglibexecdir}/
-	for FILE in ${RESOURCES}; do \
-		${INSTALL} ${srcdir}/$${FILE} ${pkglibexecdir}/; \
-	done;
 
 clean : 
-	-rm ${TARGETS}
+	-rm ${TARGETS} ${RESOURCES}
+
+XBLUI.js : SLAB.js libXBLUI.js
+	cat $^ > ${.TARGET}
+
+XBL.js : SLAB.js libXBL.js
+	cat $^ > ${.TARGET}
+
+libXBLUI.js : libXBLUI.xhtml ${UI_TARGETS}
 
 libXBL.js : lib/Meeko/XBL.js
 	cp ${.IMPSRC} ${.TARGET}
 
-XBL.js : XBL.xhtml 
-
-libXBLUI.js : libXBLUI.xhtml ${UI_TARGETS}
-
-XBLUI.js : XBLUI.xhtml ${UI_TARGETS} 
+SLAB.js : 
+	${CURL} ${SLAB_libexecdir}/SLAB.js > ${.TARGET}
 
 .xbl.xml :
 	cp ${.IMPSRC} ${.TARGET}
