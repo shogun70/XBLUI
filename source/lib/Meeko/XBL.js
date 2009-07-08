@@ -15,16 +15,16 @@ if (!this.Meeko) this.Meeko = {};
 if (!this.Meeko.stuff) this.Meeko.stuff = {};
 this.Meeko.stuff.xblSystem = (function() {
 
-var $conf = {};
+var system = {};
 
-$conf.logger = {
+system.logger = {
 	log: function() {},
 	debug: function() { this.log.apply(this, arguments); },
 	info: function() { this.log.apply(this, arguments); },
 	warn: function() { this.log.apply(this, arguments); },
 	error: function() { this.log.apply(this, arguments); }
 }
-$conf.URL = {
+system.URL = {
 	resolve: function(src, base) {
 		var rex = /^([a-z]+):\/\/([^\/]+)(\/.*)$/i;
 		var srcParts = src.match(rex);
@@ -58,10 +58,10 @@ var loadURL = function(url) {
 		var data = xplSystem.prefetch[url];
 		if (data) return { responseText: data };
 	}
-	return $conf.URL.load({ url: url });
+	return system.URL.load({ url: url });
 }
 
-$conf.XMLDocument = {
+system.XMLDocument = {
 	load: function(uri) {
 		var rq = new XMLHttpRequest(); 
 		rq.open("GET", uri, false);
@@ -81,31 +81,31 @@ var loadXMLDocument = function(uri) {
 	var xplSystem = Meeko.stuff.xplSystem;
 	if (xplSystem) {
 		var data = xplSystem.prefetch[uri];
-		if (data) return $conf.XMLDocument.loadXML(data); 
+		if (data) return system.XMLDocument.loadXML(data); 
 	}
-	return $conf.XMLDocument.load(uri);
+	return system.XMLDocument.load(uri);
 }
 
-$conf.XBLDocument = {
+system.XBLDocument = {
 	load: function(uri) {
 		var xmlDoc = loadXMLDocument(uri);
 		var xblDoc = new XBLDocument(xmlDoc, uri);
 		return xblDoc;
 	},
 	loadXML: function(data) {
-		var xmlDoc = $conf.XMLDocument.loadXML(data);
+		var xmlDoc = system.XMLDocument.loadXML(data);
 		var xblDoc = new XBLDocument(xmlDoc, window.location);
 		return xblDoc;
 	}
 }
 
-$conf.Document = {
+system.Document = {
 	addEventListener: function(doc, type, handler, useCapture) {
 		return doc.addEventListener(type, handler, useCapture);
 	}
 }
 
-$conf.Element = {
+system.Element = {
 	matchesSelector: function(elt, selector) {
 		return elt.matchesSelector(selector);
 	},
@@ -159,7 +159,7 @@ var xblDocuments = {};
 function loadBindingDocument(uri) {
 	var xblDoc = importXBLDocument(uri);
 	if (!xblDoc || !xblDoc.bindings) {
-		$conf.logger.error("Failure loading binding document " + uri);
+		system.logger.error("Failure loading binding document " + uri);
 		return;
 	}
 	bindingDocuments.push(xblDoc); // WARN assumes loadBindingDocument never called twice with same uri
@@ -167,9 +167,9 @@ function loadBindingDocument(uri) {
 }
 
 function loadBindingDocumentFromData(data, uri) {
-	var xblDoc = $conf.XBLDocument.loadXML(data, uri);
+	var xblDoc = system.XBLDocument.loadXML(data, uri);
 	if (!xblDoc || !xblDoc.bindings) {
-		$conf.logger.error("Failure loading binding document from data");
+		system.logger.error("Failure loading binding document from data");
 		return;
 	}
 	bindingDocuments.push(xblDoc);
@@ -178,7 +178,7 @@ function loadBindingDocumentFromData(data, uri) {
 
 function importXBLDocument(uri) {
 	var xblDoc;
-	var absoluteURI = $conf.URL.resolve(uri, document.URL);
+	var absoluteURI = system.URL.resolve(uri, document.URL);
 	
 	// check the cache
 	xblDoc = xblDocuments[absoluteURI]; 
@@ -186,12 +186,12 @@ function importXBLDocument(uri) {
 	
 	// otherwise fetch and wrap
 	try {
-		xblDoc = $conf.XBLDocument.load(absoluteURI);
+		xblDoc = system.XBLDocument.load(absoluteURI);
 		xblDocuments[absoluteURI] = xblDoc;
 	}
 	catch(error) {
 		xblDocuments[absoluteURI] = null; // NOTE placeholder
-		$conf.logger.error("Failure loading xbl document " + uri);
+		system.logger.error("Failure loading xbl document " + uri);
 	}
 	return xblDoc;
 }
@@ -210,7 +210,7 @@ function importBaseBinding(binding) {
 	var xblDoc;
 	if (m[1] == "") xblDoc = binding.xblDocument;
 	else {
-		var absoluteURI = $conf.URL.resolve(m[1], binding.xblDocument.documentURI);
+		var absoluteURI = system.URL.resolve(m[1], binding.xblDocument.documentURI);
 		xblDoc = importXBLDocument(absoluteURI);
 	}
 	var baseBinding = xblDoc.namedBindings[m[2]];
@@ -244,7 +244,7 @@ function registerBinding(binding, selector) { // FIXME doesn't break inheritance
 		if (!type) continue; // NOTE handlers without type are invalid
 		var phase = handler.phase;
 		if (!handlerTable[type]) { // i.e. first registration for event.type
-			$conf.Document.addEventListener(document, type, dispatchEvent, true); // route through our event-system
+			system.Document.addEventListener(document, type, dispatchEvent, true); // route through our event-system
 			handlerTable[type] = new Array(4); 					// and pre-allocate space in handlerTable
 			handlerTable[type][1] = []; // capture
 			handlerTable[type][2] = []; // target
@@ -284,13 +284,13 @@ function dispatchEvent(event) {
 	  i.e. no state is saved in bindings
 	*/
 	function callHandlers() {
-		$conf.Element.bind(current);
+		system.Element.bind(current);
 		var handlerRefs = handlerTable[event.type][phase];
 		for (var i=0, handlerRef; handlerRef=handlerRefs[i]; i++) {
 			var binding = handlerRef.binding;
 			var selector = handlerRef.selector;
 			var handler = handlerRef.handler;
-			if (selector && !$conf.Element.matchesSelector(current, selector)) continue; // NOTE no element-selector means this is a base-binding
+			if (selector && !system.Element.matchesSelector(current, selector)) continue; // NOTE no element-selector means this is a base-binding
 			if (!handler.matchesEvent(event, { eventPhase: false })) continue; // NOTE switch off eventPhase checking
 			// instantiate internal object
 			var internal = new binding.implementation;
@@ -312,7 +312,7 @@ function dispatchEvent(event) {
 			if (handler.action) try { // NOTE handlers don't need an action
 				handler.action.call(internal, event);
 			}
-			catch(error) { $conf.logger.debug(error); } // FIXME log error
+			catch(error) { system.logger.debug(error); } // FIXME log error
 			
 			// FIXME which way is correct??
 			// if (handler.defaultPrevented) event.__preventDefault();
@@ -405,7 +405,7 @@ var XBLXblElement = function(_element, _document) {
 			var src = node.getAttribute("src");
 			var jsText = "";
 			if (src) {
-				var uri = $conf.URL.resolve(src, _document.documentURI);
+				var uri = system.URL.resolve(src, _document.documentURI);
 				var rq = loadURL(uri);
 				jsText = rq.responseText;
 				execScript(jsText);
@@ -424,7 +424,7 @@ var XBLXblElement = function(_element, _document) {
 		}
 		if ("style" == localName && HTMLNS == node.namespaceURI) {
 			var cssText = getTextContent(node);
-			var text = cssText.replace(/url\(\s*['"]?([^)]+)['"]?\s*\)/g, function(all, href) { return 'url("' + ($conf.URL.resolve(href, _document.documentURI)) + '")'; }); // FIXME assert that quotes are matching
+			var text = cssText.replace(/url\(\s*['"]?([^)]+)['"]?\s*\)/g, function(all, href) { return 'url("' + (system.URL.resolve(href, _document.documentURI)) + '")'; }); // FIXME assert that quotes are matching
 			var styleElt = document.createElement("style");
 			try { styleElt.innerText = text; } catch(error) { }
 			if (!styleElt.innerHTML) try { styleElt.innerHTML = text; } catch(error) { }
@@ -438,7 +438,7 @@ var XBLXblElement = function(_element, _document) {
 			catch (error) { }
 			continue;
 		}
-		$conf.logger.warn("Ignoring " + node.tagName + " element: invalid child of xbl:xbl");			
+		system.logger.warn("Ignoring " + node.tagName + " element: invalid child of xbl:xbl");			
 	}
 }
 
@@ -469,7 +469,7 @@ var XBLBindingElement = function(_element, _document) {
 				binding.handlers.push(handler);
 				continue;
 			}
-			$conf.logger.warn("Ignoring " + node.tagName + " element: invalid child of xbl:handlers");
+			system.logger.warn("Ignoring " + node.tagName + " element: invalid child of xbl:handlers");
 		}
 	}
 
@@ -482,7 +482,7 @@ var XBLBindingElement = function(_element, _document) {
 	for (var node=_element.firstChild; node; node=node.nextSibling) {
 		if (node.nodeType != 1 /* Node.ELEMENT_NODE */) continue;
 		if (XBLNS != node.namespaceURI) {
-			$conf.logger.warn("Ignoring " + tagName + " element: invalid namespace for child of xbl:binding");
+			system.logger.warn("Ignoring " + tagName + " element: invalid namespace for child of xbl:binding");
 			continue;
 		}
 		var localName = getLocalName(node);
@@ -495,24 +495,24 @@ var XBLBindingElement = function(_element, _document) {
 						this.implementation.prototype = evalScript.call(window, jsText);
 					}
 					catch (error) {
-						$conf.logger.warn("Error in xbl:implementation script"); // FIXME more specific message
+						system.logger.warn("Error in xbl:implementation script"); // FIXME more specific message
 					}
-					if (this.implementation.prototype.xblBindingAttached) $conf.logger.warn("xblBindingAttached not supported");
-					if (this.implementation.prototype.xblEnteredDocument) $conf.logger.warn("xblEnteredDocument not supported");
+					if (this.implementation.prototype.xblBindingAttached) system.logger.warn("xblBindingAttached not supported");
+					if (this.implementation.prototype.xblEnteredDocument) system.logger.warn("xblEnteredDocument not supported");
 				}
 				else {
-					$conf.logger.warn("Ignoring xbl:implementation element: only first instance is valid");
+					system.logger.warn("Ignoring xbl:implementation element: only first instance is valid");
 				}
 				break;
 			
 			case "template":
 				implementationElts.push(node);
 				if (templateElts.length <= 1) {
-					$conf.logger.warn("Ignoring xbl:template element: feature not implemented");
+					system.logger.warn("Ignoring xbl:template element: feature not implemented");
 					this.template = node;
 				}
 				else {
-					$conf.logger.warn("Ignoring xbl:template element: only first instance is valid");
+					system.logger.warn("Ignoring xbl:template element: only first instance is valid");
 				}
 				break;
 			
@@ -522,22 +522,22 @@ var XBLBindingElement = function(_element, _document) {
 					XBLHandlers(node);
 				}
 				else {
-					$conf.logger.warn("Ignoring xbl:handlers element: only first instance is valid");
+					system.logger.warn("Ignoring xbl:handlers element: only first instance is valid");
 				}
 				break;
 			
 			case "resources":
 				resourcesElts.push(node);
 				if (resourcesElts.length <= 1) {
-					$conf.logger.warn("Ignoring xbl:resources element: feature not implemented");
+					system.logger.warn("Ignoring xbl:resources element: feature not implemented");
 				}
 				else {
-					$conf.logger.warn("Ignoring xbl:resources element: only first instance is valid");
+					system.logger.warn("Ignoring xbl:resources element: only first instance is valid");
 				}
 				break;
 			
 			default:
-				$conf.logger.warn("Ignoring " + node.tagName + " element: invalid child of xbl:binding");
+				system.logger.warn("Ignoring " + node.tagName + " element: invalid child of xbl:binding");
 				break;
 		}
 	}
@@ -552,14 +552,14 @@ var XBLHandlerElement = function(_element, _document) {
 	this._target = _element;
 	this.xblDocument = _document;
 	this.event = _element.getAttribute("event");
-	if (null == this.event) $conf.logger.warn("Invalid handler: empty event attribute");
+	if (null == this.event) system.logger.warn("Invalid handler: empty event attribute");
 
 	function lookupValue(attrName, lookup) {
 		var attrValue = _element.getAttribute(attrName);
 		var result;
 		if (attrValue) {
 			result = lookup[attrValue];
-			if (null == result) $conf.logger.info("Ignoring invalid @" + attrName + ": " + attrValue);
+			if (null == result) system.logger.info("Ignoring invalid @" + attrName + ": " + attrValue);
 		}
 		return result;
 	}
@@ -661,7 +661,7 @@ var XBLHandlerElement = function(_element, _document) {
 			this.action = Function("event", jsText);
 		}
 		catch (error) {
-			$conf.logger.warn("Parse error in handler"); // FIXME more specific message
+			system.logger.warn("Parse error in handler"); // FIXME more specific message
 		}
 	}
 	return this;
@@ -847,10 +847,7 @@ function getLocalName(element) {
 	return (element.localName) ? element.localName : element.tagName.replace(element.prefix+":", "");	
 }
 
-
-return {
-	initialize: initialize,
-	getConfig: function() { return $conf; }
-}
+system.initialize = initialize;
+return system;
 
 })();
