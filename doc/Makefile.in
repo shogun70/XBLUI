@@ -1,11 +1,11 @@
 srcdir = @srcdir@
+builddir = @builddir@
 VPATH = @srcdir@
 
 include @top_srcdir@/mk/gnu.bsdvars.mk
 
 .SUFFIXES: .xhtml .html .xml .css
-DOCS = index guide reference examples debug status
-SRCS += ${foreach DOC,${DOCS},${DOC}.xhtml}
+DOCS = index guide reference debug status
 TARGETS += ${foreach DOC,${DOCS},${DOC}.html}
 RESOURCES = documentation.css
 
@@ -17,15 +17,17 @@ all: build
 build: ${TARGETS}
 
 clean:
-	-rm ${TARGETS}
+	-rm ${TARGETS} wrapper.html
 
 install: ${TARGETS} ${RESOURCES}
-	${INSTALL} ${TARGETS} ${pkgdocdir}/
-	for FILE in ${RESOURCES}; do \
-		${INSTALL} ${srcdir}/$${FILE} ${pkgdocdir}/; \
-	done;
+	${INSTALL} ${.ALLSRC} ${pkgdocdir}/
 
-.xhtml.html :
-	${HTMLWRAP} ${.IMPSRC} |\
-	${HTMLPP} ${PARAMS} - > ${.TARGET}
+.xhtml.html: 
+	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
+	${HTMLWRAP} --wrapper ${builddir}/wrapper.html - > ${.TARGET}
+
+${TARGETS} : wrapper.html
+
+wrapper.html: wrapper.xhtml
+	${HTMLPP} ${PARAMS} ${.IMPSRC} > ${.TARGET}
 
