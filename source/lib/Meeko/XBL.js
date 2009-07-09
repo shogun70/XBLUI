@@ -586,10 +586,11 @@ var XBLHandlerElement = function(_element, _document) {
 		if (!attrText) return null;
 		var result = [];
 		var strings = attrText.split(/\s+/);
-		Array.forEach (strings, function(text) {
+		for (var n=strings.length, i=0; i<n; i++) {
+			var text = strings[i];
 			var num = Number(text);
 			if (NaN != num && Math.floor(num) == num) result.push(num);
-		});
+		}
 		return result;
 	}
 
@@ -604,14 +605,15 @@ var XBLHandlerElement = function(_element, _document) {
 	this.keyLocation = [];
 	var keyLocationText = _element.getAttribute("key-location");
 	var keyLocationStrings =  (keyLocationText) ? keyLocationText.split(/\s+/) : [];
-	Array.forEach(keyLocationStrings, function(text) {
+	for (var n=keyLocationStrings.length, i=0; i<n; i++) {
+		var text = keyLocationStrings[i];
 		switch (text) {
 			case "standard": this.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_STANDARD); break;
 			case "left": this.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_LEFT); break;
 			case "right": this.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_RIGHT); break;
 			case "numpad": this.keyLocation.push(KeyboardEvent.DOM_KEY_LOCATION_NUMPAD); break;
 		}
-	}, this);
+	}
 
 	// text
 	this.text = _element.getAttribute("text");
@@ -624,13 +626,14 @@ var XBLHandlerElement = function(_element, _document) {
 	this.attrChange = [];
 	var attrChangeText = _element.getAttribute("attr-change");
 	var attrChangeStrings =  (attrChangeText) ? attrChangeText.split(/\s+/) : [];
-	Array.forEach(attrChangeStrings, function(text) {
+	for (var n=attrChangeStrings.length, i=0; i<n; i++) {
+		var text = attrChangeStrings[i];
 		switch (text) {
 			case "modification": this.attrChange.push(MutationEvent.MODIFICATION); break;
 			case "addition": this.attrChange.push(MutationEvent.ADDITION); break;
 			case "removal": this.attrChange.push(MutationEvent.REMOVAL); break;
 		}
-	}, this);
+	}
 	this.prevValue = _element.getAttribute("prev-value");
 	this.newValue = _element.getAttribute("new-value");
 	
@@ -640,7 +643,8 @@ var XBLHandlerElement = function(_element, _document) {
 		this.modifiers = [];
 		var modifiersText = _element.getAttribute("modifiers");
 		var modifiersStrings = (modifiersText) ? modifiersText.split(/\s+/) : [];
-		Array.forEach (modifiersStrings, function(text) { // TODO check parser
+		for (var n=modifiersStrings, i=0; i<n; i++) {
+			var text = modifiersStrings[i];
 			var m;
 			m = /^([+-]?)([a-z]+)(\??)$/.exec(text);
 			if (m) {
@@ -651,7 +655,7 @@ var XBLHandlerElement = function(_element, _document) {
 				else if (m[1] == "-") condition = -1; // MUST NOT
 				this.modifiers.push({ key: key, condition: condition });
 			}
-		}, this);
+		}
 	}
 	else this.modifiers = null;
 
