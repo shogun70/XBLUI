@@ -11,11 +11,11 @@
 (function() {
 	var pkglibdir = xplContext.params["pkglibdir"];
 	var pkglibdir_aliases = xplContext.params["pkglibdir_aliases"].split(" ");
-	Array.forEach(pkglibdir_aliases, function(base) {
+	for (var base, i=0; base=pkglibdir_aliases[i]; i++) {
 		xplSystem.prefetch[base + '/UI.js'] = xplSystem.prefetch[pkglibdir + '/UI.js'];
 		xplSystem.prefetch[base + '/UI.xml'] = xplSystem.prefetch[pkglibdir + '/UI.xml'];
 		xplSystem.prefetch[base + '/WF2.xml'] = xplSystem.prefetch[pkglibdir + '/WF2.xml'];
-	});
+	}
 })();
 ]]>
 	</script>
