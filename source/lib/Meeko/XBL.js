@@ -333,34 +333,40 @@ function dispatchEvent(event) {
 	event.__stopPropagation = event.stopPropagation;
 	event.stopPropagation = function() { this.eventStatus |= 2; };
 
-	
+	var evHandlerTable = handlerTable[event.type];
 	phase = 1; // Event.CAPTURING_PHASE;
-	if (!event.__defineGetter__) event.phase = phase;
-	for (var n=path.length, i=n-1; i>0; i--) {
-		current = path[i];
-		if (!event.__defineGetter__) event.currentTarget = current;
-		callHandlers();
-		if (event.eventStatus & 1) event.__preventDefault();
-		if (event.eventStatus & 2) return;
+	if (evHandlerTable[phase].length) {
+		if (!event.__defineGetter__) event.phase = phase;
+		for (var n=path.length, i=n-1; i>0; i--) {
+			current = path[i];
+			if (!event.__defineGetter__) event.currentTarget = current;
+			callHandlers();
+			if (event.eventStatus & 1) event.__preventDefault();
+			if (event.eventStatus & 2) return;
+		}
 	}
-
+	
 	phase = 2; // Event.AT_TARGET;
-	if (!event.__defineGetter__) event.phase = phase;
-	current = path[0];
-	if (!event.__defineGetter__) event.currentTarget = current;
-	callHandlers();
-	if (event.eventStatus & 1) event.__preventDefault();
-	if (event.eventStatus & 2) return;
-	if (!event.bubbles) return;
-
-	phase = 3; // Event.BUBBLING_PHASE;
-	if (!event.__defineGetter__) event.phase = phase;
-	for (var n=path.length, i=1; i<n; i++) {
-		current = path[i];
+	if (evHandlerTable[phase].length) {
+		if (!event.__defineGetter__) event.phase = phase;
+		current = path[0];
 		if (!event.__defineGetter__) event.currentTarget = current;
 		callHandlers();
 		if (event.eventStatus & 1) event.__preventDefault();
 		if (event.eventStatus & 2) return;
+		if (!event.bubbles) return;
+	}
+	
+	phase = 3; // Event.BUBBLING_PHASE;
+	if (evHandlerTable[phase].length) {
+		if (!event.__defineGetter__) event.phase = phase;
+		for (var n=path.length, i=1; i<n; i++) {
+			current = path[i];
+			if (!event.__defineGetter__) event.currentTarget = current;
+			callHandlers();
+			if (event.eventStatus & 1) event.__preventDefault();
+			if (event.eventStatus & 2) return;
+		}
 	}
 	
 	return;
