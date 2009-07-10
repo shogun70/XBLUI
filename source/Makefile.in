@@ -35,10 +35,10 @@ clean :
 	-rm ${TARGETS} ${RESOURCES}
 
 XBLUI.js : SLAB.js libXBLUI.js
-	cat $^ > ${.TARGET}
+	cat ${.ALLSRC} > ${.TARGET}
 
 XBL.js : SLAB.js libXBL.js
-	cat $^ > ${.TARGET}
+	cat ${.ALLSRC} > ${.TARGET}
 
 libXBLUI.js : libXBLUI.xhtml ${UI_TARGETS}
 
