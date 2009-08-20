@@ -1,7 +1,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <!--
 Webforms2 Demo
-Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
+Copyright 2007-2009, Sean Hogan (http://www.meekostuff.net/)
 All rights reserved
 -->
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -10,6 +10,7 @@ All rights reserved
 	<style>
 html { border: none; }
 body { width: 480px; height: 100%; }
+input[type=number] { text-align: right; }
 #form label { display: block; position: relative; top: 0; left: 0; margin: 5px; vertical-align: middle; }
 #form input, #form select { position: absolute; top: 0; left: 130px; }
 #form a { font: 9pt sans-serif; }
@@ -23,10 +24,11 @@ body { width: 480px; height: 100%; }
 
 <xbl xmlns="http://www.w3.org/ns/xbl" xmlns:html="http://www.w3.org/1999/xhtml">
 	<html:style>
+input[type=number] { padding-right: 10px; background-image: url(menulist-arrow.gif); background-repeat: no-repeat; background-position: right center; }
 #form a { display: none; }
 #form { margin-right: 160px; }
 #help { position: absolute; top: 0; left: 300px; width: 150px; font-size: 10pt; }
-#help div { background-color: #ffffdd; padding: 5px; }
+#help div { background-color: #ffffdd; padding: 5px; display: none; }
 #help h2 { background-color: #e6f7ff; font-size: 10pt; text-align: center; margin: 3px 0; padding: 3px; border: 1px solid #dddddd; }
 #help h3 { font-size: 9pt; font-weight: bold; }
 #help p { margin: 3px 0; }
@@ -55,7 +57,7 @@ encode: function() {
 <![CDATA[
 var element = this.boundElement;
 var valid = true;
-forEach (element.elements, function(el) {
+Array.forEach (element.elements, function(el) {
 	if (el.checkValidity && !el.checkValidity()) {
 		var message = "Invalid data for "+el.name+":\n"+el.value;
 		alert(message);
@@ -88,38 +90,32 @@ setView: function(item) {
 	</binding>
 	<binding element="form, label[for]">
 		<implementation>
-
 ({
 getRefElement: function() {
-	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
-		if ("A" == node.tagName) return node;
-	}
-	return null;
+	var element = this.boundElement;
+	var node = element.querySelector("a");
+	return (node.parentNode === element) ? node : null;
 },
 
 getView: function() {
 	var element = this.boundElement;
 	var document = element.ownerDocument;
 	var ref = this.getRefElement();
-	if ("A" == ref.tagName) {
-		var href = ref.href;
-		var baseURI = document.documentURI;
-		var rex = new RegExp("^"+baseURI+"#");
-		if (href.match(rex)) {
-			var id = href.replace(rex, "");
-			return document.getElementById(id);
-		}
+	var href = ref.href;
+	var baseURI = document.documentURI;
+	var rex = new RegExp("^"+baseURI+"#");
+	if (href.match(rex)) {
+		var id = href.replace(rex, "");
+		return document.getElementById(id);
 	}
 	return null;
 }
 })
-
 		</implementation>
 	</binding>
 	<binding element="input, select">
 		<handlers>
 			<handler event="focus">
-
 var element = this.boundElement;
 var document = element.ownerDocument;
 var form = element.form;
@@ -127,16 +123,13 @@ var type = ("text" == element.type) ? element.getAttribute("type") : element.typ
 var view = document.getElementById(type + "Help");
 var viewBox = form.getView &amp;&amp; form.getView();
 if (view &amp;&amp; viewBox) viewBox.setView(view);
-				
 			</handler>
 			<handler event="blur">
-
 var element = this.boundElement;
 var document = element.ownerDocument;
 var form = element.form;
 var viewBox = form.getView &amp;&amp; form.getView();
 if (viewBox) viewBox.setView(null);
-				
 			</handler>
 		</handlers>
 	</binding>
@@ -145,7 +138,7 @@ if (viewBox) viewBox.setView(null);
 <body id="webforms2">
 	<form id="form">
 		<label for="numberInput">Number (0..100)
-			<input type="number" autocomplete="off" id="numberInput" name="numberInput" value="50" min="0" max="100"></input>
+			<input type="number" autocomplete="off" id="numberInput" name="numberInput" value="50" min="0" max="100" />
 			<a rel="help" href="#numberHelp">Help</a>
 		</label>
 

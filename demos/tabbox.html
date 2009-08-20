@@ -1,7 +1,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <!--
 XBL2 Tabbox demo
-Copyright 2007, Sean Hogan (http://www.meekostuff.net/)
+Copyright 2007-2009, Sean Hogan (http://www.meekostuff.net/)
 All rights reserved
 -->
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -69,26 +69,122 @@ body { width: 480px; height: 100%; }
 			<handler event="hashchange">
 this.baseBinding.setView(event.relatedTarget);
 			</handler>
-		</handlers>
-	</binding>
-	<binding extends="{pkgdefaultlibdir}/UI.xml#navlist" element="#tabbox .nav">
-		<handlers>
-			<handler event="change">
-//var element = this.boundElement;
-var view = this.baseBinding.getView();
-var item = this.baseBinding.getSelectedItem();
-// var itemView = item.getView();
-// view.setView(itemView);
-var itemView = document.getElementById(item.getElementsByTagName("a").item(0).href.split("#")[1]);
-var event = document.createEvent("Event");
-event.initEvent("hashchange", true, true);
-event.relatedTarget = itemView;
-view.dispatchEvent(event);
+			<handler event="TabPanelInserted">
+var element = this.boundElement;
+var panel = event.target;
+if (panel.parentNode != element) return;
+panel.style.display = "none";
 			</handler>
 		</handlers>
 	</binding>
-	<binding extends="{pkgdefaultlibdir}/UI.xml#navlistitem" element="#tabbox .nav &gt; ul &gt; li"></binding>
-	<binding extends="{pkgdefaultlibdir}/UI.xml#navlink" element="#tabbox .nav &gt; ul &gt; li &gt; a[href]"></binding>
+	<binding element="#tabboxPanels > div">
+		<implementation>
+({
+xblEnteredDocument: function() {
+	var element = this.boundElement;
+	var e = document.createEvent("MutationEvent");
+	e.initEvent("TabPanelInserted", true, true);
+	element.dispatchEvent(e);
+}
+})
+		</implementation>
+	</binding>
+	<binding element="*[id]">
+		<implementation>
+({
+notify: function(entering) {
+	var evType = (entering) ? "valid" : "invalid";
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	var id = element.id;
+	var href = document.URL + "#" + id;
+	var links = document.querySelectorAll("a[href]");
+	for (var link, i=0; link=links.item(i); i++) {
+		if (link.href != href) continue;
+		var e = document.createEvent("Event");
+		e.initEvent(evType, true, false);
+		link.dispatchEvent(e);
+	}
+},
+
+xblEnteredDocument: function() {
+	this.notify(true);
+},
+
+xblLeftDocument: function() {
+	this.notify(false);
+}
+})
+		</implementation>
+	</binding>
+	<binding extends="{pkgdefaultlibdir}/UI.xml#navlist" element="#tabbox .nav">
+		<implementation>
+({
+updateView: function() {
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	var viewId = element.querySelector("a[href]").href.split("#")[1];
+	var item = this.baseBinding.getSelectedItem();
+	var hash = item.querySelector("a[href]").href.split("#")[1];
+	var target = document.getElementById(viewId);
+	if (!target) return;
+	var rel = document.getElementById(hash);
+	var e = document.createEvent("Event");
+	e.initEvent("hashchange", true, true);
+	e.relatedTarget = rel;
+	target.dispatchEvent(e);
+}
+})
+		</implementation>
+		<handlers>
+			<handler event="change">
+this.updateView();
+			</handler>
+			<handler event="enabled">
+var element = this.boundElement;
+var list = this.baseBinding.getList();
+if (event.target.parentNode != list) return;
+this.updateView();
+			</handler>
+		</handlers>
+	</binding>
+	<binding extends="{pkgdefaultlibdir}/UI.xml#navlistitem" element="#tabbox .nav &gt; ul &gt; li">
+		<handlers>
+			<handler event="valid">
+var element = this.boundElement;
+if (event.target.parentNode != element) return;
+var e = document.createEvent("Event");
+e.initEvent("enabled", true, true);
+element.dispatchEvent(e);
+			</handler>
+			<handler event="invalid">
+var element = this.boundElement;
+if (event.target.parentNode != element) return;
+var e = document.createEvent("Event");
+e.initEvent("disabled", true, true);
+element.dispatchEvent(e);
+			</handler>
+		</handlers>
+	</binding>
+	<binding extends="{pkgdefaultlibdir}/UI.xml#navlink" element="#tabbox .nav &gt; ul &gt; li &gt; a[href]">
+		<implementation>
+({
+xblEnteredDocument: function() {
+	var element = this.boundElement;
+	var document = element.ownerDocument;
+	var href = element.href;
+	var parts = href.split("#");
+	if (parts[0] != document.URL) return; // links to other pages are always indeterminate
+	var hash = parts[1];
+	var target = (hash) ? document.getElementById(hash) : null;
+	var evType = (target) ? "valid" : "invalid";
+	var e = document.createEvent("Event");
+	e.initEvent(evType, true, true);
+	element.dispatchEvent(e);
+}
+})
+		</implementation>
+	</binding>
 </xbl>
 </head>
 <body id="tabbox">
@@ -96,7 +192,7 @@ view.dispatchEvent(event);
 	<div class="nav" id="tabboxTabs">
 		<a class="skip" rel="target" href="#tabboxPanels">The Tabbox</a>
 		<ul>
-			<li id="Tab1"><a href="#tabboxPanel1">Description</a></li>
+			<li id="Tab1" class=" current "><a href="#tabboxPanel1">Description</a></li>
 			<li id="Tab2"><a href="#tabboxPanel2">Implementation</a></li>
 			<li id="Tab3"><a href="#tabboxPanel3">Semantics</a></li>
 		</ul>
@@ -115,11 +211,13 @@ especially where content doesn't naturally flow from panel to panel.
 		</div>
 		<div id="tabboxPanel2">
 			<p>
-A tabbox is implemented using
-				<ul>
-					<li>a list of block elements (the panels) inside a container block which has a switchBox behavior applied.  This is preceded by</li>
-					<li>a list of links (the tabs) to the panels inside the container. This list has a menu behavior similar to the select element</li>
-				</ul>
+A tabbox is implemented using:
+			</p>
+			<ul>
+				<li>a list of block elements (the panels) inside a container block which has a switchBox behavior applied.  This is preceded by</li>
+				<li>a list of links (the tabs) to the panels inside the container. This list has a menu behavior similar to the select element</li>
+			</ul>
+			<p>
 When one of the tabs is activated, a change event is sent to the menu.
 The menu grabs the href of the activated tab and commands the switchBox to display referenced panel.
 			</p>
