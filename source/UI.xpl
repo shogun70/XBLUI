@@ -17,10 +17,7 @@ All rights reserved
 	<instance>
 		<property name="refElement">
 			<getter>
-	for (var node=this.boundElement.firstChild; node; node=node.nextSibling) {
-		if ("A" == node.tagName || "LABEL" == node.tagName) return node;
-	}
-	return null;
+	return this.boundElement.querySelector("a, label"); // FIXME :context > a, etc
 			</getter>
 		</property>
 		<property name="view">
@@ -28,7 +25,8 @@ All rights reserved
 	var element = this.boundElement;
 	var document = element.ownerDocument;
 	var ref = this.getRefElement();
-	if ("A" == ref.tagName) {
+	var tagName = ref.tagName.toLowerCase();
+	if ("a" == tagName) {
 		var href = ref.href;
 //		var base = document.documentURI + "#";
 		var base = document.URL + "#";
@@ -37,7 +35,7 @@ All rights reserved
 			return document.getElementById(id);
 		}
 	}
-	else if ("LABEL" == ref.tagName) {
+	else if ("label" == tagName) {
 		var id = ref.htmlFor;
 		if (id) return document.getElementById(id);
 	}
@@ -46,25 +44,21 @@ All rights reserved
 		</property>
 		<property name="list">
 			<getter>
+<![CDATA[
 	var element = this.boundElement;
-	if ("OL" == element.tagName || "UL" == element.tagName || "SELECT" == element.tagName) return element;
-	for (var node=element.firstChild; node; node=node.nextSibling) {
-		if ("OL" == node.tagName || "UL" == node.tagName || "SELECT" == node.tagName) return node;
+	switch (element.tagName.toLowerCase()) {
 	}
-	return null;
-			</getter>
-		</property>
-		<method name="activate">
-			<body>
-	var element = this.boundElement;
-	for (var ancestor=element.parentNode; ancestor; ancestor=ancestor.parentNode) {
-		if (ancestor.selectItem) {
-			ancestor.selectItem(element);
-			break;
+	var children = element.children;
+	for (var node, i=0; node=children.item(i); i++) {
+		switch (node.tagName.toLowerCase()) {
+			case "ol": case "ul": case "select": return node;	
 		}
 	}
-			</body>
-		</method>
+	
+	return null;
+]]>
+			</getter>
+		</property>
 		<method name="setOpenState">
 			<parameter name="state"/>
 			<body>
@@ -86,7 +80,7 @@ All rights reserved
 	var element = this.boundElement;
 	var list = this.getList();
 	if (!list) throw " ";
-	var state = element.classList.has("open");
+	var state = element.classList.contains("open");
 	return state;
 			</body>
 		</method>
@@ -107,7 +101,7 @@ All rights reserved
 	var items = this.getItems();
 	var n = items.length;
 	for (var i=0; i<n; i++) {
-		if (items.item(i).classList.has("current")) return i;
+		if (items.item(i).classList.contains("current")) return i;
 	}
 	return null;
 ]]>
@@ -120,7 +114,7 @@ All rights reserved
 	var n = items.length;
 	for (var i=0; i<n; i++) {
 		var node = items.item(i);
-		if (node.classList.has("current")) return node;
+		if (node.classList.contains("current")) return node;
 	}
 	return null;
 ]]>
@@ -136,8 +130,8 @@ All rights reserved
 	var n = items.length;
 	for (var i=0; i<n; i++) {
 		var node = items.item(i);
-		if (node == item) node.classList.add("current");
-		else node.classList.remove("current");
+		if (node === item) node.classList.add("current");
+		if (node !== item) node.classList.remove("current");
 	}
 	this.signalChange();
 ]]>
@@ -147,8 +141,7 @@ All rights reserved
 			<body>
 	var element = this.boundElement;
 	var document = element.ownerDocument;
-	var event;
-	event = document.createEvent("Event");
+	var event = document.createEvent("Event");
 	event.initEvent("change", false, true);
 	return element.dispatchEvent(event);
 			</body>
@@ -187,13 +180,15 @@ All rights reserved
 		<method name="setView">
 			<parameter name="item"/>
 			<body>
+<![CDATA[
 	var element = this.boundElement;
 	var document = element.ownerDocument;
-	for (var node=item; element!=node; node=node.parentNode) {
-		if (document==node) throw "setView failed: item is not descendant of scrollBox";
+	if (element.compareDocumentPosition(node) & 0x10) { // Node.DOCUMENT_POSITION_CONTAINED_BY
+		throw "setView failed: item is not descendant of scrollBox";
 	}
 
 	element.scrollTop = item.offsetTop - element.offsetTop;
+]]>
 			</body>
 		</method>
 	</instance>
@@ -204,13 +199,15 @@ All rights reserved
 		<method name="setView">
 			<parameter name="item"/>
 			<body>
+<![CDATA[
 	var element = this.boundElement;
 	var document = element.ownerDocument;
-	for (var node=item; element!=node; node=node.parentNode) {
-		if (document==node) throw "setView failed: item is not descendant of scrollBoxWithResize";
+	if (element.compareDocumentPosition(node) & 0x10) { // Node.DOCUMENT_POSITION_CONTAINED_BY
+		throw "setView failed: item is not descendant of scrollBoxWithResize";
 	}
 	element.style.height = "" + item.clientHeight + "px";
 	element.scrollTop = item.offsetTop - element.offsetTop;
+]]>
 			</body>
 		</method>
 		<method name="xblBindingAttached">
@@ -231,20 +228,15 @@ All rights reserved
 			<body>
 	var element = this.boundElement;
 	if (element != item.parentNode) throw "setView failed: item is not child of switchBox";
-	for (var child=element.firstChild; child; child=child.nextSibling) {
-		if (Node.ELEMENT_NODE != child.nodeType) continue;
+	Array.forEach(element.children, function(child) {
 		if (item == child) child.style.display = "";
 		else child.style.display = "none";
-	}
+	});
 			</body>
 		</method>
 		<method name="_getPanels">
 			<body>
-	var elements = [];
-	for (var child=this.boundElement.firstChild; child; child=child.nextSibling) {
-		if (Node.ELEMENT_NODE == child.nodeType) elements.push(child);
-	}
-	return elements;
+	return this.boundElement.children;
 			</body>
 		</method>
 		<method name="setViewByIndex">
@@ -252,12 +244,11 @@ All rights reserved
 			<body>
 <![CDATA[
 	var panels = this._getPanels();
-	var n = panels.length;
-	if (index >= n) throw "setViewByIndex failed: index is not valid for switchBox";
-	for (var i=0; i<n; i++) {
-		if (index == i) panels[i].style.display = "";
-		else panels[i].style.display = "";
-	}
+	if (index >= panels.length) throw "setViewByIndex failed: index is not valid for switchBox";
+	Array.forEach(panels, function(panel, i) {
+		if (index == i) panel.style.display = "";
+		else panel.style.display = "none";
+	});
 	return;
 ]]>
 			</body>
@@ -321,11 +312,11 @@ All rights reserved
 	var type = "string";
 	var cols = this.getColumns();
 	var classList = cols.item(column).classList;
-	if (classList.has("number")) type = "number";
-	if (classList.has("string")) type = "string";
-	var sortable = classList.has("sortable");
-	var sorted = classList.has("sorted");
-	var reversed = classList.has("reversed");
+	if (classList.contains("number")) type = "number";
+	if (classList.contains("string")) type = "string";
+	var sortable = classList.contains("sortable");
+	var sorted = classList.contains("sorted");
+	var reversed = classList.contains("reversed");
 	if (!sortable) return;
 	if (!sorted) {
 		this._sort(column, type, false);
@@ -861,11 +852,6 @@ if (rc) this.boundElement.setAttribute("data", val);
 			</setter>
 		</property>
 			
-		<method name="xblBindingAttached">
-			<body>
-this.httpRequest = new this.boundElement.ownerDocument.parentWindow.XMLHttpRequest();
-			</body>
-		</method>
 		<method name="load" visibility="protected">
 			<parameter name="src" />
 			<body>
@@ -875,6 +861,7 @@ var document = element.ownerDocument;
 var href =
 	src.match(/^\//) ? src :
 	document.documentURI.replace(/[^\/]*$/, "") + src;
+this.httpRequest = new this.boundElement.ownerDocument.parentWindow.XMLHttpRequest();
 var rq = this.httpRequest;
 rq.open("GET", href, false);
 rq.send("");

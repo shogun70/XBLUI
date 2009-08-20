@@ -129,7 +129,7 @@ if (event.data.match(/[^0-9.]/)) event.preventDefault();
 		<handler event="keydown" key="Down">this.stepDown(1);</handler>
 		<handler event="mousewheel" default-action="cancel">
 <![CDATA[
-var delta = event.wheelDelta / 40;
+var delta = Math.round(event.wheelDelta / 40); // FIXME what is an appropriate divisor??
 if (delta > 0) this.stepUp(delta);
 else this.stepDown(-delta);
 ]]>

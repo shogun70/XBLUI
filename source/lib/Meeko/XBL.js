@@ -99,9 +99,82 @@ system.XBLDocument = {
 	}
 }
 
+/*
+	DomWalker supports the forEach method which walks the DOM (depth first)
+	starting at the given element and calling the given function for every element.
+*/
+var DomWalker = function(element) {
+	this.root = element || document.documentElement;
+	this.current = null;
+	this.index = 0;
+}
+
+DomWalker.prototype.forEach = function(fn, context) {
+	if (!this.current) {
+		this.current = this.root;
+		this.index++;
+		fn.call(context, this.current, this.index, this.root); // assumes root is an element
+	}
+
+	OUTER: for (;;) {
+		var next = this.current.firstChild;
+		var up = this.current;
+		INNER: while (!next) {
+			if (this.root == up) break OUTER;
+			next = up.nextSibling;
+			up = up.parentNode;
+		}
+		this.current = next;
+		this.index++;
+		if (1 /* Node.ELEMENT_NODE */ == this.current.nodeType) fn.call(context, this.current, this.index, this.root);
+	}
+	
+	return this.current;
+}
+
 system.Document = {
 	addEventListener: function(doc, type, handler, useCapture) {
 		return doc.addEventListener(type, handler, useCapture);
+	},
+	removeEventListener: function(doc, type, handler, useCapture) {
+		return doc.removeEventListener(type, handler, useCapture);
+	},
+	registerXBLMethods: function(doc, methods) {
+		var domListener = {};
+		for (var name in methods) domListener[name] = methods[name];
+		domListener.domWalker = new DomWalker(doc.documentElement);
+		domListener.handleEvent = function(event) {
+			switch (event.type) {
+				case "DOMNodeInserted":
+					var localWalker = new DomWalker(event.target);
+					localWalker.forEach(this.xblEnteredDocument);
+					break;
+				
+				case "progress": case "DOMContentLoaded": case "load":
+					if (event.target != document) break;
+					this.domWalker.forEach(this.xblEnteredDocument);
+					break;
+				
+				case "DOMNodeRemoved":
+					var localWalker = new DomWalker(event.target);
+					localWalker.forEach(this.xblLeftDocument);
+					break;
+				
+				case "unload":
+					this.domWalker.current = null; // TODO DOMWalker.reset()
+					this.domWalker.forEach(this.xblLeftDocument);
+					break;
+			}
+		}
+		
+		doc.addEventListener("DOMNodeInserted", domListener, true);
+		doc.addEventListener("DOMNodeRemoved", domListener, true);
+		doc.addEventListener("unload", domListener, false);
+
+		doc.addEventListener("progress", domListener, false);
+		doc.addEventListener("DOMContentLoaded", domListener, false);
+		doc.addEventListener("load", domListener, false);
+		if (doc.readyState == "complete") domListener.domWalker.forEach(domListener.xblEnteredDocument);
 	}
 }
 
@@ -234,11 +307,15 @@ function configureEventDelegation() {
 			registerBinding(binding);
 		}
 	}
+	system.Document.registerXBLMethods(document, {
+		xblEnteredDocument: function(element) { callXBLMethod(element, "xblEnteredDocument"); },
+		xblLeftDocument: function(element) { callXBLMethod(element, "xblLeftDocument"); }
+	});
 }
 
 function registerBinding(binding, selector) { // FIXME doesn't break inheritance loops
 	if (!selector) selector = binding.element;
-	if (binding.baseBinding) registerBinding(binding.baseBinding, selector); // FIXME doesn't facilitate calling baseBinding
+	if (binding.baseBinding) registerBinding(binding.baseBinding, selector);
 	for (var k=0, handler; handler=binding.handlers[k]; k++) {
 		var type = handler.event;
 		if (!type) continue; // NOTE handlers without type are invalid
@@ -258,7 +335,55 @@ function registerBinding(binding, selector) { // FIXME doesn't break inheritance
 			handlerTable[type][3].push(handlerRef);
 		}
 	}
+	var xblMethods = [ "xblEnteredDocument", "xblLeftDocument" ];
+	for (var method, k=0; method=xblMethods[k]; k++) {
+		if (!binding.implementation.prototype[method]) continue;
+		if (!handlerTable[method]) handlerTable[method] = [];
+		var handlerRef = { selector: selector, binding: binding };
+		handlerTable[method].push(handlerRef);
+	}
 }
+
+/*
+  callXBLMethod(current, method) finds appropriate xbl* methods by matching current.matchesSelector().
+  Valid methods are called with 'this' set to a new instance of the binding implementation.
+  i.e. no state is saved in bindings
+*/
+function callXBLMethod(current, method) {
+	var isBound = false;
+	var handlerRefs = handlerTable[method];
+	for (var i=0, handlerRef; handlerRef=handlerRefs[i]; i++) {
+		var binding = handlerRef.binding;
+		var selector = handlerRef.selector;
+		if (selector && !system.Element.matchesSelector(current, selector)) continue; // NOTE no element-selector means this is a base-binding
+		if (!isBound) {
+			system.Element.bind(current);
+			isBound = true;
+		}
+		// instantiate internal object
+		var internal = new binding.implementation;
+		internal.boundElement = current;
+
+		// instantiate internal object for baseBindings
+		// FIXME this is inefficient if more than one binding in a chain will handle the same event
+		// as the binding chain gets built up every time. 
+		var b0 = binding, i0 = internal;
+		do {
+			var b1 = b0.baseBinding;
+			if (!b1) break;
+			var i1 = new b1.implementation;
+			i1.boundElement = current;
+			i0.baseBinding = i1;
+			b0 = b1; i0 = i1;
+		} while (b0); // NOTE redundant
+		// execute handler code
+		try {
+			internal[method]();
+		}
+		catch(error) { system.logger.debug(error); } // FIXME log error
+	}
+}
+
 
 /*
  dispatchEvent() takes over the browser's event dispatch. It is designed to be attached as a listener on document.
@@ -266,13 +391,13 @@ function registerBinding(binding, selector) { // FIXME doesn't break inheritance
  For each element on the path it determines if there are valid handlers, and if so
  it creates the associated binding and calls the handler. 
 */
-function dispatchEvent(event) { 
-	event.stopPropagation(); // NOTE stopped because we handle all events here
-	
+function dispatchEvent(event) {
+	if (event.type != "focus") // NOTE firefox bug when calling stopPropagation in capture phase of focus event. 
+		event.stopPropagation(); // NOTE stopped because we handle all events here
 	var phase = 0,
-		target = event.target,
-		current = target,
-		path = [];
+	target = event.target,
+	current = target,
+	path = [];
 		
 	// precalculate the event-path thru the DOM
 	for (current=target; current!=document; current=current.parentNode) path.push(current);
@@ -312,7 +437,7 @@ function dispatchEvent(event) {
 			if (handler.action) try { // NOTE handlers don't need an action
 				handler.action.call(internal, event);
 			}
-			catch(error) { system.logger.debug(error); } // FIXME log error
+			catch(error) { system.logger.debug(error.message); } // FIXME log error
 			
 			// FIXME which way is correct??
 			// if (handler.defaultPrevented) event.__preventDefault();
