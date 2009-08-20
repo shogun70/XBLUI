@@ -1,4 +1,4 @@
-// NOTE this depends on base2-dom and sizzle libraries
+// NOTE this depends on base2 lib
 
 (function() {
 
@@ -44,6 +44,10 @@ xblSystem.XMLDocument.loadXML = function(data) {
 
 xblSystem.Document.addEventListener = function(doc, type, handler, useCapture) {
 	return base2.DOM.Document.addEventListener(doc, type, handler, useCapture);
+}
+
+xblSystem.Document.removeEventListener = function(doc, type, handler, useCapture) {
+	return base2.DOM.Document.removeEventListener(doc, type, handler, useCapture);
 }
 
 /*
@@ -112,9 +116,8 @@ xblSystem.HTMLCollection.addInterface = function(target, field, filter) {
 	target[field] = coll;
 }
 
-xblSystem.Element.matchesSelector = function(elt, selector) {
-	return base2.DOM.Element.matchesSelector(elt, selector);
-}
+xblSystem.Element.matchesSelector = base2.DOM.Element.matchesSelector;
+
 xblSystem.Element.getAttribute = function(name) {
 	switch (name) {
 		case "class": return this.className; break;
@@ -150,6 +153,7 @@ xblSystem.Element.bind = function(elt) {
 	if (elt._fixed) return elt;
 	elt._fixed = true; // NOTE assumes no exceptions before end of function
 	base2.DOM.bind(elt);
+	if (elt.classList.has && !elt.classList.contains) elt.classList.contains = elt.classList.has;
 	if (elt.getAttribute.ancestor) {
 		elt.getAttribute = xblSystem.Element.getAttribute.bind(elt);
 		elt.setAttribute = xblSystem.Element.setAttribute.bind(elt);

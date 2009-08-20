@@ -1,4 +1,4 @@
-// NOTE this depends on base2-dom and sizzle libraries
+// NOTE this depends on NWEvents and NWMatcher libs
 
 (function() {
 
@@ -17,73 +17,44 @@ var DOMTokenList = function(getter, setter) { // TODO parameter checking
 	this.toString = getter;
 	var getLength = function() { return this._getTokens().length; }
 	this.length = {
-		toString: getLength.bind(this),
-		valueOf: getLength.bind(this)
+		valueOf: getLength.bind(this),
+		toString: getLength.bind(this)
 	}
 };
 DOMTokenList.prototype.item = function(index) {
 	return this._getTokens()[index];
 }
-DOMTokenList.prototype.has = function(token) {
-	var rex = /^\s*(\w+)\b/;
-	var tmp = this._getText();
-	var found = false;
-	while (/\w/.test(tmp)) {
-		tmp = tmp.replace(rex, function($0, $1) { if ($1 == token) found = true; return ""; });
-		if (found) return true;
-	}
-	return false;
+DOMTokenList.prototype.contains = function(token) {
+	var tokens = this._getTokens();
+	return (tokens.indexOf(token) >= 0) ? true : false;
 }
 DOMTokenList.prototype.add = function(token) {
-	if (this.has(token)) return;
+	if (this.contains(token)) return;
 	var text = this._getText();
-	if (/^\s*$/.test(text)) text = "" + token;
-	else text = text.replace(/\s*$/, " " + token);
+	var n = text.length;
+	if (n && text.substring(n-1,1) != " ") text += " " + token;
+	else text += token;
 	this._setText(text);
 }
 DOMTokenList.prototype.remove = function(token) {
-	var text = this._getText(), tmp = text, final = "";
-	var rex = /^(\s*)(\w+)\b(\s*)/;
-	var i = 0;
-	while (1) { // loop forever
-		var m = tmp.match(rex);
-		if (m[0] == tmp) { // at end
-			if (m[2] != token) {
-				i++;
-				final += m[0];
-			}
-			tmp = "";
-			break;
-		}
-		if (m[2] == token) {
-			var offset = m[0].length - (i ? 1 : 0);
-			tmp = tmp.substring(offset);
-		}
-		else {
-			i++;
-			final += m[1] + m[2];
-			tmp = tmp.substring(m[1].length + m[2].length);
-		}
-	}
-	if (final == text) return;
-	this._setText(final);
+	var text = this._getText();
+	var result = text;
+	result = result.replace(new RegExp("^\\s*"+token+"\\s*$"), "");
+	result = result.replace(new RegExp("^\\s*"+token+"\\s+"), "");
+	result = result.replace(new RegExp("\\s+"+token+"\\s*$"), "");
+	result = result.replace(new RegExp("\\s+"+token+"\\s+", "g"), " ");
+	if (result == text) return;
+	this._setText(result);
 }
 DOMTokenList.prototype.toggle = function(token) {
-	if (this.has(token)) this.remove(token);
+	if (this.contains(token)) this.remove(token);
 	else this.add(token);		
 }
 DOMTokenList.prototype._getTokens = function() {
 	var text = this._getText();
 	if (!text) return [];
-	var strings = text.split(/\s+/);
-	var sorted = strings.sort();
-	for (var i=sorted.length-1; i>0; i--) {
-		if (sorted[i] == sorted[i-1]) sorted.splice(i);
-	}
-	return sorted;		
+	return text.split(/\s+/);
 }
-
-
 
 var xblSystem = Meeko.stuff.xblSystem;
 	
@@ -196,6 +167,7 @@ xblSystem.HTMLCollection.addInterface = function(target, field, filter) {
 xblSystem.Element.matchesSelector = function(elt, selector) {
 	return NW.Dom.match(elt, selector);
 }
+
 xblSystem.Element.bind = function(elt) {
 	if (elt._fixed) return elt;
 	elt._fixed = true; // NOTE assumes no exceptions before end of function
@@ -209,6 +181,10 @@ xblSystem.Element.bind = function(elt) {
 	var setClassName = function(val) { this.className = val; };
 	elt.classList = new DOMTokenList(getClassName.bind(elt), setClassName.bind(elt));
 
+	elt.matchesSelector = function(selector) { return NW.Dom.match(this, selector); }
+	elt.querySelectorAll = function(selector) { return NW.Dom.select(selector, this); }
+	elt.querySelector = function(selector) { return NW.Dom.select(selector, this)[0]; } // FIXME so inefficient
+	
 	switch(elt.tagName.toLowerCase()) {
 		case "table":
 			xblSystem.HTMLCollection.fixInterface(elt, "tBodies");

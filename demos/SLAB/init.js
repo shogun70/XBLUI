@@ -10,6 +10,8 @@ xblSystem.Element.bind = function(elt) {
 	return elt;
 }
 
+xblSystem.Element.matchesSelector = Element.matchesSelector;
+
 xblSystem.initialize();
 
 })();
