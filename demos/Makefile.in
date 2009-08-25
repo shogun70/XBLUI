@@ -1,33 +1,42 @@
 # FIXME wrapper.html is hard-coded
 srcdir = @srcdir@
-VPATH = @srcdir@
+#VPATH = @srcdir@
 SUBDIRS = SLAB base2 sizzle NWEvents
 
 include @top_srcdir@/mk/gnu.bsdvars.mk
 
-.SUFFIXES: .html .html .xml .css
-RESOURCES = init.js
-TARGET_FILES = index.html
-TARGETS += ${foreach FILE,${TARGET_FILES},${.CURDIR}/${FILE}}
+.SUFFIXES: .html .xml .css
+DEMOS = tree menu tabbox table webforms2
+RESOURCES = wf2select.xml button.gif arrow-up.gif arrow-dn.gif arrow-lft.gif arrow-rit.gif menulist-arrow.gif \
+	bookmark.gif utilities-system-monitor.gif go-next.gif close.gif internet-web-browser.gif columnpicker.gif
+TARGETS = browser.html
+TARGETS += ${foreach DEMO,${DEMOS},${DEMO}.html}
 
-DOM_SCRIPT_URL ?= ${libexecdir}/DOM.js
-PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
-PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBL.js
+PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/XBLUI.js
 PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
 
 all: build
 
 clean: clean-subdirs
 	-rm ${TARGETS}
-	-rm wrapper.html # FIXME
+	-rm ${RESOURCES}
+	-rm ${SUBDIR_RESOURCES}
+	-rm wrapper.html
 
-build: build-subdirs ${.CURDIR}/wrapper.html ${TARGETS}
+build: build-subdirs wrapper.html ${TARGETS} ${RESOURCES}
 
-install: install-subdirs ${TARGET_FILES} ${RESOURCES}
-	${INSTALL} ${TARGET_FILES} ${pkgdemodir}/
-	for FILE in ${RESOURCES}; do \
-		${INSTALL} ${srcdir}/$${FILE} ${pkgdemodir}/; \
-	done;
+install: install-subdirs ${TARGETS} ${RESOURCES}
+	${INSTALL} ${TARGETS} ${RESOURCES} ${pkgdemodir}/
+
+${TARGETS}: %.html: ${srcdir}/%.html
+	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
+	${HTMLWRAP} --wrapper wrapper.html - > ${.TARGET}
+
+${RESOURCES}: %: ${srcdir}/%
+	cp ${.IMPSRC} ${.TARGET}
+	
+wrapper.html: ${srcdir}/wrapper.html
+	${HTMLPP} ${PARAMS} ${.IMPSRC} > ${.TARGET}
 
 clean-subdirs: 
 	for dir in ${SUBDIRS}; do make -C $${dir} clean; done
@@ -38,9 +47,3 @@ build-subdirs:
 install-subdirs: 
 	for dir in ${SUBDIRS}; do make -C $${dir} install; done
 
-${TARGETS}: ${.CURDIR}/%.html: ${srcdir}/%.html 
-	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
-	${HTMLWRAP} --wrapper wrapper.html - > ${.TARGET}
-
-${.CURDIR}/wrapper.html: ${srcdir}/wrapper.html
-	${HTMLPP} ${PARAMS} ${.IMPSRC} > ${.TARGET}

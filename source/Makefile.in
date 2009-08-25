@@ -1,3 +1,4 @@
+top_srcdir = @top_srcdir@
 srcdir = @srcdir@
 VPATH = @srcdir@
 
@@ -34,7 +35,7 @@ install: build
 clean : 
 	-rm ${TARGETS} ${RESOURCES}
 
-XBLUI.js : SLAB.js libXBLUI.js
+XBLUI.js : SLAB.js libXBLUI.js ${top_srcdir}/demos/SLAB/init.js
 	cat ${.ALLSRC} > ${.TARGET}
 
 XBL.js : SLAB.js libXBL.js
