@@ -167,13 +167,13 @@ system.Document = {
 			}
 		}
 		
-		doc.addEventListener("DOMNodeInserted", domListener, true);
-		doc.addEventListener("DOMNodeRemoved", domListener, true);
-		doc.addEventListener("unload", domListener, false);
+		system.Document.addEventListener(doc, "DOMNodeInserted", domListener, true);
+		system.Document.addEventListener(doc, "DOMNodeRemoved", domListener, true);
+		system.Document.addEventListener(doc, "unload", domListener, false);
 
-		doc.addEventListener("progress", domListener, false);
-		doc.addEventListener("DOMContentLoaded", domListener, false);
-		doc.addEventListener("load", domListener, false);
+		system.Document.addEventListener(doc, "progress", domListener, false);
+		system.Document.addEventListener(doc, "DOMContentLoaded", domListener, false);
+		system.Document.addEventListener(doc, "load", domListener, false);
 		if (doc.readyState == "complete") domListener.domWalker.forEach(domListener.xblEnteredDocument);
 	}
 }
@@ -352,6 +352,7 @@ function registerBinding(binding, selector) { // FIXME doesn't break inheritance
 function callXBLMethod(current, method) {
 	var isBound = false;
 	var handlerRefs = handlerTable[method];
+	if (!handlerRefs) return;
 	for (var i=0, handlerRef; handlerRef=handlerRefs[i]; i++) {
 		var binding = handlerRef.binding;
 		var selector = handlerRef.selector;

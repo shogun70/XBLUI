@@ -3,7 +3,20 @@
 (function() {
 
 base2.JavaScript.bind(window);
-base2.DOM.bind(document);
+
+var DOM = base2.DOM;
+DOM.HTMLElement._bind = DOM.HTMLElement.bind;
+DOM.HTMLElement.bind = function(elt) {
+	var store = {};
+	var props = ["getAttribute", "setAttribute", "removeAttribute"];
+	props.forEach(function(slot) { store[slot] = elt[slot]; });
+	this._bind(elt);
+	props.forEach(function(slot) { elt[slot] = store[slot]; });
+ 	if (elt.classList.has && !elt.classList.contains) elt.classList.contains = elt.classList.has;
+	return elt;
+}
+DOM.bind(document);
+DOM.Document.bind(window); // NOTE required to attach EventTarget iface to window
 
 var xblSystem = Meeko.stuff.xblSystem;
 	
@@ -43,11 +56,11 @@ xblSystem.XMLDocument.loadXML = function(data) {
 }
 
 xblSystem.Document.addEventListener = function(doc, type, handler, useCapture) {
-	return base2.DOM.Document.addEventListener(doc, type, handler, useCapture);
+	return DOM.Document.addEventListener(doc, type, handler, useCapture);
 }
 
 xblSystem.Document.removeEventListener = function(doc, type, handler, useCapture) {
-	return base2.DOM.Document.removeEventListener(doc, type, handler, useCapture);
+	return DOM.Document.removeEventListener(doc, type, handler, useCapture);
 }
 
 /*
@@ -116,49 +129,11 @@ xblSystem.HTMLCollection.addInterface = function(target, field, filter) {
 	target[field] = coll;
 }
 
-xblSystem.Element.matchesSelector = base2.DOM.Element.matchesSelector;
+xblSystem.Element.matchesSelector = DOM.Element.matchesSelector;
 
-xblSystem.Element.getAttribute = function(name) {
-	switch (name) {
-		case "class": return this.className; break;
-		case "for": return this.htmlFor; break;
-		default: return this.attributes[name].nodeValue; break;
-	}
-}
-xblSystem.Element.setAttribute = function(name, value) {
-	switch (name) {
-		case "class": this.className = value; break;
-		case "for": this.htmlFor = value; break;
-		default:
-			var attr = this.attributes[name];
-			if (!attr) {
-				attr = document.createAttribute(name);
-				this.setAttributeNode(attr);
-			}
-			attr.nodeValue = value;
-			break;
-	}
-}
-xblSystem.Element.removeAttribute = function(name) {
-        switch (name) {
-                case "class": this.className = null; break;
-                case "for": this.htmlFor = null; break;
-                default:
-                        var attr = this.attributes[name];
-                        if (attr) attr.nodeValue = null;
-                        break;
-        }
-}
 xblSystem.Element.bind = function(elt) {
-	if (elt._fixed) return elt;
-	elt._fixed = true; // NOTE assumes no exceptions before end of function
-	base2.DOM.bind(elt);
-	if (elt.classList.has && !elt.classList.contains) elt.classList.contains = elt.classList.has;
-	if (elt.getAttribute.ancestor) {
-		elt.getAttribute = xblSystem.Element.getAttribute.bind(elt);
-		elt.setAttribute = xblSystem.Element.setAttribute.bind(elt);
-		elt.removeAttribute = xblSystem.Element.removeAttribute.bind(elt);
-	}
+	DOM.bind(elt);
+
 	if (elt.children) xblSystem.HTMLCollection.fixInterface(elt, "children");
 	else xblSystem.HTMLCollection.addInterface(elt, "children");
 

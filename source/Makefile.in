@@ -9,7 +9,10 @@ include @top_srcdir@/mk/gnu.bsdvars.mk
 
 UI_TARGETS = WF2.xml UI.xml UI.js
 TARGETS = ${UI_TARGETS} libXBL.js XBL.js libXBLUI.js XBLUI.js
-RESOURCES = SLAB.js
+BUILD_RESOURCES = SLAB.js
+DOM_LIBS = SLAB base2 NWEvents
+RESOURCES = ${foreach name,${DOM_LIBS},${name}/init.js}
+
 
 CACHE_CONFIG := ${foreach fname,${UI_TARGETS},--disk-cache ${pkglibexecdir}/${fname} ${.CURDIR}/${fname}}
 
@@ -29,11 +32,14 @@ depend : .depend
 	
 build : ${TARGETS}
 
-install: build
+install: build ${TARGETS} ${RESOURCES}
 	${INSTALL} ${TARGETS} ${pkglibexecdir}/
+	for name in ${DOM_LIBS}; do \
+		${INSTALL} ${srcdir}/$$name/init.js ${pkglibexecdir}/$$name/; \
+	done
 
 clean : 
-	-rm ${TARGETS} ${RESOURCES}
+	-rm ${TARGETS} ${BUILD_RESOURCES}
 
 XBLUI.js : SLAB.js libXBLUI.js ${top_srcdir}/demos/SLAB/init.js
 	cat ${.ALLSRC} > ${.TARGET}

@@ -1,6 +1,7 @@
 srcdir = @srcdir@
 DOM_LIB = base2
 DOM_SCRIPT_URL = http://base2.googlecode.com/svn/version/1.0/base2-dom-fp.js
+#DOM_SCRIPT_URL = http://base2.googlecode.com/svn/trunk/lib/base2-dom-fp.js
 
 PARAMS += --stringparam DOM_SCRIPT_URL ${DOM_SCRIPT_URL}
 include ../include.mak

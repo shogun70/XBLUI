@@ -20,7 +20,6 @@ all: build
 clean: clean-subdirs
 	-rm ${TARGETS}
 	-rm ${RESOURCES}
-	-rm ${SUBDIR_RESOURCES}
 	-rm wrapper.html
 
 build: build-subdirs wrapper.html ${TARGETS} ${RESOURCES}

@@ -10,25 +10,25 @@ include @top_srcdir@/mk/gnu.bsdvars.mk
 DEMOS = tree menu tabbox table webforms2
 RESOURCES = wf2select.xml button.gif arrow-up.gif arrow-dn.gif arrow-lft.gif arrow-rit.gif menulist-arrow.gif \
 	bookmark.gif utilities-system-monitor.gif go-next.gif close.gif internet-web-browser.gif columnpicker.gif
-SUBDIR_RESOURCES += init.js
 TARGETS = browser.html
 TARGETS += ${foreach DEMO,${DEMOS},${DEMO}.html}
 
-PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBLUI.js
+PARAMS += --stringparam DOM_LIB ${DOM_LIB}
+PARAMS += --stringparam pkglibexecdir ${pkglibexecdir}
 PARAMS += --stringparam pkgdefaultlibdir ${pkgdefaultlibdir}
+PARAMS += --stringparam XBL_SCRIPT_URL ${pkglibexecdir}/libXBLUI.js
 
 all: build
 
-build: wrapper.html ${TARGETS} ${RESOURCES} ${SUBDIR_RESOURCES}
+build: wrapper.html ${TARGETS} ${RESOURCES}
 
 clean:
 	-rm ${TARGETS}
 	-rm ${RESOURCES}
-	-rm ${SUBDIR_RESOURCES}
 	-rm wrapper.html
 
 install: ${TARGETS} ${RESOURCES}
-		${INSTALL} ${TARGETS} ${RESOURCES} ${SUBDIR_RESOURCES} ${pkgdemodir}/${DOM_LIB}/
+		${INSTALL} ${TARGETS} ${RESOURCES} ${pkgdemodir}/${DOM_LIB}/
 
 
 ${TARGETS}: %.html: ${demo_srcdir}/%.html
@@ -36,9 +36,6 @@ ${TARGETS}: %.html: ${demo_srcdir}/%.html
 	${HTMLWRAP} --wrapper wrapper.html - > ${.TARGET}
 
 ${RESOURCES}: %: ${demo_srcdir}/%
-	cp ${.IMPSRC} ${.TARGET}
-	
-${SUBDIR_RESOURCES}: %: ${srcdir}/%
 	cp ${.IMPSRC} ${.TARGET}
 	
 wrapper.html: ${srcdir}/wrapper.html
