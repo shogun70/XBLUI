@@ -41,16 +41,18 @@ install: build ${TARGETS} ${RESOURCES}
 clean : 
 	-rm ${TARGETS} ${BUILD_RESOURCES}
 
-XBLUI.js : SLAB.js libXBLUI.js ${top_srcdir}/demos/SLAB/init.js
-	cat ${.ALLSRC} > ${.TARGET}
+XBLUI.js : SLAB.js libXBLUI.js ${srcdir}/SLAB/init.js
+	cat ${.ALLSRC} |\
+	${JSMIN} - > ${.TARGET}
 
 XBL.js : SLAB.js libXBL.js
-	cat ${.ALLSRC} > ${.TARGET}
+	cat ${.ALLSRC} |\
+	${JSMIN} - > ${.TARGET}
 
 libXBLUI.js : libXBLUI.xhtml ${UI_TARGETS}
 
 libXBL.js : lib/Meeko/XBL.js
-	cp ${.IMPSRC} ${.TARGET}
+	${JSMIN} ${.IMPSRC} > ${.TARGET}
 
 SLAB.js : 
 	${CURL} ${SLAB_libexecdir}/SLAB.js > ${.TARGET}

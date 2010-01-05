@@ -29,7 +29,7 @@ install: install-subdirs ${TARGETS} ${RESOURCES}
 
 ${TARGETS}: %.html: ${srcdir}/%.html
 	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
-	${HTMLWRAP} --wrapper wrapper.html - > ${.TARGET}
+	${HTMLDECOR} --decor wrapper.html - > ${.TARGET}
 
 ${RESOURCES}: %: ${srcdir}/%
 	cp ${.IMPSRC} ${.TARGET}

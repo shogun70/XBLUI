@@ -24,7 +24,7 @@ install: ${TARGETS} ${RESOURCES}
 
 .xhtml.html: 
 	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
-	${HTMLWRAP} --wrapper ${builddir}/wrapper.html - > ${.TARGET}
+	${HTMLDECOR} --decor ${builddir}/wrapper.html - > ${.TARGET}
 
 ${TARGETS} : wrapper.html
 

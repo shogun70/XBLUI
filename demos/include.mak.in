@@ -33,7 +33,7 @@ install: ${TARGETS} ${RESOURCES}
 
 ${TARGETS}: %.html: ${demo_srcdir}/%.html
 	${HTMLPP} ${PARAMS} ${.IMPSRC} |\
-	${HTMLWRAP} --wrapper wrapper.html - > ${.TARGET}
+	${HTMLDECOR} --decor wrapper.html - > ${.TARGET}
 
 ${RESOURCES}: %: ${demo_srcdir}/%
 	cp ${.IMPSRC} ${.TARGET}
